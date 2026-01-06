@@ -262,7 +262,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
       return (
           <div className="h-[100dvh] flex flex-col bg-white overflow-y-auto font-sans animate-fade-in">
               {/* Analytics Header - Safe Area Fixed */}
-              <div className="bg-white px-5 pb-4 pt-safe-offset-14 border-b border-gray-100 sticky top-0 z-20 flex justify-between items-center shadow-sm">
+              <div className="bg-white px-5 py-4 pt-safe border-b border-gray-100 sticky top-0 z-20 flex justify-between items-center shadow-sm">
                   <h2 className="text-lg font-black text-gray-900">{isPYQ ? `Result - ${pyqYear}` : 'Objective Test'}</h2>
                   <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold font-mono">
                       {formatTime(elapsedTime)}
@@ -352,7 +352,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
     <div className="flex flex-col h-[100dvh] bg-white relative font-sans text-gray-900 overflow-hidden">
       
       {/* 1. Header - Fixed Safe Area */}
-      <div className="px-4 pb-2 pt-safe-offset-14 bg-white flex justify-between items-center shrink-0 shadow-sm border-b border-gray-100 z-10">
+      <div className="px-4 py-2 pt-safe bg-white flex justify-between items-center shrink-0 shadow-sm border-b border-gray-100 z-10">
           <div className="flex items-center gap-3">
               <button onClick={handleAppBack} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full">
                   <ArrowLeft size={20} />

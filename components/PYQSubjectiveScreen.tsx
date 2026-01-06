@@ -9,14 +9,24 @@ interface PYQSubjectiveScreenProps {
   subject: string;
   year: number;
   onExit: () => void;
+  defaultLanguage?: 'Hindi' | 'English';
 }
 
-export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subject, year, onExit }) => {
+export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ 
+    subject, 
+    year, 
+    onExit,
+    defaultLanguage = 'English' 
+}) => {
   const [questions, setQuestions] = useState<PYQQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [lang, setLang] = useState<Language>('en');
-  const [fontSize, setFontSize] = useState(16); // Base font size
+  const [lang, setLang] = useState<Language>(defaultLanguage === 'Hindi' ? 'hi' : 'en');
+  const [fontSize, setFontSize] = useState(16);
+
+  useEffect(() => {
+      setLang(defaultLanguage === 'Hindi' ? 'hi' : 'en');
+  }, [defaultLanguage]);
 
   const handleAppBack = () => {
     onExit(); 
@@ -76,8 +86,8 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
   return (
     <div className="h-[100dvh] flex flex-col bg-white font-sans animate-fade-in">
       
-      {/* 1. Header (Safe Area pt-safe-offset-14) */}
-      <div className="px-4 pb-3 pt-safe-offset-14 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
+      {/* 1. Header (Safe Area pt-safe) */}
+      <div className="px-4 py-3 pt-safe bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-3">
           <button onClick={handleAppBack} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
             <ArrowLeft size={22} />

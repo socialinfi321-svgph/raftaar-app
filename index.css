@@ -33,12 +33,13 @@ html, body, #root {
 .mb-safe {
   margin-bottom: var(--sab);
 }
-/* Header offset: Standard header height (usually 3-4rem) + Safe Area */
-.pt-safe-offset-16 {
-  padding-top: calc(var(--sat) + 4rem);
-}
-.pt-safe-offset-14 {
-  padding-top: calc(var(--sat) + 3.5rem);
+
+/* Header offset: Standard header height + Safe Area 
+   Removed the large offset versions to force use of tighter padding 
+   in components directly.
+*/
+.pt-safe-offset-2 {
+  padding-top: calc(var(--sat) + 0.5rem);
 }
 
 /* Ensure fade-in animations work */

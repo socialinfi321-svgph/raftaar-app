@@ -30,7 +30,7 @@ const RaftaarLogo = () => (
   </div>
 );
 
-// New Splash Screen Component
+// Splash Screen
 const SplashScreen = () => (
   <div className="h-[100dvh] flex flex-col items-center justify-center bg-white animate-fade-in">
     <div className="scale-150 mb-8 animate-bounce">
@@ -41,25 +41,21 @@ const SplashScreen = () => (
   </div>
 );
 
-// Updated Coming Soon Page with Header
+// Full Page Coming Soon
 const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, title: string, profile: Profile | null }) => (
   <div className="h-full flex flex-col bg-white font-sans animate-fade-in">
-    {/* Header with Safe Area */}
-    <div className="sticky top-0 z-30 px-5 pb-3 pt-safe-offset-14 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm transition-all">
+    <div className="sticky top-0 z-30 px-5 py-3 pt-safe bg-white flex justify-between items-center border-b border-gray-200 shadow-sm transition-all">
         <div className="flex items-center gap-3">
             <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors active:scale-95">
                 <ArrowLeft size={20} />
             </button>
             <h2 className="text-xl font-black text-gray-900 tracking-tight truncate max-w-[200px]">{title}</h2>
         </div>
-        {/* Weekly XP Badge */}
         <div className="flex items-center gap-1 text-brand-600 font-black">
              <i className="fa-solid fa-bolt text-xs"></i>
              <span>{profile?.weekly_xp || 0}</span>
         </div>
     </div>
-
-    {/* Content */}
     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
         <div className="w-32 h-32 bg-blue-50 rounded-full flex items-center justify-center mb-6 animate-bounce shadow-xl shadow-brand-100">
             <i className="fa-solid fa-rocket text-6xl text-brand-600"></i>
@@ -75,7 +71,7 @@ const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, 
   </div>
 );
 
-// Subject Icon Helper for Practice Screen
+// Subject Icon Helper
 const SubjectIcon = ({ subject }: { subject: string }) => {
   const map: any = {
     'Physics': { icon: 'fa-atom', color: 'text-blue-500', bg: 'bg-blue-50' },
@@ -95,8 +91,7 @@ const SubjectIcon = ({ subject }: { subject: string }) => {
 
 // Exam Screen
 const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile: Profile | null, navigate: any }) => {
-    
-    // Explicitly navigate Home on back
+    // Navigates HOME on back press
     useBackHandler(() => {
         navigate('/');
         return true;
@@ -104,8 +99,7 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
 
     return (
         <div className="h-full flex flex-col bg-white">
-            {/* Header with Safe Area */}
-            <div className="sticky top-0 z-30 px-5 pb-3 pt-safe-offset-14 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+            <div className="sticky top-0 z-30 px-5 py-3 pt-safe bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={() => navigate('/')} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
@@ -119,7 +113,6 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
                     </div>
                 </div>
             </div>
-
             <div className="flex-1 overflow-y-auto p-5 pb-24 animate-slide-up">
                 <div onClick={showCS} className="bg-white p-6 rounded-3xl border-l-4 border-l-purple-500 cursor-pointer shadow-sm hover:shadow-md transition relative overflow-hidden mb-4 border border-gray-100 group">
                     <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -162,10 +155,9 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
       }
     }, [selectedSubject]);
 
-    // --- UNIFIED BACK LOGIC ---
+    // Stack Logic: Chapter List -> Subject List -> Home
     const handleAppBack = () => {
         if (selectedSubject) {
-            // Use replace to prevent stacking history
             setSearchParams({}, { replace: true }); 
             return true; 
         } else {
@@ -178,8 +170,7 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
 
     return (
         <div className="h-full flex flex-col bg-white">
-            {/* Header with Safe Area */}
-            <div className="sticky top-0 z-30 px-5 pb-3 pt-safe-offset-14 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+            <div className="sticky top-0 z-30 px-5 py-3 pt-safe bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
@@ -294,97 +285,62 @@ export default function App() {
 
   // --- DOUBLE BACK TO EXIT LOGIC ---
   useBackHandler(() => {
-    // Only active on Root Route and when NO modals are open
     if (location.pathname === '/' && !isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen) {
         if (exitAttempted) {
-            return false; // Let browser exit/suspend
+            return false; // Exit app
         } else {
             setExitAttempted(true);
-            setTimeout(() => setExitAttempted(false), 2000); // Reset after 2s
-            return true; // Trap back
+            setTimeout(() => setExitAttempted(false), 2000); 
+            return true; 
         }
     }
-    return false; // Let other handlers or default behavior work if modals are open or not on home
+    return false; 
   }, location.pathname === '/' && !isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen);
 
-  // --- AUTH PERSISTENCE LOGIC ---
   useEffect(() => {
     let mounted = true;
-
-    // 1. Check for existing session on app start
     const restoreSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        
         if (error) throw error;
-
-        if (mounted) {
-          if (session) {
+        if (mounted && session) {
             setSession(session);
-            // Non-blocking profile fetch
             fetchProfile(session.user.id).catch(console.error);
-          }
         }
       } catch (error) {
-        console.error("Session restoration failed:", error);
+        console.error("Session fail", error);
       } finally {
-        if (mounted) {
-          // Stop loading only after the initial check is complete
-          // This prevents the login screen from flashing if a session exists
-          setIsAppInitializing(false);
-        }
+        if (mounted) setIsAppInitializing(false);
       }
     };
-
     restoreSession();
 
-    // 2. Listen for real-time auth changes (Sign In, Sign Out, Token Refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
-      
       setSession(session);
-      
-      if (session) {
-          // Refresh profile on auth change (e.g. login)
-          fetchProfile(session.user.id).catch(console.error);
-      } else {
-          setUserProfile(null);
-      }
-      
-      // Ensure app isn't stuck in loading state if an auth event occurs
+      if (session) fetchProfile(session.user.id).catch(console.error);
+      else setUserProfile(null);
       setIsAppInitializing(false);
     });
 
-    return () => {
-        mounted = false;
-        subscription.unsubscribe();
-    };
+    return () => { mounted = false; subscription.unsubscribe(); };
   }, []);
 
-  // --- URL SYNC EFFECT FOR INFINITY MODAL ---
   useEffect(() => {
     const mode = searchParams.get('mode');
-    if (mode === 'infinity') {
-        setInfinityOpen(true);
-    } else {
-        setInfinityOpen(false);
-    }
+    setInfinityOpen(mode === 'infinity');
   }, [searchParams]);
 
-  // Handle return from test detection
   useEffect(() => {
     if (location.state && (location.state as any).returnTo === 'infinity') {
       setInfinityInstantOpen(true);
-      if (!searchParams.get('mode')) {
-          setSearchParams({ mode: 'infinity' }, { replace: true });
-      }
+      if (!searchParams.get('mode')) setSearchParams({ mode: 'infinity' }, { replace: true });
       window.history.replaceState({}, document.title);
     } else {
       setInfinityInstantOpen(false);
     }
   }, [location, searchParams, setSearchParams]);
 
-  // MAGIC LISTENER: Detects if we need to reopen PYQ Dashboard after a test
   useEffect(() => {
     if (location.state && (location.state as any).openPYQ) {
         const state = location.state as any;
@@ -400,7 +356,6 @@ export default function App() {
   const fetchProfile = async (userId: string) => {
     const data = await api.getProfile(userId);
     if (!data) {
-        // Retry creating profile if missing (resilience)
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
             const fullName = user?.user_metadata?.full_name || 'Student';
@@ -445,25 +400,13 @@ export default function App() {
     navigate('/results', { replace: true });
   };
 
-  // --- Infinity Modal Handlers ---
-  const handleOpenInfinity = () => {
-      setSearchParams({ mode: 'infinity' }, { replace: true });
-  };
-
-  const handleCloseInfinity = () => {
-      setSearchParams({}, { replace: true });
-  };
-
   const handleInfinitySubjectUpdate = (sub: string | null) => {
       const newParams: any = { mode: 'infinity' };
       if (sub) newParams.subject = sub;
       setSearchParams(newParams, { replace: true });
   };
 
-  if (isAppInitializing) {
-      return <SplashScreen />;
-  }
-
+  if (isAppInitializing) return <SplashScreen />;
   if (!session) return <LoginScreen onLoginSuccess={(s) => { setSession(s); navigate('/', { replace: true }); }} />;
 
   const NavIcon = ({ icon, label, target }: { icon: string, label: string, target: string }) => {
@@ -481,12 +424,10 @@ export default function App() {
   const showTopHeader = location.pathname === '/';
 
   return (
-    // Replaced h-screen with h-[100dvh] for mobile browsers
     <div className="max-w-md mx-auto h-[100dvh] flex flex-col bg-[#f8faff] font-sans relative shadow-2xl overflow-hidden text-gray-900">
         
         {showTopHeader && (
-            // Apply pt-safe-offset to handle Status Bar
-            <div className="px-5 pb-3 pt-safe-offset-16 bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm transition-all">
+            <div className="px-5 py-3 pt-safe bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm transition-all">
                 <div className="flex items-center gap-2"><RaftaarLogo /></div>
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end">
@@ -512,12 +453,8 @@ export default function App() {
                             <HomeScreen 
                                 profile={userProfile} 
                                 setComingSoonTitle={(t) => { setComingSoonTitle(t); navigate('/coming-soon'); }} 
-                                onOpenInfinity={handleOpenInfinity} 
-                                onOpenPYQ={() => { 
-                                    setInstantOpen(false); 
-                                    setPyqInitialTab('objective'); 
-                                    setPYQOpen(true); 
-                                }}
+                                onOpenInfinity={() => setSearchParams({ mode: 'infinity' }, { replace: true })} 
+                                onOpenPYQ={() => { setInstantOpen(false); setPyqInitialTab('objective'); setPYQOpen(true); }}
                                 onOpenDashboard={() => setDashboardOpen(true)}
                                 onOpenAchievements={() => setAchievementsOpen(true)}
                                 navigate={navigate} 
@@ -538,8 +475,10 @@ export default function App() {
                                 pyqYear={parseInt(new URLSearchParams(location.search).get('year') || '0')} 
                                 onExit={() => { 
                                     if(session?.user?.id) fetchProfile(session.user.id); 
+                                    // Navigate back to Home but with state to re-open PYQ modal at Objective tab
                                     navigate('/', { replace: true, state: { openPYQ: true, tab: 'objective' } });
                                 }} 
+                                defaultLanguage={userProfile?.exam_language}
                             />
                         } 
                     />
@@ -549,7 +488,8 @@ export default function App() {
                             <PYQSubjectiveScreen 
                                 subject={new URLSearchParams(location.search).get('subject') || ''} 
                                 year={parseInt(new URLSearchParams(location.search).get('year') || '0')} 
-                                onExit={() => navigate('/', { replace: true, state: { openPYQ: true, tab: 'subjective' } })} 
+                                onExit={() => navigate('/', { replace: true, state: { openPYQ: true, tab: 'subjective' } })}
+                                defaultLanguage={userProfile?.exam_language} 
                             />
                         } 
                     />
@@ -565,6 +505,7 @@ export default function App() {
                                     if (activeSubject) {
                                         navigate(`/practice?subject=${activeSubject}`, { replace: true });
                                     } else {
+                                        // For Modal based tests, go home, state will handle re-opening if needed (logic specific to modal types)
                                         navigate('/', { replace: true, state: { openPYQ: true, tab: 'objective' } });
                                     }
                                 }} 
@@ -580,11 +521,8 @@ export default function App() {
                                 subjectName={activeSubject} 
                                 userId={session?.user?.id} 
                                 onExit={() => {
-                                    if (activeSubject) {
-                                        navigate(`/practice?subject=${activeSubject}`, { replace: true });
-                                    } else {
-                                        navigate('/', { replace: true });
-                                    }
+                                    // Use history back to respect stack
+                                    navigate(-1);
                                 }} 
                                 onComplete={handleTestComplete} 
                                 onAnswerSubmit={async (qId, opt, correct, timeTaken) => { await api.submitAnswer(session.user.id, qId, opt, correct, timeTaken); }} 
@@ -602,9 +540,11 @@ export default function App() {
                                 selectedChapters={infinityConfig.chapters} 
                                 onExit={async () => { 
                                     if(session?.user?.id) await fetchProfile(session.user.id); 
+                                    // Return to Home with Infinity Modal open logic
                                     const subjectParam = infinityConfig?.subject ? `&subject=${encodeURIComponent(infinityConfig.subject)}` : '';
                                     navigate(`/?mode=infinity${subjectParam}`, { replace: true, state: { returnTo: 'infinity' } });
                                 }} 
+                                defaultLanguage={userProfile?.exam_language}
                             /> : 
                             <div className="p-10 text-center">Loading...</div>
                         } 
@@ -623,10 +563,9 @@ export default function App() {
             </AnimatePresence>
         </div>
 
-        {/* Global Modals */}
         <InfinityPracticeModal 
             isOpen={isInfinityOpen} 
-            onClose={handleCloseInfinity} 
+            onClose={() => setSearchParams({}, { replace: true })} 
             userId={session?.user?.id}
             initialSubject={searchParams.get('subject')}
             onUpdateSubject={handleInfinitySubjectUpdate}
@@ -665,15 +604,13 @@ export default function App() {
             profile={userProfile}
         />
 
-        {/* Exit Toast Notification - WHITE THEME */}
         <AnimatePresence>
             {exitAttempted && (
                 <motion.div 
                     initial={{ y: 50, opacity: 0, scale: 0.9 }}
                     animate={{ y: 0, opacity: 1, scale: 1 }}
                     exit={{ y: 50, opacity: 0, scale: 0.95 }}
-                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                    className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-white text-gray-900 px-6 py-3 rounded-full text-sm font-bold shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-[60] border border-gray-100 flex items-center gap-2 pb-safe"
+                    className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-white text-gray-900 px-6 py-3 rounded-full text-sm font-bold shadow-lg z-[60] border border-gray-100 flex items-center gap-2 pb-safe"
                 >
                     <div className="w-2 h-2 bg-gray-900 rounded-full animate-pulse"></div>
                     Press back again to exit
@@ -682,8 +619,7 @@ export default function App() {
         </AnimatePresence>
 
         {showNav && (
-            <div className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-100 flex justify-around py-2 pb-safe-offset-2 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
-                {/* pb-safe-offset-2 manually handles Safe Area + Padding */}
+            <div className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-100 flex justify-around py-2 pb-safe-offset-2 z-40 shadow-lg">
                 <div className="pb-safe flex w-full justify-around pt-2">
                     <NavIcon icon="fa-house" label="Home" target="/" />
                     <NavIcon icon="fa-book-open" label="Practice" target="/practice" />
