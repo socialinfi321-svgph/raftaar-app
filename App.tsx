@@ -614,11 +614,13 @@ export default function App() {
         <AnimatePresence>
             {exitAttempted && (
                 <motion.div 
-                    initial={{ y: 50, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 50, opacity: 0 }}
-                    className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg z-50 backdrop-blur-md"
+                    initial={{ y: 50, opacity: 0, scale: 0.9 }}
+                    animate={{ y: 0, opacity: 1, scale: 1 }}
+                    exit={{ y: 50, opacity: 0, scale: 0.95 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                    className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-white text-gray-900 px-6 py-3 rounded-full text-sm font-bold shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-[60] border border-gray-100 flex items-center gap-2"
                 >
+                    <div className="w-2 h-2 bg-gray-900 rounded-full animate-pulse"></div>
                     Press back again to exit
                 </motion.div>
             )}
