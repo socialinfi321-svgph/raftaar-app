@@ -174,7 +174,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ profile, onBac
       </div>
 
       {/* BODY CONTENT */}
-      {/* Safe Area adjustment for body content spacing: pt-12 */}
       <div className="p-5 space-y-8 -mt-2 relative z-20">
         
         {/* 2. Today's Pulse */}

@@ -133,8 +133,7 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
             className="fixed inset-y-0 right-0 w-full max-w-md bg-white z-50 shadow-2xl flex flex-col h-full overflow-hidden font-sans"
           >
             <div className="bg-white shadow-sm z-20 border-b border-gray-100 shrink-0">
-                {/* SAFE AREA: pt-16 */}
-                <div className="pt-16 pb-4 px-5 flex items-center gap-3">
+                <div className="pt-6 pb-4 px-5 flex items-center gap-3">
                     {/* UI Back Button triggers same logic as hardware back */}
                     <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-2 rounded-full active:bg-gray-100">
                         <ChevronLeft size={28} strokeWidth={2.5} />

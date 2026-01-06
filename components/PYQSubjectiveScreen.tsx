@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ZoomIn, ZoomOut, CheckCircle } from 'lucide-react';
 import { PYQQuestion, Language } from '../types';
 import { api } from '../services/api';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 interface PYQSubjectiveScreenProps {
   subject: string;
@@ -16,6 +17,15 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
   const [currentIndex, setCurrentIndex] = useState(0);
   const [lang, setLang] = useState<Language>('en');
   const [fontSize, setFontSize] = useState(16); // Base font size
+
+  // --- UNIFIED BACK LOGIC ---
+  const handleAppBack = () => {
+    onExit(); 
+    return true; // Trap: onExit handles the navigation
+  };
+
+  // Sync Hardware Button
+  useBackHandler(handleAppBack);
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -62,7 +72,8 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
     return (
       <div className="h-full flex flex-col items-center justify-center bg-white">
         <p className="text-gray-500 font-medium">No subjective questions found for this year.</p>
-        <button onClick={onExit} className="mt-4 px-6 py-2 bg-gray-100 rounded-lg text-sm font-bold">Go Back</button>
+        {/* UI Back Button triggers same logic as hardware back */}
+        <button onClick={handleAppBack} className="mt-4 px-6 py-2 bg-gray-100 rounded-lg text-sm font-bold">Go Back</button>
       </div>
     );
   }
@@ -70,10 +81,11 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
   return (
     <div className="h-full flex flex-col bg-white font-sans animate-fade-in">
       
-      {/* 1. Header (Safe Area pt-16) */}
-      <div className="px-4 pt-16 pb-3 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
+      {/* 1. Header (Safe Area pt-12) */}
+      <div className="px-4 pt-12 pb-3 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-3">
-          <button onClick={onExit} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
+          {/* UI Back Button triggers same logic as hardware back */}
+          <button onClick={handleAppBack} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
             <ArrowLeft size={22} />
           </button>
           <div>

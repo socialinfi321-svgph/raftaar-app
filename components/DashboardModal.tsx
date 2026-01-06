@@ -115,8 +115,7 @@ export const DashboardModal: React.FC<DashboardModalProps> = ({ isOpen, profile,
                         <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                         <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
 
-                        {/* Safe Area Padding: pt-16 */}
-                        <div className="relative z-10 px-5 pt-16">
+                        <div className="relative z-10 px-5 pt-5">
                         <div className="flex justify-between items-center mb-4">
                             {/* UI Back Button triggers same logic as hardware back */}
                             <button onClick={handleAppBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 active:bg-white/10 transition-all hover:scale-105">
