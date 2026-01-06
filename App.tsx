@@ -30,11 +30,22 @@ const RaftaarLogo = () => (
   </div>
 );
 
+// New Splash Screen Component
+const SplashScreen = () => (
+  <div className="h-[100dvh] flex flex-col items-center justify-center bg-white animate-fade-in">
+    <div className="scale-150 mb-8 animate-bounce">
+      <RaftaarLogo />
+    </div>
+    <div className="w-8 h-8 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"></div>
+    <p className="text-gray-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-6 animate-pulse">Initializing...</p>
+  </div>
+);
+
 // Updated Coming Soon Page with Header
 const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, title: string, profile: Profile | null }) => (
   <div className="h-full flex flex-col bg-white font-sans animate-fade-in">
-    {/* Header */}
-    <div className="sticky top-0 z-30 px-5 py-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+    {/* Header with Safe Area */}
+    <div className="sticky top-0 z-30 px-5 pb-3 pt-safe-offset-14 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm transition-all">
         <div className="flex items-center gap-3">
             <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors active:scale-95">
                 <ArrowLeft size={20} />
@@ -93,9 +104,14 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
 
     return (
         <div className="h-full flex flex-col bg-white">
-            {/* Header */}
-            <div className="sticky top-0 z-30 px-5 py-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
-                <h2 className="text-xl font-black text-gray-900">Live Exam</h2>
+            {/* Header with Safe Area */}
+            <div className="sticky top-0 z-30 px-5 pb-3 pt-safe-offset-14 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate('/')} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
+                        <i className="fa-solid fa-chevron-left text-lg"></i>
+                    </button>
+                    <h2 className="text-xl font-black text-gray-900">Live Exam</h2>
+                </div>
                 <div className="flex items-center gap-3 ml-auto">
                     <div className="flex items-center gap-1 text-brand-600 font-black">
                         <i className="fa-solid fa-bolt text-xs"></i>
@@ -162,7 +178,8 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
 
     return (
         <div className="h-full flex flex-col bg-white">
-            <div className="sticky top-0 z-30 px-5 py-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+            {/* Header with Safe Area */}
+            <div className="sticky top-0 z-30 px-5 pb-3 pt-safe-offset-14 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
@@ -221,7 +238,7 @@ const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => 
     if(!stats) return <div className="h-screen flex items-center justify-center">Loading Result...</div>;
     const score = stats.correct * 1; 
     return (
-        <div className="h-screen overflow-y-auto bg-white p-6 animate-slide-up pb-20 flex flex-col items-center justify-center text-center">
+        <div className="h-[100dvh] overflow-y-auto bg-white p-6 animate-slide-up pb-20 flex flex-col items-center justify-center text-center">
             <div className="w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mb-6">
                 <i className="fa-solid fa-trophy text-4xl text-brand-600"></i>
             </div>
@@ -278,7 +295,7 @@ export default function App() {
   // --- DOUBLE BACK TO EXIT LOGIC ---
   useBackHandler(() => {
     // Only active on Root Route and when NO modals are open
-    if (!isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen) {
+    if (location.pathname === '/' && !isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen) {
         if (exitAttempted) {
             return false; // Let browser exit/suspend
         } else {
@@ -287,24 +304,61 @@ export default function App() {
             return true; // Trap back
         }
     }
-    return false; // Let other handlers or default behavior work if modals are open
-  }, location.pathname === '/');
+    return false; // Let other handlers or default behavior work if modals are open or not on home
+  }, location.pathname === '/' && !isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen);
 
+  // --- AUTH PERSISTENCE LOGIC ---
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
-        if (session) {
-            fetchProfile(session.user.id);
+    let mounted = true;
+
+    // 1. Check for existing session on app start
+    const restoreSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) throw error;
+
+        if (mounted) {
+          if (session) {
+            setSession(session);
+            // Non-blocking profile fetch
+            fetchProfile(session.user.id).catch(console.error);
+          }
         }
-        setIsAppInitializing(false);
+      } catch (error) {
+        console.error("Session restoration failed:", error);
+      } finally {
+        if (mounted) {
+          // Stop loading only after the initial check is complete
+          // This prevents the login screen from flashing if a session exists
+          setIsAppInitializing(false);
+        }
+      }
+    };
+
+    restoreSession();
+
+    // 2. Listen for real-time auth changes (Sign In, Sign Out, Token Refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+      
+      setSession(session);
+      
+      if (session) {
+          // Refresh profile on auth change (e.g. login)
+          fetchProfile(session.user.id).catch(console.error);
+      } else {
+          setUserProfile(null);
+      }
+      
+      // Ensure app isn't stuck in loading state if an auth event occurs
+      setIsAppInitializing(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else setUserProfile(null);
-    });
-    return () => subscription.unsubscribe();
+    return () => {
+        mounted = false;
+        subscription.unsubscribe();
+    };
   }, []);
 
   // --- URL SYNC EFFECT FOR INFINITY MODAL ---
@@ -346,11 +400,14 @@ export default function App() {
   const fetchProfile = async (userId: string) => {
     const data = await api.getProfile(userId);
     if (!data) {
+        // Retry creating profile if missing (resilience)
         const { data: { user } } = await supabase.auth.getUser();
-        const fullName = user?.user_metadata?.full_name || 'Student';
-        const avatarUrl = user?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`;
-        const newProfile = await api.createProfile(userId, fullName, avatarUrl);
-        if (newProfile) setUserProfile(newProfile);
+        if (user) {
+            const fullName = user?.user_metadata?.full_name || 'Student';
+            const avatarUrl = user?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`;
+            const newProfile = await api.createProfile(userId, fullName, avatarUrl);
+            if (newProfile) setUserProfile(newProfile);
+        }
     } else {
         setUserProfile(data);
     }
@@ -404,11 +461,7 @@ export default function App() {
   };
 
   if (isAppInitializing) {
-      return (
-          <div className="h-screen flex items-center justify-center bg-white">
-              <div className="w-10 h-10 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-      );
+      return <SplashScreen />;
   }
 
   if (!session) return <LoginScreen onLoginSuccess={(s) => { setSession(s); navigate('/', { replace: true }); }} />;
@@ -428,10 +481,12 @@ export default function App() {
   const showTopHeader = location.pathname === '/';
 
   return (
-    <div className="max-w-md mx-auto h-screen flex flex-col bg-[#f8faff] font-sans relative shadow-2xl overflow-hidden text-gray-900">
+    // Replaced h-screen with h-[100dvh] for mobile browsers
+    <div className="max-w-md mx-auto h-[100dvh] flex flex-col bg-[#f8faff] font-sans relative shadow-2xl overflow-hidden text-gray-900">
         
         {showTopHeader && (
-            <div className="px-5 py-3 bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm">
+            // Apply pt-safe-offset to handle Status Bar
+            <div className="px-5 pb-3 pt-safe-offset-16 bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm transition-all">
                 <div className="flex items-center gap-2"><RaftaarLogo /></div>
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end">
@@ -610,7 +665,7 @@ export default function App() {
             profile={userProfile}
         />
 
-        {/* Exit Toast Notification */}
+        {/* Exit Toast Notification - WHITE THEME */}
         <AnimatePresence>
             {exitAttempted && (
                 <motion.div 
@@ -618,7 +673,7 @@ export default function App() {
                     animate={{ y: 0, opacity: 1, scale: 1 }}
                     exit={{ y: 50, opacity: 0, scale: 0.95 }}
                     transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                    className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-white text-gray-900 px-6 py-3 rounded-full text-sm font-bold shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-[60] border border-gray-100 flex items-center gap-2"
+                    className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-white text-gray-900 px-6 py-3 rounded-full text-sm font-bold shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-[60] border border-gray-100 flex items-center gap-2 pb-safe"
                 >
                     <div className="w-2 h-2 bg-gray-900 rounded-full animate-pulse"></div>
                     Press back again to exit
@@ -627,11 +682,14 @@ export default function App() {
         </AnimatePresence>
 
         {showNav && (
-            <div className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-100 flex justify-around py-2 pb-2 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
-                <NavIcon icon="fa-house" label="Home" target="/" />
-                <NavIcon icon="fa-book-open" label="Practice" target="/practice" />
-                <NavIcon icon="fa-file-signature" label="Exam" target="/exam" />
-                <NavIcon icon="fa-trophy" label="Rewards" target="/rewards" />
+            <div className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-100 flex justify-around py-2 pb-safe-offset-2 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
+                {/* pb-safe-offset-2 manually handles Safe Area + Padding */}
+                <div className="pb-safe flex w-full justify-around pt-2">
+                    <NavIcon icon="fa-house" label="Home" target="/" />
+                    <NavIcon icon="fa-book-open" label="Practice" target="/practice" />
+                    <NavIcon icon="fa-file-signature" label="Exam" target="/exam" />
+                    <NavIcon icon="fa-trophy" label="Rewards" target="/rewards" />
+                </div>
             </div>
         )}
     </div>

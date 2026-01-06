@@ -18,13 +18,11 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
   const [lang, setLang] = useState<Language>('en');
   const [fontSize, setFontSize] = useState(16); // Base font size
 
-  // --- UNIFIED BACK LOGIC ---
   const handleAppBack = () => {
     onExit(); 
-    return true; // Trap: onExit handles the navigation
+    return true;
   };
 
-  // Sync Hardware Button
   useBackHandler(handleAppBack);
 
   useEffect(() => {
@@ -45,7 +43,7 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
-      onExit(); // Finish
+      onExit();
     }
   };
 
@@ -57,7 +55,6 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
 
   const getTxt = (en?: string | null, hi?: string | null) => lang === 'hi' ? (hi || en) : en;
 
-  // Render Loading
   if (loading) {
       return (
         <div className="h-full flex flex-col items-center justify-center bg-white gap-4">
@@ -67,24 +64,21 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
       );
   }
 
-  // Render Empty
   if (!questions || questions.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center bg-white">
         <p className="text-gray-500 font-medium">No subjective questions found for this year.</p>
-        {/* UI Back Button triggers same logic as hardware back */}
         <button onClick={handleAppBack} className="mt-4 px-6 py-2 bg-gray-100 rounded-lg text-sm font-bold">Go Back</button>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-white font-sans animate-fade-in">
+    <div className="h-[100dvh] flex flex-col bg-white font-sans animate-fade-in">
       
-      {/* 1. Header */}
-      <div className="px-4 py-3 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
+      {/* 1. Header (Safe Area pt-safe-offset-14) */}
+      <div className="px-4 pb-3 pt-safe-offset-14 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-3">
-          {/* UI Back Button triggers same logic as hardware back */}
           <button onClick={handleAppBack} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
             <ArrowLeft size={22} />
           </button>
@@ -94,7 +88,6 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
           </div>
         </div>
 
-        {/* Font Controls */}
         <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
           <button 
             onClick={() => setFontSize(s => Math.max(12, s - 2))}
@@ -112,7 +105,7 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
         </div>
       </div>
 
-      {/* 2. Top Bar (Progress & Lang) */}
+      {/* 2. Top Bar */}
       <div className="px-5 py-3 flex justify-between items-center bg-gray-50/50">
         <div className="flex gap-1 overflow-x-auto hide-scrollbar max-w-[200px]">
             {questions.map((_, idx) => (
@@ -128,9 +121,8 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
       </div>
 
       {/* 3. Content Area */}
-      <div className="flex-1 overflow-y-auto p-6 pb-32">
+      <div className="flex-1 overflow-y-auto p-6 pb-32 w-full">
         
-        {/* Question Card */}
         <div className="mb-8">
             <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Question {currentIndex + 1}</span>
@@ -141,21 +133,20 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
                 )}
             </div>
             <h1 
-                className="font-bold text-gray-900 leading-snug font-serif"
+                className="font-bold text-gray-900 leading-snug font-serif break-words"
                 style={{ fontSize: `${fontSize + 4}px` }}
             >
                 {getTxt(currentQ.question_text_en, currentQ.question_text_hi)}
             </h1>
         </div>
 
-        {/* Answer Section */}
         <div className="relative pl-4 border-l-2 border-green-500">
             <div className="absolute -left-[9px] -top-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center text-white ring-4 ring-white">
                 <CheckCircle size={10} strokeWidth={3} />
             </div>
             <h3 className="text-green-700 font-bold text-sm uppercase mb-3 ml-2">Solution</h3>
             <div 
-                className="text-gray-700 leading-relaxed ml-2 font-serif"
+                className="text-gray-700 leading-relaxed ml-2 font-serif break-words"
                 style={{ fontSize: `${fontSize}px` }}
             >
                 {getTxt(currentQ.answer_text_en, currentQ.answer_text_hi) || getTxt(currentQ.solution_short_en, currentQ.solution_short_hi) || "Detailed answer not available."}
@@ -164,8 +155,8 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
 
       </div>
 
-      {/* 4. Bottom Navigation */}
-      <div className="fixed bottom-0 w-full bg-white border-t border-gray-100 p-4 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] flex gap-4">
+      {/* 4. Bottom Navigation - Fixed Safe Area */}
+      <div className="fixed bottom-0 w-full bg-white border-t border-gray-100 p-4 pb-safe z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] flex gap-4">
         <button 
             onClick={handlePrev}
             disabled={currentIndex === 0}

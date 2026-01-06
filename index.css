@@ -1,6 +1,14 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --sat: env(safe-area-inset-top);
+  --sab: env(safe-area-inset-bottom);
+  --sal: env(safe-area-inset-left);
+  --sar: env(safe-area-inset-right);
+}
 
 html, body, #root {
   height: 100%;
@@ -8,6 +16,29 @@ html, body, #root {
   margin: 0;
   padding: 0;
   background-color: #f8faff;
+  /* Use dynamic viewport height for mobile browsers */
+  min-height: 100dvh;
+}
+
+/* Safe Area Utilities */
+.pt-safe {
+  padding-top: var(--sat);
+}
+.pb-safe {
+  padding-bottom: var(--sab);
+}
+.mt-safe {
+  margin-top: var(--sat);
+}
+.mb-safe {
+  margin-bottom: var(--sab);
+}
+/* Header offset: Standard header height (usually 3-4rem) + Safe Area */
+.pt-safe-offset-16 {
+  padding-top: calc(var(--sat) + 4rem);
+}
+.pt-safe-offset-14 {
+  padding-top: calc(var(--sat) + 3.5rem);
 }
 
 /* Ensure fade-in animations work */

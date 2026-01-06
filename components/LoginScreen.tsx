@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { api } from '../services/api';
 import { Loader2, ArrowRight, User, MapPin, Phone, Languages, ChevronLeft, ShieldCheck, Sparkles, GraduationCap, Trophy, Target, Atom, PenTool, NotebookText } from 'lucide-react';
@@ -9,7 +10,6 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Form State
   const [formData, setFormData] = useState({
     fullName: '',
     location: '',
@@ -17,16 +17,14 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
     examLanguage: 'Hindi' as 'Hindi' | 'English'
   });
 
-  // --- UNIFIED BACK LOGIC ---
   const handleAppBack = () => {
      if (step > 1) {
          setStep(prev => prev - 1);
-         return true; // Trap: Go to previous step
+         return true;
      }
-     return false; // Let browser exit app or go back in history if on step 1
+     return false; 
   };
 
-  // Sync Hardware Back
   useBackHandler(handleAppBack, step > 1);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,45 +77,31 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
   };
 
   return (
-    <div className="h-screen flex flex-col bg-brand-50 relative overflow-hidden font-sans text-slate-900">
+    <div className="h-[100dvh] flex flex-col bg-brand-50 relative overflow-hidden font-sans text-slate-900">
         
-        {/* --- FIXED BACKGROUND ART (No Animation) --- */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            {/* Top Right Blob */}
             <div className="absolute -top-[10%] -right-[10%] w-[80vw] h-[80vw] bg-gradient-to-br from-brand-200 to-blue-100 rounded-full blur-3xl opacity-50"></div>
-            {/* Bottom Left Blob */}
             <div className="absolute -bottom-[10%] -left-[10%] w-[70vw] h-[70vw] bg-gradient-to-tr from-purple-200 to-pink-100 rounded-full blur-3xl opacity-50"></div>
             
-            {/* --- STATIONARY ICONS (Test Series Theme) --- */}
-            
-            {/* Atom - Science */}
             <div className="absolute top-[15%] left-[8%] text-brand-300 opacity-60">
                 <Atom size={56} strokeWidth={1.5} />
             </div>
-            
-            {/* Target - Goal */}
             <div className="absolute top-[12%] right-[10%] text-blue-300 opacity-60">
                 <Target size={40} strokeWidth={1.5} />
             </div>
-
-            {/* Notebook - Study/Test */}
             <div className="absolute bottom-[20%] left-[5%] text-slate-300 opacity-50 transform -rotate-12">
                 <NotebookText size={120} strokeWidth={1} />
             </div>
-
-            {/* Pen - Writing/Exam */}
             <div className="absolute bottom-[25%] right-[5%] text-brand-300 opacity-50 transform rotate-12">
                 <PenTool size={100} strokeWidth={1} />
             </div>
-
-            {/* Trophy - Success */}
             <div className="absolute top-[40%] right-[5%] text-purple-300 opacity-40">
                 <Trophy size={32} strokeWidth={1.5} />
             </div>
         </div>
 
-        {/* --- HEADER LOGO --- */}
-        <div className="relative z-10 pt-16 pb-8 flex flex-col items-center justify-center shrink-0">
+        {/* HEADER */}
+        <div className="relative z-10 pt-safe-offset-16 pb-8 flex flex-col items-center justify-center shrink-0">
             <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center shadow-2xl shadow-brand-500/30 transform -rotate-3 border border-white/20">
                     <span className="text-white font-black text-2xl italic font-sans pr-1">R</span>
@@ -129,11 +113,10 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
             </div>
         </div>
 
-        {/* --- MAIN CONTENT AREA --- */}
-        <div className="flex-1 relative z-20 flex flex-col px-8 pb-10 max-w-md mx-auto w-full justify-center">
+        {/* MAIN CONTENT */}
+        <div className="flex-1 relative z-20 flex flex-col px-8 pb-safe max-w-md mx-auto w-full justify-center">
             
-            {/* Progress Bar (Thin & Sleek) */}
-            <div className="w-full h-1 bg-slate-200/50 rounded-full mb-8 overflow-hidden">
+            <div className="w-full h-1 bg-slate-200/50 rounded-full mb-8 overflow-hidden shrink-0">
                 <motion.div 
                     className="h-full bg-brand-600 rounded-full"
                     initial={{ width: 0 }}
@@ -145,12 +128,10 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
             <div className="relative min-h-[300px]">
                 <AnimatePresence mode='wait' custom={step}>
                     
-                    {/* STEP 1: NAME */}
                     {step === 1 && (
                         <motion.div key="step1" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
                             <h2 className="text-3xl font-black text-slate-900 mb-2">Welcome!</h2>
                             <p className="text-slate-500 font-medium mb-8">Enter your name to begin your test series.</p>
-                            
                             <div className="relative group">
                                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-500">
                                     <User size={20} />
@@ -169,12 +150,10 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
                         </motion.div>
                     )}
 
-                    {/* STEP 2: LOCATION */}
                     {step === 2 && (
                         <motion.div key="step2" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
                             <h2 className="text-3xl font-black text-slate-900 mb-2">Location</h2>
                             <p className="text-slate-500 font-medium mb-8">Which city or district are you from?</p>
-                            
                             <div className="relative group">
                                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-500">
                                     <MapPin size={20} />
@@ -193,12 +172,10 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
                         </motion.div>
                     )}
 
-                    {/* STEP 3: PHONE */}
                     {step === 3 && (
                         <motion.div key="step3" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
                             <h2 className="text-3xl font-black text-slate-900 mb-2">Mobile</h2>
                             <p className="text-slate-500 font-medium mb-8">Enter your 10-digit number to login.</p>
-                            
                             <div className="space-y-4">
                                 <div className="relative group">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-500">
@@ -228,7 +205,6 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
                         </motion.div>
                     )}
 
-                    {/* STEP 4: LANGUAGE */}
                     {step === 4 && (
                         <motion.div key="step4" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
                             <h2 className="text-3xl font-black text-slate-900 mb-2">Medium</h2>
@@ -262,17 +238,14 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
                 </AnimatePresence>
             </div>
             
-            {/* ERROR MESSAGE */}
             {error && (
                 <div className="mb-4 text-center">
                     <p className="text-red-500 text-xs font-bold bg-white/80 py-2 px-4 rounded-full inline-block shadow-sm border border-red-100 animate-pulse">{error}</p>
                 </div>
             )}
 
-            {/* NAVIGATION BUTTONS */}
-            <div className="flex items-center gap-4 mt-auto z-30">
+            <div className="flex items-center gap-4 mt-auto z-30 pb-4">
                  {step > 1 && (
-                    // UI Back Button triggers same logic as hardware back
                     <button 
                         onClick={handleAppBack}
                         className="w-14 h-14 rounded-full bg-white shadow-md text-slate-400 flex items-center justify-center hover:text-slate-600 transition-colors"

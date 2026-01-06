@@ -40,20 +40,18 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  // --- UNIFIED BACK LOGIC ---
   const handleAppBack = () => {
     if (step === 2) {
       setStep(1);
       setSelectedSubject(null);
       if (onUpdateSubject) onUpdateSubject(null);
-      return true; // Trap: Stay in modal, go to step 1
+      return true; 
     } else {
       onClose();
-      return true; // Trap: We manually close the modal (which might handle history elsewhere or just unmount)
+      return true; 
     }
   };
 
-  // Sync Hardware Button
   useBackHandler(handleAppBack, isOpen);
 
   useEffect(() => {
@@ -130,11 +128,10 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed inset-y-0 right-0 w-full max-w-md bg-white z-50 shadow-2xl flex flex-col h-full overflow-hidden font-sans"
+            className="fixed inset-y-0 right-0 w-full max-w-md bg-white z-50 shadow-2xl flex flex-col h-[100dvh] overflow-hidden font-sans"
           >
             <div className="bg-white shadow-sm z-20 border-b border-gray-100 shrink-0">
-                <div className="pt-6 pb-4 px-5 flex items-center gap-3">
-                    {/* UI Back Button triggers same logic as hardware back */}
+                <div className="pt-safe-offset-14 pb-4 px-5 flex items-center gap-3">
                     <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-2 rounded-full active:bg-gray-100">
                         <ChevronLeft size={28} strokeWidth={2.5} />
                     </button>
@@ -168,7 +165,7 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
             </div>
 
             <div className="flex-1 min-h-0 relative flex flex-col bg-gray-50">
-              <div className="absolute inset-0 overflow-y-auto hide-scrollbar">
+              <div className="absolute inset-0 overflow-y-auto hide-scrollbar pb-safe">
               
               {step === 1 && (
                 <div className="flex flex-col min-h-full">
@@ -274,7 +271,7 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
             </div>
 
             {step === 2 && (
-              <div className="absolute bottom-0 w-full bg-white border-t border-gray-100 p-4 pb-6 flex gap-4 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-20">
+              <div className="absolute bottom-0 w-full bg-white border-t border-gray-100 p-4 pb-safe flex gap-4 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-20">
                 <button 
                   onClick={() => handleSubjectSelect('')}
                   className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
