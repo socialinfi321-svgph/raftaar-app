@@ -131,8 +131,8 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ isOpen, pr
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
               className="fixed inset-y-0 right-0 w-full max-w-md bg-white z-50 shadow-2xl flex flex-col h-full overflow-hidden font-sans text-slate-900"
             >
-              {/* Header with Safe Area (pt-12) */}
-              <div className="px-5 pt-12 pb-4 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-30 shadow-sm shrink-0">
+              {/* Header with Safe Area (pt-16) */}
+              <div className="px-5 pt-16 pb-4 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-30 shadow-sm shrink-0">
                 <div className="flex items-center gap-3">
                     {/* UI Back Button triggers same logic as hardware back */}
                     <button onClick={handleAppBack} className="p-1 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors active:scale-95">

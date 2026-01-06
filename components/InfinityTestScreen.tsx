@@ -86,8 +86,8 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
     return true; // Trap
   };
 
-  // Sync Hardware Button
-  useBackHandler(handleAppBack, true);
+  // Sync Hardware Button - Active unless submitting or finished
+  useBackHandler(handleAppBack, !isSubmitting);
 
   useEffect(() => {
     setLang(defaultLanguage === 'Hindi' ? 'hi' : 'en');
@@ -301,8 +301,8 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
 
       return (
           <div className="h-screen flex flex-col bg-white overflow-y-auto font-sans animate-fade-in">
-              {/* Analytics Header (Safe Area pt-12) */}
-              <div className="bg-white p-5 pt-12 border-b border-gray-100 sticky top-0 z-20 flex justify-between items-center shadow-sm">
+              {/* Analytics Header (Safe Area pt-16) */}
+              <div className="bg-white p-5 pt-16 border-b border-gray-100 sticky top-0 z-20 flex justify-between items-center shadow-sm">
                   <h2 className="text-lg font-black text-gray-900">{isPYQ ? `Result - ${pyqYear}` : 'Objective Test - Result'}</h2>
                   <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold font-mono">
                       {formatTime(elapsedTime)}
@@ -414,8 +414,8 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
   return (
     <div className="flex flex-col h-screen bg-white relative font-sans text-gray-900">
       
-      {/* 1. Header (Safe Area pt-12) */}
-      <div className="px-4 pt-12 pb-2 bg-white flex justify-between items-center h-20 shrink-0 shadow-sm border-b border-gray-100 z-10">
+      {/* 1. Header (Safe Area pt-16) */}
+      <div className="px-4 pt-16 pb-2 bg-white flex justify-between items-center h-20 shrink-0 shadow-sm border-b border-gray-100 z-10">
           <div className="flex items-center gap-3">
               {/* UI Back Button triggers same logic as hardware back */}
               <button onClick={handleAppBack} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full">
@@ -563,6 +563,51 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
              {currentIndex === questions.length - 1 ? (isPYQ || allQuestionsExhausted.current ? 'Finish Test' : 'Fetch More') : 'Next Question'}
           </button>
       </div>
+
+      {/* --- EXIT CONFIRMATION MODAL --- */}
+      <AnimatePresence>
+        {showExitModal && (
+            <>
+              <motion.div 
+                  initial={{ opacity: 0 }} animate={{ opacity: 0.5 }} exit={{ opacity: 0 }}
+                  onClick={() => setShowExitModal(false)}
+                  className="fixed inset-0 bg-black z-40"
+              />
+              <motion.div
+                  initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+                  transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                  className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2rem] z-50 p-6 pb-10 shadow-2xl"
+              >
+                  <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6"></div>
+                  
+                  <div className="flex flex-col items-center text-center mb-8">
+                      <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
+                          <AlertTriangle className="text-red-500" size={32} />
+                      </div>
+                      <p className="text-gray-800 font-bold text-lg">Exit Test?</p>
+                      <p className="text-gray-500 text-sm mt-1 max-w-xs leading-relaxed">
+                          Your current progress will be lost if you exit without submitting.
+                      </p>
+                  </div>
+
+                  <div className="flex gap-4">
+                      <button 
+                          onClick={onExit} 
+                          className="flex-1 py-3.5 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition-colors"
+                      >
+                          Exit
+                      </button>
+                      <button 
+                          onClick={() => setShowExitModal(false)} 
+                          className="flex-1 py-3.5 rounded-xl bg-brand-600 text-white font-bold shadow-lg shadow-brand-200 hover:bg-brand-700 transition-colors"
+                      >
+                          Continue
+                      </button>
+                  </div>
+              </motion.div>
+            </>
+        )}
+      </AnimatePresence>
       
     </div>
   );

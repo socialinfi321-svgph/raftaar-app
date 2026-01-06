@@ -33,8 +33,8 @@ const RaftaarLogo = () => (
 // Updated Coming Soon Page with Safe Area Header
 const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, title: string, profile: Profile | null }) => (
   <div className="h-full flex flex-col bg-white font-sans animate-fade-in">
-    {/* Header with Safe Area (pt-12) */}
-    <div className="sticky top-0 z-30 px-5 pt-12 pb-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+    {/* Header with Safe Area (pt-16) */}
+    <div className="sticky top-0 z-30 px-5 pt-16 pb-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
         <div className="flex items-center gap-3">
             <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors active:scale-95">
                 <ArrowLeft size={20} />
@@ -93,9 +93,14 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
 
     return (
         <div className="h-full flex flex-col bg-white">
-            {/* Header with Safe Area (pt-12) */}
-            <div className="sticky top-0 z-30 px-5 pt-12 pb-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
-                <h2 className="text-xl font-black text-gray-900">Live Exam</h2>
+            {/* Header with Safe Area (pt-16) */}
+            <div className="sticky top-0 z-30 px-5 pt-16 pb-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate('/')} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
+                        <i className="fa-solid fa-chevron-left text-lg"></i>
+                    </button>
+                    <h2 className="text-xl font-black text-gray-900">Live Exam</h2>
+                </div>
                 <div className="flex items-center gap-3 ml-auto">
                     <div className="flex items-center gap-1 text-brand-600 font-black">
                         <i className="fa-solid fa-bolt text-xs"></i>
@@ -162,8 +167,8 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
 
     return (
         <div className="h-full flex flex-col bg-white">
-            {/* Header with Safe Area (pt-12) */}
-            <div className="sticky top-0 z-30 px-5 pt-12 pb-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+            {/* Header with Safe Area (pt-16) */}
+            <div className="sticky top-0 z-30 px-5 pt-16 pb-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
@@ -445,8 +450,8 @@ export default function App() {
     <div className="max-w-md mx-auto h-screen flex flex-col bg-[#f8faff] font-sans relative shadow-2xl overflow-hidden text-gray-900">
         
         {showTopHeader && (
-            // Safe Area pt-12 (approx 48px)
-            <div className="px-5 pt-12 pb-3 bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm">
+            // Safe Area pt-16 (approx 64px)
+            <div className="px-5 pt-16 pb-3 bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-2"><RaftaarLogo /></div>
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end">

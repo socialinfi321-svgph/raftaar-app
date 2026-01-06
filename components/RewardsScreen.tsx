@@ -45,8 +45,8 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
 
     return (
         <div className="h-full flex flex-col bg-slate-950 font-sans text-white">
-            {/* Header with Safe Area (pt-12) */}
-            <div className="sticky top-0 z-30 px-5 pt-12 pb-3 bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-lg">
+            {/* Header with Safe Area (pt-16) */}
+            <div className="sticky top-0 z-30 px-5 pt-16 pb-3 bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-lg">
                 <div className="flex items-center gap-3">
                     <button onClick={() => navigate(-1)} className="text-slate-400 hover:text-white transition-colors p-1 -ml-1 rounded-full active:bg-slate-800">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
