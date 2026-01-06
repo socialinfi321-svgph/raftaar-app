@@ -298,29 +298,53 @@ export default function App() {
 
   // --- AUTH PERSISTENCE LOGIC ---
   useEffect(() => {
-    // 1. Initial Session Check
+    let mounted = true;
+
+    // 1. Initial Session Check with Safety Timeout
     const initSession = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        if (session) {
-            await fetchProfile(session.user.id);
+        try {
+            // Race: Supabase Session vs 3s Timeout
+            // This prevents "Buffering" loop if Supabase is unreachable
+            const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null }, error: 'timeout' }), 3000));
+            const sessionPromise = supabase.auth.getSession();
+
+            const { data } : any = await Promise.race([sessionPromise, timeoutPromise]);
+
+            if (mounted) {
+                if (data?.session) {
+                    setSession(data.session);
+                    // Fetch Profile in Background - DO NOT AWAIT
+                    // This ensures App opens immediately
+                    fetchProfile(data.session.user.id).catch(console.error);
+                }
+            }
+        } catch (error) {
+            console.error("Initialization Error:", error);
+        } finally {
+            if (mounted) {
+                setIsAppInitializing(false);
+            }
         }
-        setIsAppInitializing(false);
     };
     initSession();
 
     // 2. Auth State Listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
       setSession(session);
       if (session) {
-          await fetchProfile(session.user.id);
+          fetchProfile(session.user.id).catch(console.error);
       } else {
           setUserProfile(null);
       }
       // Ensure app isn't stuck in loading state if auth state changes
       setIsAppInitializing(false);
     });
-    return () => subscription.unsubscribe();
+
+    return () => {
+        mounted = false;
+        subscription.unsubscribe();
+    };
   }, []);
 
   // --- URL SYNC EFFECT FOR INFINITY MODAL ---
