@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Crown, Zap, Star, User } from 'lucide-react';
 import { Profile } from '../types';
 import { api } from '../services/api';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 interface RewardsScreenProps {
   profile: Profile | null;
@@ -33,6 +34,12 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
         return "Rookie"; 
     };
 
+    // Explicitly navigate Home on back
+    useBackHandler(() => {
+        navigate('/');
+        return true;
+    });
+
     useEffect(() => {
         const fetchLeaderboard = async () => {
             setLoading(true);
@@ -56,7 +63,8 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
                             <span className="text-sm">{profile?.weekly_xp || 0}</span>
                         </div>
                     </div>
-                    <div className="w-9 h-9 rounded-full bg-slate-800 p-0.5 border border-slate-700 cursor-pointer shadow-sm" onClick={() => navigate('/profile')}>
+                    {/* Profile Icon - Removed onClick to prevent white screen navigation */}
+                    <div className="w-9 h-9 rounded-full bg-slate-800 p-0.5 border border-slate-700 shadow-sm">
                         <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.email || 'user'}`} className="w-full h-full rounded-full" alt="User" />
                     </div>
                 </div>

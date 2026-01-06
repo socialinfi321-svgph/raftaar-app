@@ -4,6 +4,7 @@ import { Clock, ArrowLeft, AlertTriangle, Timer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Question, Language, TestSubmission } from '../types';
 import { api } from '../services/api';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 interface InfinityTestScreenProps {
   userId: string;
@@ -64,7 +65,30 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
   const [elapsedTime, setElapsedTime] = useState(0); 
   const [lang, setLang] = useState<Language>(defaultLanguage === 'Hindi' ? 'hi' : 'en');
   
-  // Sync Language if prop changes (e.g. profile loaded late)
+  // --- UNIFIED BACK LOGIC ---
+  const handleAppBack = () => {
+    // 1. If Exit Modal is Open -> Close it (Resume)
+    if (showExitModal) {
+      setShowExitModal(false);
+      return true; // Trap
+    }
+    // 2. If Test Finished -> Trigger Exit (Go Home/Dashboard)
+    if (isTestFinished) {
+      onExit();
+      return true; // Trap (onExit handles nav)
+    }
+    // 3. If Submitting -> Do nothing (Trap)
+    if (isSubmitting) {
+      return true; 
+    }
+    // 4. Default: Show Exit Confirmation
+    setShowExitModal(true);
+    return true; // Trap
+  };
+
+  // Sync Hardware Button
+  useBackHandler(handleAppBack, true);
+
   useEffect(() => {
     setLang(defaultLanguage === 'Hindi' ? 'hi' : 'en');
   }, [defaultLanguage]);
@@ -180,7 +204,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
 
     setAnswers(prev => ({ ...prev, [currentQ.id]: option }));
 
-    const timeTaken = Math.floor((Date.now() - questionStartTimeRef.current) / 1000);
+    const timeTaken = Math.floor((Date.now() - questionStartTimeRef.current) / 1000); 
     const isCorrect = option === currentQ.correct_option;
     
     api.submitAnswer(userId, currentQ.id, option, isCorrect, timeTaken);
@@ -219,10 +243,6 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
       updateVisited(prevIdx);
       questionStartTimeRef.current = Date.now();
     }
-  };
-
-  const handleBackAction = () => {
-      setShowExitModal(true);
   };
 
   const handleFinishTest = async () => {
@@ -397,7 +417,8 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
       {/* 1. Header */}
       <div className="px-4 py-2 bg-white flex justify-between items-center h-14 shrink-0 shadow-sm border-b border-gray-100 z-10">
           <div className="flex items-center gap-3">
-              <button onClick={handleBackAction} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full">
+              {/* UI Back Button triggers same logic as hardware back */}
+              <button onClick={handleAppBack} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full">
                   <ArrowLeft size={20} />
               </button>
               <div className="flex flex-col">
@@ -452,8 +473,9 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
       {/* 3. Question Area */}
       <div className="flex-1 overflow-y-auto p-5 pb-32 bg-white">
           
-          <div className="flex justify-end mb-4">
-              <button onClick={() => setLang(l => l==='en'?'hi':'en')} className="flex items-center gap-1 bg-brand-50 px-3 py-1 rounded-full border border-brand-100 text-[10px] font-bold text-brand-700 active:scale-95 transition-transform">
+          <div className="flex justify-between items-start mb-4">
+              <span className="font-bold text-gray-400 text-[10px] uppercase tracking-wider bg-gray-100 px-2 py-1 rounded">Question {currentIndex + 1}</span>
+              <button onClick={() => setLang(l => l==='en'?'hi':'en')} className="flex items-center gap-1 bg-brand-50 px-3 py-1 rounded-full border border-brand-100 text-[10px] font-bold text-brand-700">
                   {lang === 'en' ? 'ENG' : 'HIN'}
               </button>
           </div>

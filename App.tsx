@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from './services/supabase';
@@ -14,8 +15,9 @@ import { DashboardModal } from './components/DashboardModal';
 import { AchievementsModal } from './components/AchievementsModal';
 import { RewardsScreen } from './components/RewardsScreen';
 import { HomeScreen } from './components/HomeScreen';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
+import { useBackHandler } from './hooks/useBackHandler';
 
 const RaftaarLogo = () => (
   <div className="flex items-center gap-2">
@@ -80,40 +82,48 @@ const SubjectIcon = ({ subject }: { subject: string }) => {
   );
 };
 
-// Exam Screen - Updated: No Avatar, XP Right Aligned
-const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile: Profile | null, navigate: any }) => (
-    <div className="h-full flex flex-col bg-white">
-        {/* Header */}
-        <div className="sticky top-0 z-30 px-5 py-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
-            <h2 className="text-xl font-black text-gray-900">Live Exam</h2>
-            {/* XP pushed to right using ml-auto */}
-            <div className="flex items-center gap-3 ml-auto">
-                <div className="flex items-center gap-1 text-brand-600 font-black">
-                    <i className="fa-solid fa-bolt text-xs"></i>
-                    <span>{profile?.weekly_xp || 0}</span>
-                </div>
-            </div>
-        </div>
+// Exam Screen
+const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile: Profile | null, navigate: any }) => {
+    
+    // Explicitly navigate Home on back
+    useBackHandler(() => {
+        navigate('/');
+        return true;
+    });
 
-        <div className="flex-1 overflow-y-auto p-5 pb-24 animate-slide-up">
-            <div onClick={showCS} className="bg-white p-6 rounded-3xl border-l-4 border-l-purple-500 cursor-pointer shadow-sm hover:shadow-md transition relative overflow-hidden mb-4 border border-gray-100 group">
-                <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                    <i className="fa-solid fa-clock text-6xl text-purple-600"></i>
-                </div>
-                <div className="relative z-10">
-                    <div className="flex justify-between items-start mb-2">
-                        <span className="bg-purple-50 text-purple-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Scheduled</span>
+    return (
+        <div className="h-full flex flex-col bg-white">
+            {/* Header */}
+            <div className="sticky top-0 z-30 px-5 py-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+                <h2 className="text-xl font-black text-gray-900">Live Exam</h2>
+                <div className="flex items-center gap-3 ml-auto">
+                    <div className="flex items-center gap-1 text-brand-600 font-black">
+                        <i className="fa-solid fa-bolt text-xs"></i>
+                        <span>{profile?.weekly_xp || 0}</span>
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900">BSEB Physics Mega Mock</h3>
-                    <p className="text-gray-500 text-xs mb-4">Full Syllabus • 3 Hours</p>
-                    <button className="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">Register Now</button>
+                </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 pb-24 animate-slide-up">
+                <div onClick={showCS} className="bg-white p-6 rounded-3xl border-l-4 border-l-purple-500 cursor-pointer shadow-sm hover:shadow-md transition relative overflow-hidden mb-4 border border-gray-100 group">
+                    <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <i className="fa-solid fa-clock text-6xl text-purple-600"></i>
+                    </div>
+                    <div className="relative z-10">
+                        <div className="flex justify-between items-start mb-2">
+                            <span className="bg-purple-50 text-purple-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Scheduled</span>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">BSEB Physics Mega Mock</h3>
+                        <p className="text-gray-500 text-xs mb-4">Full Syllabus • 3 Hours</p>
+                        <button className="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">Register Now</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
-// Practice Screen - Updated to use SearchParams for persistence
+// Practice Screen
 const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapter: (subject: string, chapter: string) => void, navigate: any, profile: Profile | null }) => {
     const [subjects, setSubjects] = useState<string[]>([]);
     const [searchParams, setSearchParams] = useSearchParams();
@@ -136,20 +146,25 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
       }
     }, [selectedSubject]);
 
-    const handleBack = () => {
+    // --- UNIFIED BACK LOGIC ---
+    const handleAppBack = () => {
         if (selectedSubject) {
-            setSearchParams({});
+            // Use replace to prevent stacking history
+            setSearchParams({}, { replace: true }); 
+            return true; 
         } else {
-            navigate('/');
+            navigate('/'); 
+            return true; 
         }
     };
-  
+
+    useBackHandler(handleAppBack, true); 
+
     return (
         <div className="h-full flex flex-col bg-white">
-            {/* Header */}
             <div className="sticky top-0 z-30 px-5 py-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <button onClick={handleBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
+                    <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
                     </button>
                     <h2 className="text-xl font-black text-gray-900">
@@ -168,7 +183,7 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
                         <h2 className="text-2xl font-black text-gray-900 mb-6">Select <span className="text-brand-600">Subject</span></h2>
                         <div className="grid grid-cols-2 gap-4">
                             {subjects.map(sub => (
-                                <div key={sub} onClick={() => setSearchParams({ subject: sub })} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform hover:shadow-md hover:border-brand-200 group">
+                                <div key={sub} onClick={() => setSearchParams({ subject: sub }, { replace: true })} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform hover:shadow-md hover:border-brand-200 group">
                                     <SubjectIcon subject={sub} />
                                     <span className="font-bold text-gray-700 text-sm group-hover:text-brand-600 transition-colors">{sub}</span>
                                 </div>
@@ -252,10 +267,28 @@ export default function App() {
   // Dashboard & Achievements Modals State
   const [isDashboardOpen, setDashboardOpen] = useState(false);
   const [isAchievementsOpen, setAchievementsOpen] = useState(false);
+  
+  // Double Back to Exit State
+  const [exitAttempted, setExitAttempted] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // --- DOUBLE BACK TO EXIT LOGIC ---
+  useBackHandler(() => {
+    // Only active on Root Route and when NO modals are open
+    if (!isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen) {
+        if (exitAttempted) {
+            return false; // Let browser exit/suspend
+        } else {
+            setExitAttempted(true);
+            setTimeout(() => setExitAttempted(false), 2000); // Reset after 2s
+            return true; // Trap back
+        }
+    }
+    return false; // Let other handlers or default behavior work if modals are open
+  }, location.pathname === '/');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -284,14 +317,13 @@ export default function App() {
     }
   }, [searchParams]);
 
-  // Handle return from test detection (Fixes Glitch)
+  // Handle return from test detection
   useEffect(() => {
     if (location.state && (location.state as any).returnTo === 'infinity') {
       setInfinityInstantOpen(true);
       if (!searchParams.get('mode')) {
-          setSearchParams({ mode: 'infinity' });
+          setSearchParams({ mode: 'infinity' }, { replace: true });
       }
-      // Replace state so we don't trigger this again on reload
       window.history.replaceState({}, document.title);
     } else {
       setInfinityInstantOpen(false);
@@ -353,23 +385,22 @@ export default function App() {
         await api.submitTestResult(submission);
         await fetchProfile(session.user.id); 
     }
-    // Updated: Use replace to prevent going back to test
     navigate('/results', { replace: true });
   };
 
   // --- Infinity Modal Handlers ---
   const handleOpenInfinity = () => {
-      setSearchParams({ mode: 'infinity' });
+      setSearchParams({ mode: 'infinity' }, { replace: true });
   };
 
   const handleCloseInfinity = () => {
-      setSearchParams({});
+      setSearchParams({}, { replace: true });
   };
 
   const handleInfinitySubjectUpdate = (sub: string | null) => {
       const newParams: any = { mode: 'infinity' };
       if (sub) newParams.subject = sub;
-      setSearchParams(newParams);
+      setSearchParams(newParams, { replace: true });
   };
 
   if (isAppInitializing) {
@@ -380,7 +411,6 @@ export default function App() {
       );
   }
 
-  // Updated: Login Success now redirects to Home ('/') explicitly
   if (!session) return <LoginScreen onLoginSuccess={(s) => { setSession(s); navigate('/', { replace: true }); }} />;
 
   const NavIcon = ({ icon, label, target }: { icon: string, label: string, target: string }) => {
@@ -429,7 +459,7 @@ export default function App() {
                                 setComingSoonTitle={(t) => { setComingSoonTitle(t); navigate('/coming-soon'); }} 
                                 onOpenInfinity={handleOpenInfinity} 
                                 onOpenPYQ={() => { 
-                                    setInstantOpen(false); // Explicitly reset animation
+                                    setInstantOpen(false); 
                                     setPyqInitialTab('objective'); 
                                     setPYQOpen(true); 
                                 }}
@@ -443,7 +473,6 @@ export default function App() {
                     <Route path="/exam" element={<ExamScreen showCS={() => { setComingSoonTitle('BSEB Physics Mega Mock'); navigate('/coming-soon'); }} profile={userProfile} navigate={navigate} />} />
                     <Route path="/rewards" element={<RewardsScreen profile={userProfile} session={session} navigate={navigate} />} />
                     
-                    {/* Routes that return to PYQ Dashboard on Exit */}
                     <Route 
                         path="/pyq-test" 
                         element={
@@ -454,9 +483,8 @@ export default function App() {
                                 pyqYear={parseInt(new URLSearchParams(location.search).get('year') || '0')} 
                                 onExit={() => { 
                                     if(session?.user?.id) fetchProfile(session.user.id); 
-                                    navigate('/', { state: { openPYQ: true, tab: 'objective' } });
+                                    navigate('/', { replace: true, state: { openPYQ: true, tab: 'objective' } });
                                 }} 
-                                defaultLanguage={userProfile?.exam_language}
                             />
                         } 
                     />
@@ -466,8 +494,7 @@ export default function App() {
                             <PYQSubjectiveScreen 
                                 subject={new URLSearchParams(location.search).get('subject') || ''} 
                                 year={parseInt(new URLSearchParams(location.search).get('year') || '0')} 
-                                onExit={() => navigate('/', { state: { openPYQ: true, tab: 'subjective' } })} 
-                                defaultLanguage={userProfile?.exam_language}
+                                onExit={() => navigate('/', { replace: true, state: { openPYQ: true, tab: 'subjective' } })} 
                             />
                         } 
                     />
@@ -480,11 +507,10 @@ export default function App() {
                             <ResultScreen 
                                 stats={testStats} 
                                 onHome={() => {
-                                    // Intelligent Navigation Back logic updated to support chapter list
                                     if (activeSubject) {
                                         navigate(`/practice?subject=${activeSubject}`, { replace: true });
                                     } else {
-                                        navigate('/', { state: { openPYQ: true, tab: 'objective' } });
+                                        navigate('/', { replace: true, state: { openPYQ: true, tab: 'objective' } });
                                     }
                                 }} 
                             />
@@ -499,11 +525,10 @@ export default function App() {
                                 subjectName={activeSubject} 
                                 userId={session?.user?.id} 
                                 onExit={() => {
-                                    // Ensure we go back to the chapter list if coming from practice
                                     if (activeSubject) {
-                                        navigate(`/practice?subject=${activeSubject}`);
+                                        navigate(`/practice?subject=${activeSubject}`, { replace: true });
                                     } else {
-                                        navigate(-1);
+                                        navigate('/', { replace: true });
                                     }
                                 }} 
                                 onComplete={handleTestComplete} 
@@ -522,11 +547,9 @@ export default function App() {
                                 selectedChapters={infinityConfig.chapters} 
                                 onExit={async () => { 
                                     if(session?.user?.id) await fetchProfile(session.user.id); 
-                                    // Use specific state to signal instant modal open AND pass subject to keep Step 2 open
                                     const subjectParam = infinityConfig?.subject ? `&subject=${encodeURIComponent(infinityConfig.subject)}` : '';
-                                    navigate(`/?mode=infinity${subjectParam}`, { state: { returnTo: 'infinity' } });
+                                    navigate(`/?mode=infinity${subjectParam}`, { replace: true, state: { returnTo: 'infinity' } });
                                 }} 
-                                defaultLanguage={userProfile?.exam_language}
                             /> : 
                             <div className="p-10 text-center">Loading...</div>
                         } 
@@ -586,6 +609,20 @@ export default function App() {
             onBack={() => setAchievementsOpen(false)}
             profile={userProfile}
         />
+
+        {/* Exit Toast Notification */}
+        <AnimatePresence>
+            {exitAttempted && (
+                <motion.div 
+                    initial={{ y: 50, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 50, opacity: 0 }}
+                    className="fixed bottom-20 left-1/2 -translate-x-1/2 bg-black/80 text-white px-5 py-2.5 rounded-full text-sm font-bold shadow-lg z-50 backdrop-blur-md"
+                >
+                    Press back again to exit
+                </motion.div>
+            )}
+        </AnimatePresence>
 
         {showNav && (
             <div className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-100 flex justify-around py-2 pb-2 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">

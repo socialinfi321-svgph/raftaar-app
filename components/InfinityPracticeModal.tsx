@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Check, FlaskConical, Atom, Calculator, Dna, Languages, BookType, Tablet, PenTool } from 'lucide-react';
 import { api } from '../services/api';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 interface InfinityPracticeModalProps {
   isOpen: boolean;
@@ -38,6 +39,22 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // --- UNIFIED BACK LOGIC ---
+  const handleAppBack = () => {
+    if (step === 2) {
+      setStep(1);
+      setSelectedSubject(null);
+      if (onUpdateSubject) onUpdateSubject(null);
+      return true; // Trap: Stay in modal, go to step 1
+    } else {
+      onClose();
+      return true; // Trap: We manually close the modal (which might handle history elsewhere or just unmount)
+    }
+  };
+
+  // Sync Hardware Button
+  useBackHandler(handleAppBack, isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -75,16 +92,6 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
         ? prev.filter(c => c !== chapterName) 
         : [...prev, chapterName]
     );
-  };
-
-  const handleBack = () => {
-    if (step === 2) {
-      setStep(1);
-      setSelectedSubject(null);
-      if (onUpdateSubject) onUpdateSubject(null);
-    } else {
-      onClose();
-    }
   };
 
   const handleStart = async () => {
@@ -127,7 +134,8 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
           >
             <div className="bg-white shadow-sm z-20 border-b border-gray-100 shrink-0">
                 <div className="pt-6 pb-4 px-5 flex items-center gap-3">
-                    <button onClick={handleBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-2 rounded-full active:bg-gray-100">
+                    {/* UI Back Button triggers same logic as hardware back */}
+                    <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-2 rounded-full active:bg-gray-100">
                         <ChevronLeft size={28} strokeWidth={2.5} />
                     </button>
                     <h2 className="text-xl font-black text-gray-900 tracking-tight">Start New Practice</h2>

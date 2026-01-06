@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Atom, FlaskConical, Calculator, Dna, Languages, BookType, Sparkles } from 'lucide-react';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 const subjectsList = [
   { name: 'Physics', icon: Atom, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
@@ -40,6 +41,23 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
     }
   }, [isOpen, initialTab]);
 
+  // --- UNIFIED BACK LOGIC ---
+  const handleAppBack = () => {
+    if (selectedSubject) {
+      setSelectedSubject(null);
+      return true; // Trap: Go back to subject list
+    }
+    if (activeTab === 'subjective') {
+      setActiveTab('objective');
+      return true; // Trap: Switch tab back to default
+    }
+    onClose();
+    return true; // Trap: Manually close modal
+  };
+
+  // Sync Hardware Button
+  useBackHandler(handleAppBack, isOpen);
+
   const handleSubjectClick = (subject: string) => {
     setSelectedSubject(subject);
   };
@@ -47,26 +65,7 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
   const handleYearClick = (year: number) => {
     if (selectedSubject) {
       onSelectYear(selectedSubject, year, activeTab);
-      // We don't close here automatically; parent handles closing/navigation
     }
-  };
-
-  // Smart Back Logic
-  const handleBack = () => {
-      // 1. If Subject is selected, deselect it (Go back to Subject Grid)
-      if (selectedSubject) {
-          setSelectedSubject(null);
-          return;
-      }
-
-      // 2. If on Subjective Tab, switch to Objective Tab
-      if (activeTab === 'subjective') {
-          setActiveTab('objective');
-          return;
-      }
-
-      // 3. If on Objective Tab (root state), Close Modal
-      onClose();
   };
 
   return (
@@ -95,7 +94,8 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
 
                     {/* Header */}
                     <div className="px-5 py-4 bg-white/80 backdrop-blur-sm border-b border-gray-100 flex items-center gap-3 sticky top-0 z-30 shadow-sm shrink-0">
-                        <button onClick={handleBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors -ml-1 active:scale-95">
+                        {/* UI Back Button triggers same logic as hardware back */}
+                        <button onClick={handleAppBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors -ml-1 active:scale-95">
                             <ChevronLeft size={24} />
                         </button>
                         <h2 className="text-xl font-black text-gray-900 tracking-tight">Practice PYQs</h2>

@@ -17,8 +17,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   setComingSoonTitle, 
   onOpenInfinity, 
   onOpenPYQ, 
-  onOpenDashboard,
-  onOpenAchievements,
+  onOpenDashboard, 
+  onOpenAchievements, 
   navigate 
 }) => {
   const [activeSlide, setActiveSlide] = useState(0);
@@ -56,6 +56,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       id: 'builder',
       bg: 'bg-brand-600',
       image: 'https://images.unsplash.com/photo-1555099962-4199c345e5dd?auto=format&fit=crop&q=80&w=800', 
+      profileImg: 'https://raw.githubusercontent.com/socialinfi321-svgph/superkar-reviews/main/IMG_20260106_085046.jpg', 
       title: 'Prem Kashyap',
       subtitle: 'Builder of Raftaar',
       desc: 'Coding the future of BSEB education.',
@@ -167,6 +168,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                                     </div>
                                 )}
                             </div>
+                            
+                            {/* Top Right Profile Image (For Builder Slide) */}
+                            {/* Using "as any" to access profileImg because not all slides have it */}
+                            {(slide as any).profileImg && (
+                                <div className="absolute top-4 right-4 z-20 flex flex-col items-end animate-fade-in">
+                                    <div className="w-[110px] h-[110px] rounded-full border-4 border-white/30 shadow-2xl overflow-hidden bg-white/10 backdrop-blur-md">
+                                        <img src={(slide as any).profileImg} className="w-full h-full object-cover" alt="Profile" />
+                                    </div>
+                                </div>
+                            )}
                             
                             {/* Content */}
                             {slide.isHero ? (

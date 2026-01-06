@@ -9,6 +9,7 @@ import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
 import { Profile, DashboardStats } from '../types';
 import { api } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 interface DashboardModalProps {
   isOpen: boolean;
@@ -20,6 +21,15 @@ interface DashboardModalProps {
 export const DashboardModal: React.FC<DashboardModalProps> = ({ isOpen, profile, onBack, userId }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // --- UNIFIED BACK LOGIC ---
+  const handleAppBack = () => {
+    onBack();
+    return true; // Trap: Manually close the modal
+  };
+
+  // Sync Hardware Button
+  useBackHandler(handleAppBack, isOpen);
 
   // Fetch data only when Modal is OPEN
   useEffect(() => {
@@ -107,7 +117,8 @@ export const DashboardModal: React.FC<DashboardModalProps> = ({ isOpen, profile,
 
                         <div className="relative z-10 px-5 pt-5">
                         <div className="flex justify-between items-center mb-4">
-                            <button onClick={onBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 active:bg-white/10 transition-all hover:scale-105">
+                            {/* UI Back Button triggers same logic as hardware back */}
+                            <button onClick={handleAppBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 active:bg-white/10 transition-all hover:scale-105">
                             <ArrowLeft size={18} className="text-white" />
                             </button>
                             <div className="flex items-center gap-2 px-3 py-1 bg-white/5 backdrop-blur-md rounded-full border border-white/10 shadow-lg">

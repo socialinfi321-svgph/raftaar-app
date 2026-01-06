@@ -1,8 +1,8 @@
-
 import React, { useState } from 'react';
 import { api } from '../services/api';
-import { Loader2, ArrowRight, User, MapPin, Phone, Languages, ChevronLeft } from 'lucide-react';
+import { Loader2, ArrowRight, User, MapPin, Phone, Languages, ChevronLeft, ShieldCheck, Sparkles, GraduationCap, Trophy, Target, Atom, PenTool, NotebookText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any) => void }) => {
   const [step, setStep] = useState(1);
@@ -14,8 +14,20 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
     fullName: '',
     location: '',
     mobileNumber: '',
-    examLanguage: 'English' as 'Hindi' | 'English'
+    examLanguage: 'Hindi' as 'Hindi' | 'English'
   });
+
+  // --- UNIFIED BACK LOGIC ---
+  const handleAppBack = () => {
+     if (step > 1) {
+         setStep(prev => prev - 1);
+         return true; // Trap: Go to previous step
+     }
+     return false; // Let browser exit app or go back in history if on step 1
+  };
+
+  // Sync Hardware Back
+  useBackHandler(handleAppBack, step > 1);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -28,16 +40,11 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
     setStep(prev => prev + 1);
   };
 
-  const handleBack = () => {
-    setStep(prev => prev - 1);
-  };
-
   const handleSubmit = async () => {
     setError('');
     setLoading(true);
 
     try {
-      // Use the new simplified Auth method
       const { user, session, error: authError } = await api.registerOrLogin({
           fullName: formData.fullName,
           mobileNumber: formData.mobileNumber,
@@ -51,80 +58,109 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
           onLoginSuccess(session);
       }
     } catch (err: any) {
-      setError(err.message || "Something went wrong. Please try again.");
+      setError(err.message || "Connection failed. Please check your internet.");
       setLoading(false);
     }
   };
 
-  // Animation variants
   const variants = {
     enter: (direction: number) => ({
-      x: direction > 0 ? 50 : -50,
-      opacity: 0
+      x: direction > 0 ? 20 : -20,
+      opacity: 0,
     }),
     center: {
-      zIndex: 1,
       x: 0,
-      opacity: 1
+      opacity: 1,
     },
     exit: (direction: number) => ({
-      zIndex: 0,
-      x: direction < 0 ? 50 : -50,
-      opacity: 0
+      x: direction < 0 ? 20 : -20,
+      opacity: 0,
     })
   };
 
   return (
-    <div className="h-screen flex flex-col bg-white relative overflow-hidden font-sans">
+    <div className="h-screen flex flex-col bg-brand-50 relative overflow-hidden font-sans text-slate-900">
         
-        {/* Background Decors */}
-        <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-brand-100 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-purple-100 rounded-full blur-3xl opacity-50 pointer-events-none"></div>
-        
-        <div className="flex-1 flex flex-col justify-center px-8 relative z-10 max-w-md mx-auto w-full">
+        {/* --- FIXED BACKGROUND ART (No Animation) --- */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            {/* Top Right Blob */}
+            <div className="absolute -top-[10%] -right-[10%] w-[80vw] h-[80vw] bg-gradient-to-br from-brand-200 to-blue-100 rounded-full blur-3xl opacity-50"></div>
+            {/* Bottom Left Blob */}
+            <div className="absolute -bottom-[10%] -left-[10%] w-[70vw] h-[70vw] bg-gradient-to-tr from-purple-200 to-pink-100 rounded-full blur-3xl opacity-50"></div>
             
-            {/* Header / Logo */}
-            <div className="mb-10 text-center">
-                <div className="flex justify-center mb-4">
-                    <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center shadow-xl transform rotate-6">
-                         <span className="text-white text-4xl font-black">R</span>
-                    </div>
-                </div>
-                <h1 className="text-2xl font-black text-gray-900 tracking-tight">Raftaar Series</h1>
-                
-                {/* Progress Indicators */}
-                <div className="flex justify-center gap-2 mt-6">
-                    {[1, 2, 3, 4].map(i => (
-                        <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${step >= i ? 'w-8 bg-brand-600' : 'w-2 bg-gray-200'}`}></div>
-                    ))}
-                </div>
+            {/* --- STATIONARY ICONS (Test Series Theme) --- */}
+            
+            {/* Atom - Science */}
+            <div className="absolute top-[15%] left-[8%] text-brand-300 opacity-60">
+                <Atom size={56} strokeWidth={1.5} />
+            </div>
+            
+            {/* Target - Goal */}
+            <div className="absolute top-[12%] right-[10%] text-blue-300 opacity-60">
+                <Target size={40} strokeWidth={1.5} />
             </div>
 
-            {/* Error Message */}
-            {error && (
-                <div className="mb-6 bg-red-50 p-3 rounded-xl border border-red-100 text-center">
-                    <p className="text-red-600 text-xs font-bold">{error}</p>
-                </div>
-            )}
+            {/* Notebook - Study/Test */}
+            <div className="absolute bottom-[20%] left-[5%] text-slate-300 opacity-50 transform -rotate-12">
+                <NotebookText size={120} strokeWidth={1} />
+            </div>
 
-            {/* Wizard Steps */}
+            {/* Pen - Writing/Exam */}
+            <div className="absolute bottom-[25%] right-[5%] text-brand-300 opacity-50 transform rotate-12">
+                <PenTool size={100} strokeWidth={1} />
+            </div>
+
+            {/* Trophy - Success */}
+            <div className="absolute top-[40%] right-[5%] text-purple-300 opacity-40">
+                <Trophy size={32} strokeWidth={1.5} />
+            </div>
+        </div>
+
+        {/* --- HEADER LOGO --- */}
+        <div className="relative z-10 pt-16 pb-8 flex flex-col items-center justify-center shrink-0">
+            <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center shadow-2xl shadow-brand-500/30 transform -rotate-3 border border-white/20">
+                    <span className="text-white font-black text-2xl italic font-sans pr-1">R</span>
+                </div>
+                <div>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tighter leading-none">RAFTAAR</h1>
+                    <span className="text-[9px] font-bold text-brand-600 uppercase tracking-[0.3em] block mt-1">Test Series App</span>
+                </div>
+            </div>
+        </div>
+
+        {/* --- MAIN CONTENT AREA --- */}
+        <div className="flex-1 relative z-20 flex flex-col px-8 pb-10 max-w-md mx-auto w-full justify-center">
+            
+            {/* Progress Bar (Thin & Sleek) */}
+            <div className="w-full h-1 bg-slate-200/50 rounded-full mb-8 overflow-hidden">
+                <motion.div 
+                    className="h-full bg-brand-600 rounded-full"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(step / 4) * 100}%` }}
+                    transition={{ duration: 0.4 }}
+                />
+            </div>
+
             <div className="relative min-h-[300px]">
-                <AnimatePresence mode='wait'>
+                <AnimatePresence mode='wait' custom={step}>
                     
                     {/* STEP 1: NAME */}
                     {step === 1 && (
-                        <motion.div key="step1" variants={variants} initial="enter" animate="center" exit="exit" transition={{type:"spring", stiffness: 300, damping: 30}} className="absolute inset-0">
-                            <h2 className="text-3xl font-black text-gray-900 mb-2">What's your name?</h2>
-                            <p className="text-gray-500 mb-8 font-medium">Let's get to know each other.</p>
+                        <motion.div key="step1" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
+                            <h2 className="text-3xl font-black text-slate-900 mb-2">Welcome!</h2>
+                            <p className="text-slate-500 font-medium mb-8">Enter your name to begin your test series.</p>
                             
                             <div className="relative group">
-                                <User className="absolute left-4 top-4 text-brand-600" size={20} />
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-500">
+                                    <User size={20} />
+                                </div>
                                 <input 
                                     autoFocus
                                     name="fullName"
                                     type="text" 
-                                    placeholder="Enter Full Name" 
-                                    className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-2xl font-bold text-lg border-2 border-transparent focus:border-brand-500 focus:bg-white outline-none transition-all placeholder-gray-400 text-gray-900"
+                                    placeholder="Enter your name" 
+                                    className="w-full bg-white border border-white shadow-sm rounded-2xl py-4 pl-12 pr-4 text-lg font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-300 transition-all"
                                     value={formData.fullName}
                                     onChange={handleChange}
                                     onKeyDown={(e) => e.key === 'Enter' && handleNext()}
@@ -135,18 +171,20 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
 
                     {/* STEP 2: LOCATION */}
                     {step === 2 && (
-                        <motion.div key="step2" variants={variants} initial="enter" animate="center" exit="exit" transition={{type:"spring", stiffness: 300, damping: 30}} className="absolute inset-0">
-                            <h2 className="text-3xl font-black text-gray-900 mb-2">Where do you live?</h2>
-                            <p className="text-gray-500 mb-8 font-medium">City, Village or District.</p>
+                        <motion.div key="step2" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
+                            <h2 className="text-3xl font-black text-slate-900 mb-2">Location</h2>
+                            <p className="text-slate-500 font-medium mb-8">Which city or district are you from?</p>
                             
                             <div className="relative group">
-                                <MapPin className="absolute left-4 top-4 text-brand-600" size={20} />
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-500">
+                                    <MapPin size={20} />
+                                </div>
                                 <input 
                                     autoFocus
                                     name="location"
                                     type="text" 
-                                    placeholder="e.g. Patna, Bihar" 
-                                    className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-2xl font-bold text-lg border-2 border-transparent focus:border-brand-500 focus:bg-white outline-none transition-all placeholder-gray-400 text-gray-900"
+                                    placeholder="Enter City/District" 
+                                    className="w-full bg-white border border-white shadow-sm rounded-2xl py-4 pl-12 pr-4 text-lg font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-300 transition-all"
                                     value={formData.location}
                                     onChange={handleChange}
                                     onKeyDown={(e) => e.key === 'Enter' && handleNext()}
@@ -157,94 +195,110 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
 
                     {/* STEP 3: PHONE */}
                     {step === 3 && (
-                        <motion.div key="step3" variants={variants} initial="enter" animate="center" exit="exit" transition={{type:"spring", stiffness: 300, damping: 30}} className="absolute inset-0">
-                            <h2 className="text-3xl font-black text-gray-900 mb-2">Mobile Number</h2>
-                            <p className="text-gray-500 mb-8 font-medium">This will be your unique ID.</p>
+                        <motion.div key="step3" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
+                            <h2 className="text-3xl font-black text-slate-900 mb-2">Mobile</h2>
+                            <p className="text-slate-500 font-medium mb-8">Enter your 10-digit number to login.</p>
                             
-                            <div className="relative group">
-                                <Phone className="absolute left-4 top-4 text-brand-600" size={20} />
-                                <input 
-                                    autoFocus
-                                    name="mobileNumber"
-                                    type="tel" 
-                                    maxLength={10}
-                                    placeholder="9876543210" 
-                                    className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-2xl font-bold text-lg border-2 border-transparent focus:border-brand-500 focus:bg-white outline-none transition-all placeholder-gray-400 text-gray-900"
-                                    value={formData.mobileNumber}
-                                    onChange={(e) => {
-                                        const val = e.target.value.replace(/\D/g, '');
-                                        setFormData({...formData, mobileNumber: val});
-                                    }}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleNext()}
-                                />
+                            <div className="space-y-4">
+                                <div className="relative group">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-500">
+                                        <Phone size={20} />
+                                    </div>
+                                    <span className="absolute left-11 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400 border-r border-slate-200 pr-2 mr-2">+91</span>
+                                    <input 
+                                        autoFocus
+                                        name="mobileNumber"
+                                        type="tel" 
+                                        maxLength={10}
+                                        placeholder="00000 00000" 
+                                        className="w-full bg-white border border-white shadow-sm rounded-2xl py-4 pl-28 pr-4 text-lg font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-300 transition-all"
+                                        value={formData.mobileNumber}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/\D/g, '');
+                                            setFormData({...formData, mobileNumber: val});
+                                        }}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleNext()}
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2 px-2 opacity-60">
+                                    <ShieldCheck size={12} className="text-brand-700" />
+                                    <p className="text-[10px] text-brand-800 font-bold">Secure Login • OTP Verification</p>
+                                </div>
                             </div>
                         </motion.div>
                     )}
 
                     {/* STEP 4: LANGUAGE */}
                     {step === 4 && (
-                        <motion.div key="step4" variants={variants} initial="enter" animate="center" exit="exit" transition={{type:"spring", stiffness: 300, damping: 30}} className="absolute inset-0">
-                            <h2 className="text-3xl font-black text-gray-900 mb-2">Exam Language</h2>
-                            <p className="text-gray-500 mb-8 font-medium">Select your preferred medium.</p>
+                        <motion.div key="step4" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
+                            <h2 className="text-3xl font-black text-slate-900 mb-2">Medium</h2>
+                            <p className="text-slate-500 font-medium mb-8">Select your preferred exam language.</p>
                             
-                            <div className="grid grid-cols-1 gap-4">
-                                {['Hindi', 'English'].map((lang) => (
-                                    <div 
-                                        key={lang}
-                                        onClick={() => setFormData({...formData, examLanguage: lang as any})}
-                                        className={`p-5 rounded-2xl border-2 cursor-pointer transition-all flex items-center justify-between ${formData.examLanguage === lang ? 'border-brand-600 bg-brand-50' : 'border-gray-100 hover:border-gray-200'}`}
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${formData.examLanguage === lang ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                                                <Languages size={20} />
+                            <div className="grid grid-cols-1 gap-3">
+                                {['Hindi', 'English'].map((lang) => {
+                                    const isSelected = formData.examLanguage === lang;
+                                    return (
+                                        <div 
+                                            key={lang}
+                                            onClick={() => setFormData({...formData, examLanguage: lang as any})}
+                                            className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between active:scale-[0.98] ${isSelected ? 'border-brand-500 bg-white shadow-lg shadow-brand-500/10 ring-1 ring-brand-500' : 'border-transparent bg-white shadow-sm hover:bg-white/80'}`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${isSelected ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-400'}`}>
+                                                    <Languages size={20} />
+                                                </div>
+                                                <div>
+                                                    <h3 className={`font-bold text-lg ${isSelected ? 'text-brand-900' : 'text-slate-700'}`}>{lang}</h3>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h3 className="font-bold text-lg text-gray-900">{lang}</h3>
-                                                <p className="text-xs text-gray-500 font-medium">{lang === 'Hindi' ? 'हिंदी माध्यम' : 'English Medium'}</p>
-                                            </div>
+                                            {isSelected && <div className="w-5 h-5 bg-brand-600 rounded-full flex items-center justify-center"><div className="w-2 h-2 bg-white rounded-full"></div></div>}
                                         </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         </motion.div>
                     )}
 
                 </AnimatePresence>
             </div>
+            
+            {/* ERROR MESSAGE */}
+            {error && (
+                <div className="mb-4 text-center">
+                    <p className="text-red-500 text-xs font-bold bg-white/80 py-2 px-4 rounded-full inline-block shadow-sm border border-red-100 animate-pulse">{error}</p>
+                </div>
+            )}
 
-            {/* Navigation Buttons */}
-            <div className="mt-auto mb-8 flex gap-4">
-                {step > 1 && (
+            {/* NAVIGATION BUTTONS */}
+            <div className="flex items-center gap-4 mt-auto z-30">
+                 {step > 1 && (
+                    // UI Back Button triggers same logic as hardware back
                     <button 
-                        onClick={handleBack}
-                        disabled={loading}
-                        className="w-14 h-14 rounded-2xl bg-gray-100 text-gray-600 flex items-center justify-center hover:bg-gray-200 transition-colors"
+                        onClick={handleAppBack}
+                        className="w-14 h-14 rounded-full bg-white shadow-md text-slate-400 flex items-center justify-center hover:text-slate-600 transition-colors"
                     >
                         <ChevronLeft size={24} />
                     </button>
-                )}
-                
-                {step < 4 ? (
-                    <button 
-                        onClick={handleNext}
-                        disabled={
-                            (step === 1 && !formData.fullName) || 
-                            (step === 2 && !formData.location) || 
-                            (step === 3 && formData.mobileNumber.length < 10)
-                        }
-                        className="flex-1 h-14 bg-black text-white rounded-2xl font-bold text-lg shadow-xl shadow-gray-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
-                    >
-                        Next <ArrowRight size={20} />
-                    </button>
-                ) : (
-                    <button 
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="flex-1 h-14 bg-brand-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-brand-200 disabled:opacity-70 hover:scale-[1.02] transition-transform flex items-center justify-center gap-2"
-                    >
-                        {loading ? <Loader2 className="animate-spin" /> : 'Start Learning'}
-                    </button>
-                )}
+                 )}
+                 
+                 <button 
+                    onClick={step < 4 ? handleNext : handleSubmit}
+                    disabled={
+                        (step === 1 && !formData.fullName) || 
+                        (step === 2 && !formData.location) || 
+                        (step === 3 && formData.mobileNumber.length < 10) ||
+                        loading
+                    }
+                    className="flex-1 h-14 bg-slate-900 text-white rounded-full font-bold text-lg shadow-xl shadow-slate-900/20 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                 >
+                    {loading ? <Loader2 className="animate-spin" /> : (
+                        step < 4 ? (
+                            <>Next <ArrowRight size={20} /></>
+                        ) : (
+                            <>Start Learning <Sparkles size={18} /></>
+                        )
+                    )}
+                 </button>
             </div>
 
         </div>

@@ -3,30 +3,29 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ZoomIn, ZoomOut, CheckCircle } from 'lucide-react';
 import { PYQQuestion, Language } from '../types';
 import { api } from '../services/api';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 interface PYQSubjectiveScreenProps {
   subject: string;
   year: number;
   onExit: () => void;
-  defaultLanguage?: 'Hindi' | 'English';
 }
 
-export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ 
-    subject, 
-    year, 
-    onExit,
-    defaultLanguage = 'English'
-}) => {
+export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subject, year, onExit }) => {
   const [questions, setQuestions] = useState<PYQQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [lang, setLang] = useState<Language>(defaultLanguage === 'Hindi' ? 'hi' : 'en');
+  const [lang, setLang] = useState<Language>('en');
   const [fontSize, setFontSize] = useState(16); // Base font size
 
-  // Sync Language if prop changes (e.g. profile loaded late)
-  useEffect(() => {
-    setLang(defaultLanguage === 'Hindi' ? 'hi' : 'en');
-  }, [defaultLanguage]);
+  // --- UNIFIED BACK LOGIC ---
+  const handleAppBack = () => {
+    onExit(); 
+    return true; // Trap: onExit handles the navigation
+  };
+
+  // Sync Hardware Button
+  useBackHandler(handleAppBack);
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -73,7 +72,8 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
     return (
       <div className="h-full flex flex-col items-center justify-center bg-white">
         <p className="text-gray-500 font-medium">No subjective questions found for this year.</p>
-        <button onClick={onExit} className="mt-4 px-6 py-2 bg-gray-100 rounded-lg text-sm font-bold">Go Back</button>
+        {/* UI Back Button triggers same logic as hardware back */}
+        <button onClick={handleAppBack} className="mt-4 px-6 py-2 bg-gray-100 rounded-lg text-sm font-bold">Go Back</button>
       </div>
     );
   }
@@ -84,7 +84,8 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
       {/* 1. Header */}
       <div className="px-4 py-3 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-3">
-          <button onClick={onExit} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
+          {/* UI Back Button triggers same logic as hardware back */}
+          <button onClick={handleAppBack} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
             <ArrowLeft size={22} />
           </button>
           <div>
@@ -121,7 +122,7 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
                 />
             ))}
         </div>
-        <button onClick={() => setLang(l => l==='en'?'hi':'en')} className="flex items-center gap-1 bg-white px-3 py-1 rounded-full border border-gray-200 text-[10px] font-bold text-gray-600 shadow-sm shrink-0 active:scale-95 transition-transform">
+        <button onClick={() => setLang(l => l==='en'?'hi':'en')} className="flex items-center gap-1 bg-white px-3 py-1 rounded-full border border-gray-200 text-[10px] font-bold text-gray-600 shadow-sm shrink-0">
             {lang === 'en' ? 'ENG' : 'HIN'}
         </button>
       </div>

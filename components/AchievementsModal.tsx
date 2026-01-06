@@ -3,6 +3,7 @@ import React from 'react';
 import { ChevronLeft, Medal, Lock, Star, Crown, Award, CheckCircle2, Zap, TrendingUp, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Profile } from '../types';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 interface AchievementsModalProps {
   isOpen: boolean;
@@ -13,6 +14,15 @@ interface AchievementsModalProps {
 export const AchievementsModal: React.FC<AchievementsModalProps> = ({ isOpen, profile, onBack }) => {
   const totalXP = profile?.total_xp || 0;
   const weeklyXP = profile?.weekly_xp || 0;
+
+  // --- UNIFIED BACK LOGIC ---
+  const handleAppBack = () => {
+    onBack();
+    return true; // Trap: Manually close the modal
+  };
+
+  // Sync Hardware Button
+  useBackHandler(handleAppBack, isOpen);
 
   const achievements = [
     {
@@ -124,7 +134,8 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ isOpen, pr
               {/* Header */}
               <div className="px-5 py-4 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-30 shadow-sm shrink-0">
                 <div className="flex items-center gap-3">
-                    <button onClick={onBack} className="p-1 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors active:scale-95">
+                    {/* UI Back Button triggers same logic as hardware back */}
+                    <button onClick={handleAppBack} className="p-1 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors active:scale-95">
                         <ChevronLeft size={28} />
                     </button>
                     <h2 className="text-xl font-black text-gray-900 tracking-tight">Achievements</h2>

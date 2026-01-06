@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Question, Language } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock } from 'lucide-react';
+import { useBackHandler } from '../hooks/useBackHandler';
 
 interface TestInterfaceProps {
   questions: Question[];
@@ -11,7 +12,7 @@ interface TestInterfaceProps {
   onComplete: (stats: { correct: number, wrong: number, skipped: number, totalTime: number }) => void;
   onExit: () => void;
   onAnswerSubmit: (qId: number, option: string, isCorrect: boolean, timeTaken: number) => void;
-  defaultLanguage?: 'Hindi' | 'English'; // NEW Prop
+  defaultLanguage?: 'Hindi' | 'English'; 
 }
 
 export const TestInterface: React.FC<TestInterfaceProps> = ({ 
@@ -23,10 +24,8 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
     onAnswerSubmit,
     defaultLanguage = 'English'
 }) => {
-  // Convert 'English'/'Hindi' to 'en'/'hi'
   const [lang, setLang] = useState<Language>(defaultLanguage === 'Hindi' ? 'hi' : 'en');
   
-  // FIX: Update language when profile loads or prop changes
   useEffect(() => {
       setLang(defaultLanguage === 'Hindi' ? 'hi' : 'en');
   }, [defaultLanguage]);
@@ -43,6 +42,24 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
   const [showExitModal, setShowExitModal] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Centralized Logic for Back Action
+  const handleNavigationBack = () => {
+     if (showExitModal) {
+         setShowExitModal(false); // Close Modal if open
+         return true; 
+     }
+     if (!submitting) {
+         setShowExitModal(true); // Open Modal
+         return true;
+     }
+     return true; // Trap if submitting
+  };
+
+  // Sync Hardware Back Button
+  useBackHandler(() => {
+    return handleNavigationBack();
+  }, !submitting); 
 
   // Initialize Grid
   useEffect(() => {
@@ -160,7 +177,8 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
         {/* --- HEADER --- */}
         <div className="px-4 py-2 bg-white border-b border-gray-100 flex justify-between items-center z-20 shadow-sm h-14">
              <div className="flex items-center gap-3">
-                 <button onClick={() => setShowExitModal(true)} className="text-gray-500 hover:text-gray-700 p-1 -ml-1 rounded-full active:bg-gray-100">
+                 {/* UI Back Button */}
+                 <button onClick={handleNavigationBack} className="text-gray-500 hover:text-gray-700 p-1 -ml-1 rounded-full active:bg-gray-100">
                     <ArrowLeft size={20} />
                  </button>
                  
