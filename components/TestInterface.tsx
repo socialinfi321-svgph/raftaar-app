@@ -174,8 +174,8 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
   return (
     <div className="flex flex-col h-screen bg-white relative font-sans animate-fade-in">
         
-        {/* --- HEADER (Safe Area pt-12) --- */}
-        <div className="px-4 pt-12 pb-2 bg-white border-b border-gray-100 flex justify-between items-center z-20 shadow-sm">
+        {/* --- HEADER --- */}
+        <div className="px-4 py-2 bg-white border-b border-gray-100 flex justify-between items-center z-20 shadow-sm h-14">
              <div className="flex items-center gap-3">
                  {/* UI Back Button */}
                  <button onClick={handleNavigationBack} className="text-gray-500 hover:text-gray-700 p-1 -ml-1 rounded-full active:bg-gray-100">

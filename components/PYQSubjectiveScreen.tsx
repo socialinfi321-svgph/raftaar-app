@@ -81,8 +81,8 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ subjec
   return (
     <div className="h-full flex flex-col bg-white font-sans animate-fade-in">
       
-      {/* 1. Header (Safe Area pt-12) */}
-      <div className="px-4 pt-12 pb-3 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
+      {/* 1. Header */}
+      <div className="px-4 py-3 bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-3">
           {/* UI Back Button triggers same logic as hardware back */}
           <button onClick={handleAppBack} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">

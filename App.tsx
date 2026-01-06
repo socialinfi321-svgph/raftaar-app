@@ -30,11 +30,11 @@ const RaftaarLogo = () => (
   </div>
 );
 
-// Updated Coming Soon Page with Safe Area Header
+// Updated Coming Soon Page with Header
 const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, title: string, profile: Profile | null }) => (
   <div className="h-full flex flex-col bg-white font-sans animate-fade-in">
-    {/* Header with Safe Area (pt-12) */}
-    <div className="sticky top-0 z-30 px-5 pt-12 pb-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+    {/* Header */}
+    <div className="sticky top-0 z-30 px-5 py-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
         <div className="flex items-center gap-3">
             <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors active:scale-95">
                 <ArrowLeft size={20} />
@@ -82,7 +82,7 @@ const SubjectIcon = ({ subject }: { subject: string }) => {
   );
 };
 
-// Exam Screen with Safe Area
+// Exam Screen
 const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile: Profile | null, navigate: any }) => {
     
     // Explicitly navigate Home on back
@@ -93,8 +93,8 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
 
     return (
         <div className="h-full flex flex-col bg-white">
-            {/* Header with Safe Area (pt-12) */}
-            <div className="sticky top-0 z-30 px-5 pt-12 pb-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+            {/* Header */}
+            <div className="sticky top-0 z-30 px-5 py-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
                 <h2 className="text-xl font-black text-gray-900">Live Exam</h2>
                 <div className="flex items-center gap-3 ml-auto">
                     <div className="flex items-center gap-1 text-brand-600 font-black">
@@ -123,7 +123,7 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
     );
 };
 
-// Practice Screen with Safe Area
+// Practice Screen
 const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapter: (subject: string, chapter: string) => void, navigate: any, profile: Profile | null }) => {
     const [subjects, setSubjects] = useState<string[]>([]);
     const [searchParams, setSearchParams] = useSearchParams();
@@ -162,8 +162,7 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
 
     return (
         <div className="h-full flex flex-col bg-white">
-            {/* Header with Safe Area (pt-12) */}
-            <div className="sticky top-0 z-30 px-5 pt-12 pb-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+            <div className="sticky top-0 z-30 px-5 py-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
@@ -279,7 +278,7 @@ export default function App() {
   // --- DOUBLE BACK TO EXIT LOGIC ---
   useBackHandler(() => {
     // Only active on Root Route and when NO modals are open
-    if (location.pathname === '/' && !isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen) {
+    if (!isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen) {
         if (exitAttempted) {
             return false; // Let browser exit/suspend
         } else {
@@ -288,32 +287,22 @@ export default function App() {
             return true; // Trap back
         }
     }
-    return false; // Let other handlers or default behavior work if modals are open or not on home
-  }, location.pathname === '/' && !isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen);
+    return false; // Let other handlers or default behavior work if modals are open
+  }, location.pathname === '/');
 
-  // --- AUTH PERSISTENCE LOGIC ---
   useEffect(() => {
-    // 1. Initial Session Check
-    const initSession = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
+    supabase.auth.getSession().then(({ data: { session } }) => {
         setSession(session);
         if (session) {
-            await fetchProfile(session.user.id);
+            fetchProfile(session.user.id);
         }
         setIsAppInitializing(false);
-    };
-    initSession();
+    });
 
-    // 2. Auth State Listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) {
-          await fetchProfile(session.user.id);
-      } else {
-          setUserProfile(null);
-      }
-      // Ensure app isn't stuck in loading state if auth state changes
-      setIsAppInitializing(false);
+      if (session) fetchProfile(session.user.id);
+      else setUserProfile(null);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -357,14 +346,11 @@ export default function App() {
   const fetchProfile = async (userId: string) => {
     const data = await api.getProfile(userId);
     if (!data) {
-        // Retry creating profile if missing (resilience)
         const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const fullName = user?.user_metadata?.full_name || 'Student';
-            const avatarUrl = user?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`;
-            const newProfile = await api.createProfile(userId, fullName, avatarUrl);
-            if (newProfile) setUserProfile(newProfile);
-        }
+        const fullName = user?.user_metadata?.full_name || 'Student';
+        const avatarUrl = user?.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`;
+        const newProfile = await api.createProfile(userId, fullName, avatarUrl);
+        if (newProfile) setUserProfile(newProfile);
     } else {
         setUserProfile(data);
     }
@@ -445,8 +431,7 @@ export default function App() {
     <div className="max-w-md mx-auto h-screen flex flex-col bg-[#f8faff] font-sans relative shadow-2xl overflow-hidden text-gray-900">
         
         {showTopHeader && (
-            // Safe Area pt-12 (approx 48px)
-            <div className="px-5 pt-12 pb-3 bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm">
+            <div className="px-5 py-3 bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-2"><RaftaarLogo /></div>
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end">
@@ -625,7 +610,7 @@ export default function App() {
             profile={userProfile}
         />
 
-        {/* Exit Toast Notification - WHITE THEME */}
+        {/* Exit Toast Notification */}
         <AnimatePresence>
             {exitAttempted && (
                 <motion.div 
