@@ -34,6 +34,16 @@ html, body, #root {
   margin-bottom: var(--sab);
 }
 
+/* 
+   YouTube-Style Header Spacing 
+   Ensures at least 35px of padding for the status bar, 
+   preventing content from being hidden behind the notch 
+   even if the browser reports 0px safe area.
+*/
+.pt-safe-header {
+  padding-top: max(env(safe-area-inset-top), 35px);
+}
+
 /* Header offset: Standard header height + Safe Area 
    Removed the large offset versions to force use of tighter padding 
    in components directly.

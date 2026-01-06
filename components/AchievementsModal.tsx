@@ -4,6 +4,7 @@ import { ChevronLeft, Medal, Lock, Star, Crown, Award, CheckCircle2, Zap, Trendi
 import { motion, AnimatePresence } from 'framer-motion';
 import { Profile } from '../types';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 interface AchievementsModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface AchievementsModalProps {
 }
 
 export const AchievementsModal: React.FC<AchievementsModalProps> = ({ isOpen, profile, onBack }) => {
+  useThemeColor('#ffffff');
   const totalXP = profile?.total_xp || 0;
   const weeklyXP = profile?.weekly_xp || 0;
 
@@ -118,8 +120,8 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ isOpen, pr
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
               className="fixed inset-y-0 right-0 w-full max-w-md bg-white z-50 shadow-2xl flex flex-col h-[100dvh] overflow-hidden font-sans text-slate-900"
             >
-              {/* Header with Safe Area (pt-safe) */}
-              <div className="px-5 py-4 pt-safe bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-30 shadow-sm shrink-0">
+              {/* Header with Safe Area (pt-safe-header) */}
+              <div className="px-5 pb-4 pt-safe-header bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-50 shadow-sm shrink-0">
                 <div className="flex items-center gap-3">
                     <button onClick={handleAppBack} className="p-1 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors active:scale-95">
                         <ChevronLeft size={28} />

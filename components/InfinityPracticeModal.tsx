@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Check, FlaskConical, Atom, Calculator, Dna, Languages, BookType, Tablet, PenTool } from 'lucide-react';
 import { api } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 interface InfinityPracticeModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
   onUpdateSubject,
   instantOpen = false
 }) => {
+  useThemeColor('#ffffff');
   // We removed local 'step' state. Step is now derived from selectedSubject.
   // If subject is selected -> Step 2. Else -> Step 1.
   const [selectedSubject, setSelectedSubject] = useState<string | null>(initialSubject || null);
@@ -127,8 +129,8 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
             className="fixed inset-y-0 right-0 w-full max-w-md bg-white z-50 shadow-2xl flex flex-col h-[100dvh] overflow-hidden font-sans"
           >
-            <div className="bg-white shadow-sm z-20 border-b border-gray-100 shrink-0">
-                <div className="pt-safe py-3 px-5 flex items-center gap-3">
+            <div className="bg-white shadow-sm z-20 border-b border-gray-100 shrink-0 sticky top-0">
+                <div className="pt-safe-header pb-4 px-5 flex items-center gap-3">
                     <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-2 rounded-full active:bg-gray-100">
                         <ChevronLeft size={28} strokeWidth={2.5} />
                     </button>

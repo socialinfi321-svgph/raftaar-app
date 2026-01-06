@@ -4,8 +4,10 @@ import { api } from '../services/api';
 import { Loader2, ArrowRight, User, MapPin, Phone, Languages, ChevronLeft, ShieldCheck, Sparkles, GraduationCap, Trophy, Target, Atom, PenTool, NotebookText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any) => void }) => {
+  useThemeColor('#ffffff'); // Using white for login screen
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -101,7 +103,7 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
         </div>
 
         {/* HEADER */}
-        <div className="relative z-10 pt-safe-offset-16 pb-8 flex flex-col items-center justify-center shrink-0">
+        <div className="relative z-10 pt-safe-header pb-8 flex flex-col items-center justify-center shrink-0">
             <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center shadow-2xl shadow-brand-500/30 transform -rotate-3 border border-white/20">
                     <span className="text-white font-black text-2xl italic font-sans pr-1">R</span>

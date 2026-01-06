@@ -4,6 +4,7 @@ import { ArrowLeft, ZoomIn, ZoomOut, CheckCircle } from 'lucide-react';
 import { PYQQuestion, Language } from '../types';
 import { api } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 interface PYQSubjectiveScreenProps {
   subject: string;
@@ -18,6 +19,7 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
     onExit,
     defaultLanguage = 'English' 
 }) => {
+  useThemeColor('#ffffff');
   const [questions, setQuestions] = useState<PYQQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -86,8 +88,8 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
   return (
     <div className="h-[100dvh] flex flex-col bg-white font-sans animate-fade-in">
       
-      {/* 1. Header (Safe Area pt-safe) */}
-      <div className="px-4 py-3 pt-safe bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-20 shadow-sm">
+      {/* 1. Header (Safe Area pt-safe-header) */}
+      <div className="px-4 pb-3 pt-safe-header bg-white border-b border-gray-100 flex justify-between items-center sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-3">
           <button onClick={handleAppBack} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
             <ArrowLeft size={22} />

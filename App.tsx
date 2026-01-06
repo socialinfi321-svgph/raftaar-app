@@ -18,6 +18,7 @@ import { HomeScreen } from './components/HomeScreen';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { useBackHandler } from './hooks/useBackHandler';
+import { useThemeColor } from './hooks/useThemeColor';
 
 const RaftaarLogo = () => (
   <div className="flex items-center gap-2">
@@ -42,9 +43,11 @@ const SplashScreen = () => (
 );
 
 // Full Page Coming Soon
-const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, title: string, profile: Profile | null }) => (
+const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, title: string, profile: Profile | null }) => {
+  useThemeColor('#ffffff');
+  return (
   <div className="h-full flex flex-col bg-white font-sans animate-fade-in">
-    <div className="sticky top-0 z-30 px-5 py-3 pt-safe bg-white flex justify-between items-center border-b border-gray-200 shadow-sm transition-all">
+    <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-white flex justify-between items-center border-b border-gray-200 shadow-sm transition-all">
         <div className="flex items-center gap-3">
             <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors active:scale-95">
                 <ArrowLeft size={20} />
@@ -56,7 +59,7 @@ const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, 
              <span>{profile?.weekly_xp || 0}</span>
         </div>
     </div>
-    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center overflow-y-auto">
         <div className="w-32 h-32 bg-blue-50 rounded-full flex items-center justify-center mb-6 animate-bounce shadow-xl shadow-brand-100">
             <i className="fa-solid fa-rocket text-6xl text-brand-600"></i>
         </div>
@@ -69,7 +72,7 @@ const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, 
         </button>
     </div>
   </div>
-);
+)};
 
 // Subject Icon Helper
 const SubjectIcon = ({ subject }: { subject: string }) => {
@@ -91,6 +94,7 @@ const SubjectIcon = ({ subject }: { subject: string }) => {
 
 // Exam Screen
 const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile: Profile | null, navigate: any }) => {
+    useThemeColor('#ffffff');
     // Navigates HOME on back press
     useBackHandler(() => {
         navigate('/');
@@ -99,7 +103,7 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
 
     return (
         <div className="h-full flex flex-col bg-white">
-            <div className="sticky top-0 z-30 px-5 py-3 pt-safe bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+            <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={() => navigate('/')} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
@@ -134,6 +138,7 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
 
 // Practice Screen
 const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapter: (subject: string, chapter: string) => void, navigate: any, profile: Profile | null }) => {
+    useThemeColor('#ffffff');
     const [subjects, setSubjects] = useState<string[]>([]);
     const [searchParams, setSearchParams] = useSearchParams();
     const selectedSubject = searchParams.get('subject');
@@ -170,7 +175,7 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
 
     return (
         <div className="h-full flex flex-col bg-white">
-            <div className="sticky top-0 z-30 px-5 py-3 pt-safe bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+            <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
@@ -226,6 +231,7 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
 
 // Result Screen
 const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => {
+    useThemeColor('#ffffff');
     if(!stats) return <div className="h-screen flex items-center justify-center">Loading Result...</div>;
     const score = stats.correct * 1; 
     return (
@@ -282,6 +288,9 @@ export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Set default theme color for Home
+  useThemeColor('#ffffff');
 
   // --- DOUBLE BACK TO EXIT LOGIC ---
   useBackHandler(() => {
@@ -427,7 +436,7 @@ export default function App() {
     <div className="max-w-md mx-auto h-[100dvh] flex flex-col bg-[#f8faff] font-sans relative shadow-2xl overflow-hidden text-gray-900">
         
         {showTopHeader && (
-            <div className="px-5 py-3 pt-safe bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm transition-all">
+            <div className="px-5 pb-3 pt-safe-header bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm transition-all">
                 <div className="flex items-center gap-2"><RaftaarLogo /></div>
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end">

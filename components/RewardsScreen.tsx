@@ -4,6 +4,7 @@ import { Crown, Zap, Star, User, ChevronLeft } from 'lucide-react';
 import { Profile } from '../types';
 import { api } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 interface RewardsScreenProps {
   profile: Profile | null;
@@ -12,6 +13,7 @@ interface RewardsScreenProps {
 }
 
 export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, navigate }) => {
+    useThemeColor('#020617'); // Dark slate-950 for status bar
     const [leaderboard, setLeaderboard] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -47,8 +49,8 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
 
     return (
         <div className="h-[100dvh] flex flex-col bg-slate-950 font-sans text-white">
-            {/* Header with Safe Area (pt-safe) */}
-            <div className="sticky top-0 z-30 px-5 py-3 pt-safe bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-lg">
+            {/* Header with Safe Area (pt-safe-header) */}
+            <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-lg">
                 <div className="flex items-center gap-3">
                     <button onClick={() => navigate(-1)} className="text-slate-400 hover:text-white transition-colors p-1 -ml-1 rounded-full active:bg-slate-800">
                         <ChevronLeft size={24} />

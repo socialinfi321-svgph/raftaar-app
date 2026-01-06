@@ -4,6 +4,7 @@ import { Question, Language } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 interface TestInterfaceProps {
   questions: Question[];
@@ -24,6 +25,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
     onAnswerSubmit,
     defaultLanguage = 'English'
 }) => {
+  useThemeColor('#ffffff');
   const [lang, setLang] = useState<Language>(defaultLanguage === 'Hindi' ? 'hi' : 'en');
   
   useEffect(() => {
@@ -175,7 +177,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
     <div className="flex flex-col h-[100dvh] bg-white relative font-sans animate-fade-in overflow-hidden">
         
         {/* --- HEADER (Fixed with Safe Area) --- */}
-        <div className="px-4 py-2 pt-safe bg-white border-b border-gray-100 flex justify-between items-center z-20 shadow-sm shrink-0">
+        <div className="px-4 pb-3 pt-safe-header bg-white border-b border-gray-100 flex justify-between items-center z-50 sticky top-0 shadow-sm shrink-0">
              <div className="flex items-center gap-3">
                  {/* UI Back Button */}
                  <button onClick={handleNavigationBack} className="text-gray-500 hover:text-gray-700 p-1 -ml-1 rounded-full active:bg-gray-100">

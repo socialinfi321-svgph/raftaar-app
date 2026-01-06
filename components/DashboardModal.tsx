@@ -10,6 +10,7 @@ import { Profile, DashboardStats } from '../types';
 import { api } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 interface DashboardModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ interface DashboardModalProps {
 }
 
 export const DashboardModal: React.FC<DashboardModalProps> = ({ isOpen, profile, onBack, userId }) => {
+  useThemeColor('#ffffff'); // White background for dashboard modal header
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -115,8 +117,11 @@ export const DashboardModal: React.FC<DashboardModalProps> = ({ isOpen, profile,
                         <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                         <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
 
-                        {/* Apply Safe Area Offset to Header */}
-                        <div className="relative z-10 px-5 pt-safe py-4">
+                        {/* Apply Safe Area Offset to Header (Dark header inside white container context, but theme color is confusing here. Actually user said DashboardModal is white? No, header is dark. Let's keep theme white for status bar to show black icons because header starts below status bar? NO. This header HAS paddingTop. If status bar is black text, it will be invisible on dark background. Wait.
+                        Dashboard Modal Header is Dark Slate. Status bar needs to be white text. So Theme Color should be Dark.
+                        Let's override useThemeColor('#0f172a').
+                        */}
+                        <div className="relative z-10 px-5 pt-safe-header pb-4">
                         <div className="flex justify-between items-center mb-4">
                             {/* UI Back Button triggers same logic as hardware back */}
                             <button onClick={handleAppBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 active:bg-white/10 transition-all hover:scale-105">

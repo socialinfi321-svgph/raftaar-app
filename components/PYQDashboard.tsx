@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Atom, FlaskConical, Calculator, Dna, Languages, BookType, Sparkles } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useThemeColor } from '../hooks/useThemeColor';
 
 const subjectsList = [
   { name: 'Physics', icon: Atom, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
@@ -30,6 +31,7 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
     initialTab = 'objective', 
     instantOpen = false 
 }) => {
+  useThemeColor('#ffffff');
   const [activeTab, setActiveTab] = useState<'objective' | 'subjective'>(initialTab);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
 
@@ -87,8 +89,8 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
                 >
                     <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 
-                    {/* Header with Safe Area (pt-safe) */}
-                    <div className="px-5 py-4 pt-safe bg-white/80 backdrop-blur-sm border-b border-gray-100 flex items-center gap-3 sticky top-0 z-30 shadow-sm shrink-0">
+                    {/* Header with Safe Area (pt-safe-header) */}
+                    <div className="px-5 pb-4 pt-safe-header bg-white/80 backdrop-blur-sm border-b border-gray-100 flex items-center gap-3 sticky top-0 z-50 shadow-sm shrink-0">
                         <button onClick={handleAppBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors -ml-1 active:scale-95">
                             <ChevronLeft size={24} />
                         </button>
@@ -179,7 +181,7 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
                             <div className="bg-white/90 backdrop-blur-xl p-6 pb-safe border-t border-gray-200 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
                                 <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6 mt-2"></div>
                                 <h3 className="text-xl font-black text-gray-900 mb-2 text-center">Select Year</h3>
-                                <p className="text-gray-500 text-xs text-center mb-6">
+                                <p className="text-gray-500 text-sm text-center mb-6">
                                 Practice <span className="font-bold text-gray-900 capitalize">{activeTab}</span> PYQs for <span className="font-bold text-brand-600">{selectedSubject}</span>
                                 </p>
                                 <div className="flex overflow-x-auto gap-3 pb-6 px-2 hide-scrollbar snap-x">
