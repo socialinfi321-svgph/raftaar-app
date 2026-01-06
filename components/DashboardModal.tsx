@@ -10,7 +10,6 @@ import { Profile, DashboardStats } from '../types';
 import { api } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBackHandler } from '../hooks/useBackHandler';
-import { useThemeColor } from '../hooks/useThemeColor';
 
 interface DashboardModalProps {
   isOpen: boolean;
@@ -20,7 +19,6 @@ interface DashboardModalProps {
 }
 
 export const DashboardModal: React.FC<DashboardModalProps> = ({ isOpen, profile, onBack, userId }) => {
-  useThemeColor('#ffffff'); // White background for dashboard modal header
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 

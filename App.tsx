@@ -18,7 +18,7 @@ import { HomeScreen } from './components/HomeScreen';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { useBackHandler } from './hooks/useBackHandler';
-import { useThemeColor } from './hooks/useThemeColor';
+import { useStatusBar } from './hooks/useStatusBar';
 
 const RaftaarLogo = () => (
   <div className="flex items-center gap-2">
@@ -44,7 +44,6 @@ const SplashScreen = () => (
 
 // Full Page Coming Soon
 const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, title: string, profile: Profile | null }) => {
-  useThemeColor('#ffffff');
   return (
   <div className="h-full flex flex-col bg-white font-sans animate-fade-in">
     <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-white flex justify-between items-center border-b border-gray-200 shadow-sm transition-all">
@@ -94,7 +93,6 @@ const SubjectIcon = ({ subject }: { subject: string }) => {
 
 // Exam Screen
 const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile: Profile | null, navigate: any }) => {
-    useThemeColor('#ffffff');
     // Navigates HOME on back press
     useBackHandler(() => {
         navigate('/');
@@ -138,7 +136,6 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
 
 // Practice Screen
 const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapter: (subject: string, chapter: string) => void, navigate: any, profile: Profile | null }) => {
-    useThemeColor('#ffffff');
     const [subjects, setSubjects] = useState<string[]>([]);
     const [searchParams, setSearchParams] = useSearchParams();
     const selectedSubject = searchParams.get('subject');
@@ -231,7 +228,6 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
 
 // Result Screen
 const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => {
-    useThemeColor('#ffffff');
     if(!stats) return <div className="h-screen flex items-center justify-center">Loading Result...</div>;
     const score = stats.correct * 1; 
     return (
@@ -289,8 +285,8 @@ export default function App() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Set default theme color for Home
-  useThemeColor('#ffffff');
+  // --- 1. GLOBAL STATUS BAR MANAGEMENT ---
+  useStatusBar();
 
   // --- DOUBLE BACK TO EXIT LOGIC ---
   useBackHandler(() => {
@@ -530,8 +526,13 @@ export default function App() {
                                 subjectName={activeSubject} 
                                 userId={session?.user?.id} 
                                 onExit={() => {
-                                    // Use history back to respect stack
-                                    navigate(-1);
+                                    // Fix: Explicitly navigate to the previous context instead of relying on history stack (-1)
+                                    // which might be polluted by the back handler trap.
+                                    if (activeSubject) {
+                                        navigate(`/practice?subject=${encodeURIComponent(activeSubject)}`, { replace: true });
+                                    } else {
+                                        navigate('/', { replace: true });
+                                    }
                                 }} 
                                 onComplete={handleTestComplete} 
                                 onAnswerSubmit={async (qId, opt, correct, timeTaken) => { await api.submitAnswer(session.user.id, qId, opt, correct, timeTaken); }} 

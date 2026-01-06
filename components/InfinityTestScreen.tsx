@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Question, Language, TestSubmission } from '../types';
 import { api } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
-import { useThemeColor } from '../hooks/useThemeColor';
 
 interface InfinityTestScreenProps {
   userId: string;
@@ -32,7 +31,6 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
     pyqYear,
     defaultLanguage = 'English'
 }) => {
-  useThemeColor('#ffffff');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);

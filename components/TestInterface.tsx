@@ -4,7 +4,6 @@ import { Question, Language } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Clock } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackHandler';
-import { useThemeColor } from '../hooks/useThemeColor';
 
 interface TestInterfaceProps {
   questions: Question[];
@@ -25,7 +24,6 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
     onAnswerSubmit,
     defaultLanguage = 'English'
 }) => {
-  useThemeColor('#ffffff');
   const [lang, setLang] = useState<Language>(defaultLanguage === 'Hindi' ? 'hi' : 'en');
   
   useEffect(() => {

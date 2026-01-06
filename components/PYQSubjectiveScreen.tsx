@@ -4,7 +4,6 @@ import { ArrowLeft, ZoomIn, ZoomOut, CheckCircle } from 'lucide-react';
 import { PYQQuestion, Language } from '../types';
 import { api } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
-import { useThemeColor } from '../hooks/useThemeColor';
 
 interface PYQSubjectiveScreenProps {
   subject: string;
@@ -19,7 +18,6 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
     onExit,
     defaultLanguage = 'English' 
 }) => {
-  useThemeColor('#ffffff');
   const [questions, setQuestions] = useState<PYQQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);

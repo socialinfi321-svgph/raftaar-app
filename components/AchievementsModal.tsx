@@ -4,7 +4,6 @@ import { ChevronLeft, Medal, Lock, Star, Crown, Award, CheckCircle2, Zap, Trendi
 import { motion, AnimatePresence } from 'framer-motion';
 import { Profile } from '../types';
 import { useBackHandler } from '../hooks/useBackHandler';
-import { useThemeColor } from '../hooks/useThemeColor';
 
 interface AchievementsModalProps {
   isOpen: boolean;
@@ -13,7 +12,6 @@ interface AchievementsModalProps {
 }
 
 export const AchievementsModal: React.FC<AchievementsModalProps> = ({ isOpen, profile, onBack }) => {
-  useThemeColor('#ffffff');
   const totalXP = profile?.total_xp || 0;
   const weeklyXP = profile?.weekly_xp || 0;
 

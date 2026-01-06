@@ -4,7 +4,6 @@ import { Crown, Zap, Star, User, ChevronLeft } from 'lucide-react';
 import { Profile } from '../types';
 import { api } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
-import { useThemeColor } from '../hooks/useThemeColor';
 
 interface RewardsScreenProps {
   profile: Profile | null;
@@ -13,7 +12,6 @@ interface RewardsScreenProps {
 }
 
 export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, navigate }) => {
-    useThemeColor('#020617'); // Dark slate-950 for status bar
     const [leaderboard, setLeaderboard] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(true);
 

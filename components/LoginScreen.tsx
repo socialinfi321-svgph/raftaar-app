@@ -4,10 +4,8 @@ import { api } from '../services/api';
 import { Loader2, ArrowRight, User, MapPin, Phone, Languages, ChevronLeft, ShieldCheck, Sparkles, GraduationCap, Trophy, Target, Atom, PenTool, NotebookText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBackHandler } from '../hooks/useBackHandler';
-import { useThemeColor } from '../hooks/useThemeColor';
 
 export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any) => void }) => {
-  useThemeColor('#ffffff'); // Using white for login screen
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

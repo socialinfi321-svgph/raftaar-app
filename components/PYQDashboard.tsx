@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Atom, FlaskConical, Calculator, Dna, Languages, BookType, Sparkles } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackHandler';
-import { useThemeColor } from '../hooks/useThemeColor';
 
 const subjectsList = [
   { name: 'Physics', icon: Atom, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
@@ -31,7 +30,6 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
     initialTab = 'objective', 
     instantOpen = false 
 }) => {
-  useThemeColor('#ffffff');
   const [activeTab, setActiveTab] = useState<'objective' | 'subjective'>(initialTab);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
 

@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, Check, FlaskConical, Atom, Calculator, Dna, Languages, BookType, Tablet, PenTool } from 'lucide-react';
 import { api } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
-import { useThemeColor } from '../hooks/useThemeColor';
 
 interface InfinityPracticeModalProps {
   isOpen: boolean;
@@ -34,7 +33,6 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
   onUpdateSubject,
   instantOpen = false
 }) => {
-  useThemeColor('#ffffff');
   // We removed local 'step' state. Step is now derived from selectedSubject.
   // If subject is selected -> Step 2. Else -> Step 1.
   const [selectedSubject, setSelectedSubject] = useState<string | null>(initialSubject || null);
