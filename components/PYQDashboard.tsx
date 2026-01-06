@@ -92,8 +92,8 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
                     {/* Background Texture */}
                     <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 
-                    {/* Header */}
-                    <div className="px-5 py-4 bg-white/80 backdrop-blur-sm border-b border-gray-100 flex items-center gap-3 sticky top-0 z-30 shadow-sm shrink-0">
+                    {/* Header with Safe Area (pt-12) */}
+                    <div className="px-5 pt-12 pb-4 bg-white/80 backdrop-blur-sm border-b border-gray-100 flex items-center gap-3 sticky top-0 z-30 shadow-sm shrink-0">
                         {/* UI Back Button triggers same logic as hardware back */}
                         <button onClick={handleAppBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors -ml-1 active:scale-95">
                             <ChevronLeft size={24} />

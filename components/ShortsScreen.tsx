@@ -64,8 +64,8 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
 
   return (
     <div className="h-full flex flex-col bg-white">
-      {/* Header */}
-      <div className="sticky top-0 z-30 px-5 py-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+      {/* Header with Safe Area (pt-12) */}
+      <div className="sticky top-0 z-30 px-5 pt-12 pb-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
         <h2 className="text-xl font-black text-gray-900">Shorts</h2>
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-full bg-white p-0.5 border border-gray-200 cursor-pointer shadow-sm" onClick={() => navigate('/profile')}>

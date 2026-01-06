@@ -3,12 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { Crown, Zap, Star, User } from 'lucide-react';
 import { Profile } from '../types';
 import { api } from '../services/api';
-import { useBackHandler } from '../hooks/useBackHandler';
 
 interface RewardsScreenProps {
   profile: Profile | null;
   session: any;
-  navigate: (path: string) => void;
+  navigate: (path: string | number) => void;
 }
 
 export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, navigate }) => {
@@ -34,12 +33,6 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
         return "Rookie"; 
     };
 
-    // Explicitly navigate Home on back
-    useBackHandler(() => {
-        navigate('/');
-        return true;
-    });
-
     useEffect(() => {
         const fetchLeaderboard = async () => {
             setLoading(true);
@@ -52,9 +45,14 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
 
     return (
         <div className="h-full flex flex-col bg-slate-950 font-sans text-white">
-            {/* Header */}
-            <div className="sticky top-0 z-30 px-5 py-3 bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-lg">
-                <h2 className="text-xl font-black text-white tracking-tight">Leaderboard</h2>
+            {/* Header with Safe Area (pt-12) */}
+            <div className="sticky top-0 z-30 px-5 pt-12 pb-3 bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-lg">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate(-1)} className="text-slate-400 hover:text-white transition-colors p-1 -ml-1 rounded-full active:bg-slate-800">
+                        <i className="fa-solid fa-chevron-left text-lg"></i>
+                    </button>
+                    <h2 className="text-xl font-black text-white tracking-tight">Leaderboard</h2>
+                </div>
                 <div className="flex items-center gap-3">
                     <div className="flex flex-col items-end mr-1">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Weekly XP</span>
@@ -63,7 +61,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
                             <span className="text-sm">{profile?.weekly_xp || 0}</span>
                         </div>
                     </div>
-                    {/* Profile Icon - Removed onClick to prevent white screen navigation */}
+                    {/* Profile Icon */}
                     <div className="w-9 h-9 rounded-full bg-slate-800 p-0.5 border border-slate-700 shadow-sm">
                         <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.email || 'user'}`} className="w-full h-full rounded-full" alt="User" />
                     </div>
