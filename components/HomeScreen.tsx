@@ -47,7 +47,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       image: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=800',
       title: 'Dream 450+ Marks',
       subtitle: 'BSEB 2026 • Starts 2 Feb',
-      desc: '25,000+ Objectives. One step closer to your goal.',
+      desc: '25,000+ Objectives.',
       btn: 'Start Journey',
       action: () => navigate('/practice'),
       overlay: 'bg-gradient-to-t from-black via-black/60 to-transparent'
@@ -59,7 +59,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       profileImg: 'https://raw.githubusercontent.com/socialinfi321-svgph/superkar-reviews/main/IMG_20260106_085046.jpg', 
       title: 'Prem Kashyap',
       subtitle: 'Builder of Raftaar',
-      desc: 'Coding the future of BSEB education.',
+      desc: 'Coding the future of education.',
       btn: 'Donate',
       link: 'https://socialinfi321-svgph.github.io/komal-caterers/',
       overlay: 'bg-gradient-to-t from-black via-black/80 to-transparent'
