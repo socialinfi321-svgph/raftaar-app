@@ -16,7 +16,7 @@ import { AchievementsModal } from './components/AchievementsModal';
 import { RewardsScreen } from './components/RewardsScreen';
 import { HomeScreen } from './components/HomeScreen';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeft, Moon, Sun } from 'lucide-react';
+import { ChevronLeft, Sun, Moon } from 'lucide-react';
 import { useBackHandler } from './hooks/useBackHandler';
 import { useStatusBar } from './hooks/useStatusBar';
 import { useTheme } from './hooks/useTheme';
@@ -435,7 +435,7 @@ export default function App() {
         
         {showTopHeader && (
             <div className="px-5 pb-3 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center sticky top-0 z-30 border-b border-slate-100 dark:border-slate-800 shadow-sm transition-all">
-                <div className="flex items-center gap-2"><RaftaarLogo /></div>
+                <div className="flex items-center gap-2 relative -top-[1px]"><RaftaarLogo /></div>
                 <div className="flex items-center gap-4">
                     <button 
                         onClick={toggleTheme} 

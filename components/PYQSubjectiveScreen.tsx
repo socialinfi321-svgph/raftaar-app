@@ -41,8 +41,8 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
         try {
             const data = await api.getPYQs(subject, year, 'subjective');
             setQuestions(data || []);
-        } catch (e) {
-            console.error("Error fetching subjective questions", e);
+        } catch (error) {
+            console.error("Failed to fetch subjective questions", error);
             setQuestions([]);
         } finally {
             setLoading(false);
@@ -69,7 +69,7 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
 
   const getTxt = (en?: string | null, hi?: string | null) => lang === 'hi' ? (hi || en) : en;
 
-  // CRASH FIX: Ensure we have a valid question before rendering
+  // CRASH FIX: Ensure currentQ exists
   const currentQ = questions.length > 0 ? questions[currentIndex] : null;
 
   if (loading) {
@@ -93,7 +93,7 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
   return (
     <div className="h-[100dvh] flex flex-col bg-white dark:bg-slate-950 font-sans animate-fade-in transition-colors duration-300">
       
-      {/* 1. Header (Safe Area pt-safe-header) */}
+      {/* 1. Header */}
       <div className="px-4 pb-3 pt-safe-header bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center sticky top-0 z-50 shadow-sm transition-colors">
         <div className="flex items-center gap-3">
           <button onClick={handleAppBack} className="p-2 -ml-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
@@ -172,7 +172,7 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
 
       </div>
 
-      {/* 4. Bottom Navigation - Fixed Safe Area */}
+      {/* 4. Bottom Navigation */}
       <div className="fixed bottom-0 w-full bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 p-4 pb-safe z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] dark:shadow-none flex gap-4 transition-colors">
         <button 
             onClick={handlePrev}

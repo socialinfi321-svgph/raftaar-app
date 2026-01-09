@@ -10,7 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
-        darkMode: 'class', // Enabled manual toggle
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
@@ -64,7 +64,10 @@
         -webkit-tap-highlight-color: transparent;
         overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
       }
-      /* Dark mode body override is handled by Tailwind classes on the root/app container */
+      .dark body {
+        background-color: #020617; /* Dark Background */
+        color: #ffffff;
+      }
       
       /* Hide Scrollbar */
       .hide-scrollbar::-webkit-scrollbar { display: none; }
