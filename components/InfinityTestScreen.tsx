@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { Clock, ArrowLeft, AlertTriangle, Timer } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Question, Language, TestSubmission } from '../types';
 import { api } from '../services/api';
@@ -8,14 +8,18 @@ import { useBackHandler } from '../hooks/useBackHandler';
 
 interface InfinityTestScreenProps {
   userId: string;
+  // Infinity Mode Props
   selectedChapters?: string[];
   subject: string;
+  // PYQ Mode Props
   isPYQ?: boolean;
   pyqYear?: number;
+  // Common
   onExit: () => void;
   defaultLanguage?: 'Hindi' | 'English';
 }
 
+// Helper Function: Shuffle Array (Randomize Order)
 const shuffleArray = (array: Question[]) => {
   return array.map(value => ({ value, sort: Math.random() }))
               .sort((a, b) => a.sort - b.sort)
@@ -31,50 +35,65 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
     pyqYear,
     defaultLanguage = 'English'
 }) => {
+  // --- States ---
+  
+  // Test Data
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   
+  // Flow Control
   const [isTestFinished, setIsTestFinished] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
+  // Logic Cycle (Only for Infinity)
   const [roundCycle, setRoundCycle] = useState<1 | 2 | 3>(1);
+  
+  // Refs
   const seenIdsRef = useRef<Set<number>>(new Set()); 
   const hasFetchedNextRound = useRef<boolean>(false);
   const allQuestionsExhausted = useRef<boolean>(false);
   const questionStartTimeRef = useRef<number>(Date.now());
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Interaction State
   const [answers, setAnswers] = useState<Record<number, string>>({}); 
   const [visitedIndices, setVisitedIndices] = useState<Set<number>>(new Set([0]));
   const [elapsedTime, setElapsedTime] = useState(0); 
   const [lang, setLang] = useState<Language>(defaultLanguage === 'Hindi' ? 'hi' : 'en');
   
+  // --- UNIFIED BACK LOGIC ---
   const handleAppBack = () => {
+    // 1. If Exit Modal is Open -> Close it (Resume)
     if (showExitModal) {
       setShowExitModal(false);
-      return true;
+      return true; // Trap
     }
+    // 2. If Test Finished -> Trigger Exit (Go Home/Dashboard)
     if (isTestFinished) {
       onExit();
-      return true;
+      return true; // Trap (onExit handles nav)
     }
+    // 3. If Submitting -> Do nothing (Trap)
     if (isSubmitting) {
       return true; 
     }
+    // 4. Default: Show Exit Confirmation
     setShowExitModal(true);
-    return true;
+    return true; // Trap
   };
 
+  // Sync Hardware Button
   useBackHandler(handleAppBack, true);
 
   useEffect(() => {
     setLang(defaultLanguage === 'Hindi' ? 'hi' : 'en');
   }, [defaultLanguage]);
 
+  // --- Logic: Round Calculation (Infinity Only) ---
   const getQuantityForRound = (cycle: number) => {
       const N = selectedChapters?.length || 1;
       if (cycle === 1) return Math.max(1, N - 1);
@@ -82,25 +101,32 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
       return N + 1; 
   };
 
+  // --- 1. Initial Data Fetch ---
   useEffect(() => {
     const initData = async () => {
         setLoading(true);
         try {
             if (isPYQ && pyqYear) {
+                // PYQ MODE: Fetch all questions for that year at once (No Shuffle usually, to keep paper order)
                 const data = await api.getPYQs(subject, pyqYear, 'objective');
                 if (data.length > 0) {
                     setQuestions(data);
-                    allQuestionsExhausted.current = true;
+                    allQuestionsExhausted.current = true; // No more questions to fetch in PYQ
                 } else {
                     setFetchError(`No objective questions found for ${subject} ${pyqYear}.`);
                 }
             } else if (selectedChapters && selectedChapters.length > 0) {
+                // INFINITY MODE: Fetch first batch
                 const quantity = getQuantityForRound(1);
                 const newQuestions = await api.fetchInfinityBatch(selectedChapters, [], quantity);
                 
                 if (newQuestions.length > 0) {
+                    // Randomize the batch so chapters are mixed
                     const randomizedQuestions = shuffleArray(newQuestions);
+                    
                     setQuestions(randomizedQuestions);
+                    
+                    // Track IDs to prevent duplicates (Temporary Memory)
                     randomizedQuestions.forEach(q => seenIdsRef.current.add(q.id));
                     setRoundCycle(2); 
                 } else {
@@ -120,8 +146,9 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
     initData();
   }, [selectedChapters, userId, isPYQ, subject, pyqYear]);
 
+  // --- 2. Background Fetching (Infinity Mode Only) ---
   useEffect(() => {
-    if (isPYQ) return;
+    if (isPYQ) return; // Disable background fetch for PYQ
     if (loading || loadingMore || isTestFinished || allQuestionsExhausted.current) return;
     
     if (currentIndex >= questions.length - 3 && !hasFetchedNextRound.current) {
@@ -139,9 +166,14 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
           const newBatch = await api.fetchInfinityBatch(selectedChapters, currentSeenIds, quantity);
 
           if (newBatch.length > 0) {
+              // Randomize the new batch before adding to list
               const randomizedBatch = shuffleArray(newBatch);
+
               setQuestions(prev => [...prev, ...randomizedBatch]);
+              
+              // Add to Temporary Memory
               randomizedBatch.forEach(q => seenIdsRef.current.add(q.id));
+              
               setRoundCycle(prev => (prev === 3 ? 1 : prev + 1) as 1 | 2 | 3);
               hasFetchedNextRound.current = false;
           } else {
@@ -155,6 +187,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
       }
   };
 
+  // --- 3. Timer ---
   useEffect(() => {
     if (loading || isTestFinished) return;
     const interval = setInterval(() => {
@@ -162,6 +195,8 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
     }, 1000);
     return () => clearInterval(interval);
   }, [loading, isTestFinished]);
+
+  // --- Handlers ---
 
   const handleOptionSelect = (option: string) => {
     const currentQ = questions[currentIndex];
@@ -214,12 +249,14 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
       if (isSubmitting) return;
       setIsSubmitting(true);
       
+      // 1. Calculate Results
       const totalQ = questions.length;
       const correctCount = questions.filter(q => answers[q.id] === q.correct_option).length;
       const attemptedCount = Object.keys(answers).length;
       const wrongCount = attemptedCount - correctCount;
       const skippedCount = totalQ - attemptedCount;
       
+      // 3. Prepare Submission Data
       const submissionData: TestSubmission = {
           userId: userId,
           subject: subject,
@@ -228,11 +265,12 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
           correct: correctCount,
           wrong: wrongCount,
           skipped: skippedCount,
-          timeTaken: elapsedTime, 
+          timeTaken: elapsedTime, // Total seconds
           date: new Date().toISOString()
       };
 
       if (userId) {
+          // 4. Save to Test History (New Table)
           await api.submitTestResult(submissionData);
       }
 
@@ -249,6 +287,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
 
   const getTxt = (en: string | null, hi: string | null) => lang === 'hi' ? (hi || en) : en;
 
+  // --- RENDER: Analytics / Finish Screen ---
   if (isTestFinished) {
       const totalQuestions = questions.length;
       const attemptedCount = Object.keys(answers).length;
@@ -257,26 +296,35 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
       const visitedCount = visitedIndices.size;
       const notVisitedCount = totalQuestions - visitedCount;
       const notAnsweredCount = visitedCount - attemptedCount; 
-      const score = correctCount; 
+      
+      const score = correctCount; // +1 per correct
 
       return (
-          <div className="h-[100dvh] flex flex-col bg-white overflow-y-auto font-sans animate-fade-in">
-              {/* Analytics Header - Safe Area Fixed */}
-              <div className="bg-white px-5 pb-4 pt-safe-header border-b border-gray-100 sticky top-0 z-50 flex justify-between items-center shadow-sm">
-                  <h2 className="text-lg font-black text-gray-900">{isPYQ ? `Result - ${pyqYear}` : 'Objective Test'}</h2>
+          <div className="h-screen flex flex-col bg-white overflow-y-auto font-sans animate-fade-in">
+              {/* Analytics Header */}
+              <div className="bg-white p-5 border-b border-gray-100 sticky top-0 z-20 flex justify-between items-center shadow-sm">
+                  <h2 className="text-lg font-black text-gray-900">{isPYQ ? `Result - ${pyqYear}` : 'Objective Test - Result'}</h2>
                   <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold font-mono">
                       {formatTime(elapsedTime)}
                   </div>
               </div>
 
               <div className="p-6 pb-24 space-y-6">
+                  
                   <h3 className="text-lg font-bold text-gray-900">Test Summary</h3>
+
+                  {/* Summary Card */}
                   <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 shadow-sm space-y-4">
+                      
+                      {/* Total Questions Row */}
                       <div className="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm border border-gray-100">
                           <span className="text-gray-600 font-medium">Total Questions</span>
                           <span className="text-2xl font-black text-gray-900">{totalQuestions}</span>
                       </div>
+
+                      {/* Stats Grid */}
                       <div className="space-y-3">
+                          {/* Answered */}
                           <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100">
                               <div className="flex items-center gap-3">
                                   <div className="w-3 h-3 rounded-full bg-green-500"></div>
@@ -284,6 +332,8 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
                               </div>
                               <span className="text-lg font-bold text-gray-900">{attemptedCount}</span>
                           </div>
+
+                          {/* Not Answered */}
                           <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100">
                               <div className="flex items-center gap-3">
                                   <div className="w-3 h-3 rounded-full bg-red-500"></div>
@@ -291,9 +341,19 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
                               </div>
                               <span className="text-lg font-bold text-gray-900">{notAnsweredCount}</span>
                           </div>
+
+                          {/* Not Visited */}
+                          <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100">
+                              <div className="flex items-center gap-3">
+                                  <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                                  <span className="text-gray-600 font-medium text-sm">Not Visited</span>
+                              </div>
+                              <span className="text-lg font-bold text-gray-900">{notVisitedCount}</span>
+                          </div>
                       </div>
                   </div>
 
+                  {/* Score Evaluation */}
                   <div className="bg-blue-50 rounded-2xl p-5 border border-blue-100">
                       <div className="flex justify-between items-center mb-4">
                           <span className="text-blue-800 font-bold text-sm uppercase tracking-wider">Evaluation</span>
@@ -314,9 +374,11 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
                           </div>
                       </div>
                   </div>
+
               </div>
 
-              <div className="fixed bottom-0 w-full bg-white border-t border-gray-100 p-4 pb-safe z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
+              {/* Footer */}
+              <div className="fixed bottom-0 w-full bg-white border-t border-gray-100 p-4 z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
                   <button onClick={onExit} className="w-full py-4 bg-brand-600 text-white font-bold rounded-xl shadow-lg hover:scale-[1.01] transition-transform">
                       Return to Dashboard
                   </button>
@@ -325,6 +387,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
       )
   }
 
+  // --- RENDER: Loading/Error ---
   if (loading) {
       return (
           <div className="h-screen flex items-center justify-center bg-white flex-col gap-4">
@@ -349,11 +412,12 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
   const currentAnswer = answers[currentQ.id];
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-white relative font-sans text-gray-900 overflow-hidden">
+    <div className="flex flex-col h-screen bg-white relative font-sans text-gray-900">
       
-      {/* 1. Header - Fixed Safe Area */}
-      <div className="px-4 pb-2 pt-safe-header bg-white flex justify-between items-center shrink-0 shadow-sm border-b border-gray-100 z-10 sticky top-0">
+      {/* 1. Header */}
+      <div className="px-4 py-2 bg-white flex justify-between items-center h-14 shrink-0 shadow-sm border-b border-gray-100 z-10">
           <div className="flex items-center gap-3">
+              {/* UI Back Button triggers same logic as hardware back */}
               <button onClick={handleAppBack} className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full">
                   <ArrowLeft size={20} />
               </button>
@@ -371,7 +435,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
           </button>
       </div>
 
-      {/* 2. Top Palette - Below Header */}
+      {/* 2. Top Palette */}
       <div className="bg-gray-50/50 border-b border-gray-100 py-2 shrink-0 flex items-center gap-2 px-3">
           <div ref={scrollRef} className="flex-1 overflow-x-auto hide-scrollbar flex items-center gap-2.5 scroll-smooth">
               {questions.map((q, i) => {
@@ -382,6 +446,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
                   let styleClass = "bg-white border-gray-200 text-gray-500"; 
 
                   if (ans) {
+                      // Correct = Green (Soft), Wrong = Blue (Soft) as requested
                       styleClass = isCorrect 
                         ? "bg-green-100 border-green-500 text-green-700" 
                         : "bg-blue-100 border-blue-500 text-blue-700";
@@ -405,8 +470,8 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
           <div className="text-[10px] font-bold text-gray-400">{currentIndex + 1}/{questions.length}</div>
       </div>
 
-      {/* 3. Question Area - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-5 pb-32 bg-white w-full">
+      {/* 3. Question Area */}
+      <div className="flex-1 overflow-y-auto p-5 pb-32 bg-white">
           
           <div className="flex justify-between items-start mb-4">
               <span className="font-bold text-gray-400 text-[10px] uppercase tracking-wider bg-gray-100 px-2 py-1 rounded">Question {currentIndex + 1}</span>
@@ -415,13 +480,14 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
               </button>
           </div>
 
-          {/* Question Text - Break Words for Mobile */}
+          {/* Question Text */}
           <div className="mb-4">
-              <p className="text-lg font-bold text-gray-900 leading-relaxed font-serif break-words">
+              <p className="text-lg font-bold text-gray-900 leading-relaxed font-serif">
                   {getTxt(currentQ.question_text_en, currentQ.question_text_hi)}
               </p>
           </div>
 
+          {/* Metadata Row (Moved Below Question) */}
           <div className="flex items-center gap-2 mb-6">
               <span className="px-2 py-0.5 rounded bg-gray-100 text-[9px] font-bold text-gray-500 border border-gray-200 w-fit">
                   +1.0 Marks
@@ -434,7 +500,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
           </div>
 
           {/* Options */}
-          <div className="space-y-4">
+          <div className="space-y-3">
               {['A', 'B', 'C', 'D'].map((opt) => {
                   const optionText = getTxt(
                       currentQ[`option_${opt.toLowerCase()}_en` as keyof Question] as string,
@@ -449,9 +515,11 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
 
                   if (currentAnswer) {
                       if (isCorrectAnswer) {
+                          // Correct = Soft Green
                           cardClass = "bg-green-50 border-green-500 text-green-800";
                           circleClass = "bg-green-500 text-white border-green-500";
                       } else if (isSelected && !isCorrectAnswer) {
+                          // Wrong = Soft Blue (As requested)
                           cardClass = "bg-blue-50 border-blue-500 text-blue-800";
                           circleClass = "bg-blue-500 text-white border-blue-500";
                       } else {
@@ -468,7 +536,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
                           <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 transition-colors ${circleClass}`}>
                               {opt}
                           </div>
-                          <div className="text-sm font-medium leading-snug break-words flex-1">
+                          <div className="text-sm font-medium leading-snug">
                               {optionText}
                           </div>
                       </div>
@@ -478,24 +546,22 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
 
       </div>
 
-      {/* 4. Footer Buttons - Fixed Safe Area */}
-      <div className="absolute bottom-0 w-full bg-white border-t border-gray-100 p-4 pb-safe z-20 flex items-center justify-between gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-          <div className="w-full flex gap-4 pb-2">
-            <button 
-                onClick={handlePrev} 
-                disabled={currentIndex === 0}
-                className="px-6 py-3 rounded-xl font-bold text-brand-600 bg-white border-2 border-brand-600 disabled:opacity-50 disabled:border-gray-200 disabled:text-gray-400 transition-colors w-1/3 text-sm"
-            >
-                Prev
-            </button>
-            
-            <button 
-                onClick={handleNext}
-                className="px-6 py-3 rounded-xl font-bold text-white bg-brand-600 shadow-lg shadow-brand-200 hover:bg-brand-700 transition-transform active:scale-95 w-2/3 text-sm"
-            >
-                {currentIndex === questions.length - 1 && (allQuestionsExhausted.current || isPYQ) ? 'Finish' : 'Next'}
-            </button>
-          </div>
+      {/* 4. Footer Buttons */}
+      <div className="absolute bottom-0 w-full bg-white border-t border-gray-100 p-4 z-20 flex items-center justify-between gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <button 
+            onClick={handlePrev} 
+            disabled={currentIndex === 0}
+            className="px-6 py-3 rounded-xl font-bold text-brand-600 bg-white border-2 border-brand-600 disabled:opacity-50 disabled:border-gray-200 disabled:text-gray-400 transition-colors w-1/3 text-sm"
+          >
+              Prev
+          </button>
+          
+          <button 
+            onClick={handleNext}
+            className="px-6 py-3 rounded-xl font-bold text-white bg-brand-600 shadow-lg shadow-brand-200 hover:bg-brand-700 transition-transform active:scale-95 w-1/3 text-sm"
+          >
+              {currentIndex === questions.length - 1 && (allQuestionsExhausted.current || isPYQ) ? 'Finish' : 'Next'}
+          </button>
       </div>
 
       {/* --- EXIT MODAL --- */}
@@ -510,26 +576,24 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
                 <motion.div
                     initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
                     transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                    className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2rem] z-50 p-6 pb-safe shadow-2xl"
+                    className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2rem] z-50 p-6 pb-10 shadow-2xl"
                 >
-                    <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-6 mt-2"></div>
+                    <div className="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-6"></div>
                     
                     <div className="flex flex-col items-center text-center mb-8">
-                        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
-                            <AlertTriangle className="text-red-500" size={32} />
-                        </div>
-                        <p className="text-gray-800 font-bold text-lg">Exit Test?</p>
+                        
+                        <p className="text-gray-800 font-bold text-lg mt-2">Exit Test?</p>
                         <p className="text-gray-500 text-sm mt-1 max-w-xs leading-relaxed">
                             Your progress will be saved, but the test session will end.
                         </p>
                     </div>
 
-                    <div className="flex gap-4 pb-4">
+                    <div className="flex gap-4">
                         <button 
                             onClick={onExit} 
                             className="flex-1 py-3.5 rounded-xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition-colors"
                         >
-                            Exit
+                            Exit Test
                         </button>
                         <button 
                             onClick={() => setShowExitModal(false)} 

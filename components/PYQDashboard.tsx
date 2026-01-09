@@ -33,6 +33,7 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'objective' | 'subjective'>(initialTab);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
 
+  // Sync internal tab state when modal opens or prop changes
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialTab);
@@ -40,20 +41,21 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
     }
   }, [isOpen, initialTab]);
 
-  // Priority: Close Popup -> Switch to Objective -> Close Modal
+  // --- UNIFIED BACK LOGIC ---
   const handleAppBack = () => {
     if (selectedSubject) {
       setSelectedSubject(null);
-      return true;
+      return true; // Trap: Go back to subject list
     }
     if (activeTab === 'subjective') {
       setActiveTab('objective');
-      return true;
+      return true; // Trap: Switch tab back to default
     }
     onClose();
-    return true;
+    return true; // Trap: Manually close modal
   };
 
+  // Sync Hardware Button
   useBackHandler(handleAppBack, isOpen);
 
   const handleSubjectClick = (subject: string) => {
@@ -70,6 +72,7 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
     <AnimatePresence>
         {isOpen && (
             <>
+                {/* PART 1: BACKDROP (Dark Layer) */}
                 <motion.div 
                     initial={{ opacity: instantOpen ? 0.5 : 0 }} 
                     animate={{ opacity: 0.5 }}
@@ -78,24 +81,28 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
                     className="fixed inset-0 bg-black z-40" 
                 />
                 
+                {/* PART 2: SLIDING PANEL (Main Content) */}
                 <motion.div
                     initial={{ x: instantOpen ? 0 : "100%" }}
                     animate={{ x: 0 }}
                     exit={{ x: "100%" }}
                     transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                    className="fixed inset-y-0 right-0 w-full max-w-md bg-[#f8faff] z-50 shadow-2xl flex flex-col h-[100dvh] overflow-hidden font-sans"
+                    className="fixed inset-y-0 right-0 w-full max-w-md bg-[#f8faff] z-50 shadow-2xl flex flex-col h-full overflow-hidden font-sans"
                 >
+                    {/* Background Texture */}
                     <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 
-                    {/* Header with Safe Area (pt-safe-header) */}
-                    <div className="px-5 pb-4 pt-safe-header bg-white/80 backdrop-blur-sm border-b border-gray-100 flex items-center gap-3 sticky top-0 z-50 shadow-sm shrink-0">
+                    {/* Header */}
+                    <div className="px-5 py-4 bg-white/80 backdrop-blur-sm border-b border-gray-100 flex items-center gap-3 sticky top-0 z-30 shadow-sm shrink-0">
+                        {/* UI Back Button triggers same logic as hardware back */}
                         <button onClick={handleAppBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors -ml-1 active:scale-95">
                             <ChevronLeft size={24} />
                         </button>
                         <h2 className="text-xl font-black text-gray-900 tracking-tight">Practice PYQs</h2>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-5 pb-24 z-10 hide-scrollbar pb-safe">
+                    {/* Scrollable Content */}
+                    <div className="flex-1 overflow-y-auto p-5 pb-24 z-10 hide-scrollbar">
                         
                         {/* Tabs */}
                         <div className="flex bg-white p-1.5 rounded-2xl mb-8 border border-gray-100 shadow-sm isolate">
@@ -121,6 +128,7 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
                         })}
                         </div>
 
+                        {/* Subject Grid */}
                         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 pl-1">Select Subject</h3>
                         
                         <div className="relative min-h-[400px]"> 
@@ -158,9 +166,11 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
                         </div>
                     </div>
 
+                    {/* Year Selection Nested Modal */}
                     <AnimatePresence>
                         {selectedSubject && (
                         <>
+                            {/* Inner Backdrop */}
                             <motion.div 
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 0.3 }}
@@ -169,6 +179,7 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
                             className="absolute inset-0 bg-black z-40"
                             />
                             
+                            {/* Inner Bottom Sheet */}
                             <motion.div
                             initial={{ y: "100%" }}
                             animate={{ y: 0 }}
@@ -176,13 +187,13 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
                             className="absolute bottom-0 left-0 right-0 z-50 rounded-t-[2rem] overflow-hidden"
                             >
-                            <div className="bg-white/90 backdrop-blur-xl p-6 pb-safe border-t border-gray-200 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
-                                <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6 mt-2"></div>
+                            <div className="bg-white/90 backdrop-blur-xl p-6 pb-10 border-t border-gray-200 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
+                                <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6"></div>
                                 <h3 className="text-xl font-black text-gray-900 mb-2 text-center">Select Year</h3>
                                 <p className="text-gray-500 text-sm text-center mb-6">
                                 Practice <span className="font-bold text-gray-900 capitalize">{activeTab}</span> PYQs for <span className="font-bold text-brand-600">{selectedSubject}</span>
                                 </p>
-                                <div className="flex overflow-x-auto gap-3 pb-6 px-2 hide-scrollbar snap-x">
+                                <div className="flex overflow-x-auto gap-3 pb-4 px-2 hide-scrollbar snap-x">
                                 {yearsList.map((year) => (
                                     <button
                                     key={year}
