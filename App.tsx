@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from './services/supabase';
@@ -526,8 +525,9 @@ export default function App() {
                                 subjectName={activeSubject} 
                                 userId={session?.user?.id} 
                                 onExit={() => {
-                                    // Fix: Explicitly navigate to the previous context instead of relying on history stack (-1)
-                                    // which might be polluted by the back handler trap.
+                                    // Fetch Profile on exit to ensure XP updates
+                                    if(session?.user?.id) fetchProfile(session.user.id); 
+                                    
                                     if (activeSubject) {
                                         navigate(`/practice?subject=${encodeURIComponent(activeSubject)}`, { replace: true });
                                     } else {

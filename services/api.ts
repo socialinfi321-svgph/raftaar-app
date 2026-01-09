@@ -158,11 +158,16 @@ export const api = {
   submitAnswer: async (userId: string, questionId: number, selectedOption: string, isCorrect: boolean, timeTaken: number) => {
     if (userId === 'demo-user') return true; 
     
-    // Attempt to log the interaction, but don't block XP update on failure (e.g. duplicates)
-    await supabase.from('user_interactions').insert({
-        user_id: userId, question_id: questionId, is_correct: isCorrect, time_spent_seconds: timeTaken
-    });
+    // Attempt to log the interaction inside a try-catch so it doesn't block XP update
+    try {
+      await supabase.from('user_interactions').insert({
+          user_id: userId, question_id: questionId, is_correct: isCorrect, time_spent_seconds: timeTaken
+      });
+    } catch (err) {
+      console.log("Interaction logging skipped (duplicate or error)", err);
+    }
     
+    // Always update XP if correct, regardless of interaction log success
     if (isCorrect) {
         await updateUserXP(userId, 1);
     }
@@ -183,10 +188,13 @@ export const api = {
   submitShortsInteraction: async (userId: string, questionId: number, isCorrect: boolean, isLiked: boolean, timeSpentSeconds: number) => {
     if (userId === 'demo-user') return true;
     
-    // Attempt to log interaction, ignore error
-    await supabase.from('user_interactions').insert({
-        user_id: userId, question_id: questionId, is_correct: isCorrect, is_liked: isLiked, time_spent_seconds: timeSpentSeconds
-    });
+    try {
+      await supabase.from('user_interactions').insert({
+          user_id: userId, question_id: questionId, is_correct: isCorrect, is_liked: isLiked, time_spent_seconds: timeSpentSeconds
+      });
+    } catch (err) {
+       // Ignore duplicate logs
+    }
 
     if (isCorrect) {
         await updateUserXP(userId, 1);

@@ -86,7 +86,8 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
   const handleOptionSelect = (option: string) => {
     if (showSolution) return; 
 
-    const isCorrect = option === currentQ.correct_option;
+    // Robust case-insensitive check
+    const isCorrect = option.toUpperCase() === (currentQ.correct_option || '').toUpperCase();
     const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000); 
     
     const newGrid = { ...grid };
@@ -115,7 +116,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
     Object.values(grid).forEach((g: any, i) => {
         const q = questions[i];
         if (g.answer) {
-            if (g.answer === q.correct_option) correct++;
+            if (g.answer.toUpperCase() === (q.correct_option || '').toUpperCase()) correct++;
             else wrong++;
         } else {
             skipped++;
@@ -211,7 +212,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
         <div className="bg-slate-900 border-b border-slate-800 py-3 shrink-0">
             <div ref={scrollRef} className="flex overflow-x-auto px-4 gap-2 hide-scrollbar snap-x scroll-smooth">
                 {questions.map((_, i) => {
-                    const isCorrect = grid[i]?.answer && grid[i]?.answer === questions[i].correct_option;
+                    const isCorrect = grid[i]?.answer && grid[i]?.answer?.toUpperCase() === (questions[i].correct_option || '').toUpperCase();
                     let bg = 'bg-slate-950 text-slate-500 border-slate-800';
 
                     if (grid[i]?.answer) {
@@ -261,7 +262,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
                 {['A','B','C','D'].map((opt) => {
                     const optText = getText(`option_${opt.toLowerCase()}`);
                     const isSelected = currentStatus.answer === opt;
-                    const isCorrect = opt === currentQ.correct_option;
+                    const isCorrect = opt.toUpperCase() === (currentQ.correct_option || '').toUpperCase();
 
                     let cardClass = "p-4 rounded-xl border-2 cursor-pointer flex items-start gap-4 transition-all active:scale-[0.98] ";
                     let circleClass = "w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm font-bold shrink-0 transition-colors mt-0.5 ";
