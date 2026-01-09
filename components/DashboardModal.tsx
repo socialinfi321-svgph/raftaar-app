@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Trophy, Target, Clock, XCircle, CheckCircle2, Activity,
   History, CalendarDays, Infinity, BookOpen, ScrollText, AlertTriangle,
-  Play, User, Layout, Zap
+  Play, User, Layout, Zap, ChevronLeft
 } from 'lucide-react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
 import { Profile, DashboardStats } from '../types';
@@ -123,7 +123,7 @@ export const DashboardModal: React.FC<DashboardModalProps> = ({ isOpen, profile,
                         <div className="flex justify-between items-center mb-4">
                             {/* UI Back Button triggers same logic as hardware back */}
                             <button onClick={handleAppBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 active:bg-white/10 transition-all hover:scale-105">
-                            <ArrowLeft size={18} className="text-white" />
+                              <ChevronLeft size={24} className="text-white" />
                             </button>
                             <div className="flex items-center gap-2 px-3 py-1 bg-white/5 backdrop-blur-md rounded-full border border-white/10 shadow-lg">
                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>

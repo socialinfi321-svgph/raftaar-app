@@ -130,7 +130,12 @@ export const api = {
 
   getChapters: async (subject: string): Promise<{en: string, hi: string}[]> => {
     try {
-      const { data, error } = await supabase.from('questions').select('chapter_name_en, chapter_name_hi').eq('subject', subject);
+      const { data, error } = await supabase
+        .from('questions')
+        .select('chapter_name_en, chapter_name_hi')
+        .eq('subject', subject)
+        .order('id', { ascending: true }); // Order by ID to ensure correct sequence
+
       if (error || !data) return [];
       const uniqueMap = new Map();
       data.forEach((item: any) => {
@@ -241,12 +246,19 @@ export const api = {
 
   getChapterStats: async (subject: string): Promise<{ en: string, hi: string, count: number }[]> => {
       try {
-          const { data } = await supabase.from('questions').select('chapter_name_en, chapter_name_hi').eq('subject', subject);
+          // Ordered by ID to ensure chapters appear in the sequence they were entered (1, 2, 3...)
+          const { data } = await supabase
+            .from('questions')
+            .select('id, chapter_name_en, chapter_name_hi') 
+            .eq('subject', subject)
+            .order('id', { ascending: true }); // Order by ID to ensure correct sequence
+          
           if (!data) return [];
           const map = new Map<string, { en: string, hi: string, count: number }>();
           data.forEach((q: any) => {
               const en = q.chapter_name_en;
               const hi = q.chapter_name_hi || '';
+              // Map preserves insertion order, and since data is sorted by ID, this keeps the correct order
               if (!map.has(en)) map.set(en, { en, hi, count: 0 });
               map.get(en)!.count++;
           });

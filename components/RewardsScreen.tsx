@@ -50,7 +50,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
             {/* Header with Safe Area (pt-safe-header) */}
             <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-lg">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate(-1)} className="text-slate-400 hover:text-white transition-colors p-1 -ml-1 rounded-full active:bg-slate-800">
+                    <button onClick={() => navigate(-1)} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-900 text-slate-400 hover:bg-slate-800 border border-slate-700 transition-colors -ml-1 active:scale-95">
                         <ChevronLeft size={24} />
                     </button>
                     <h2 className="text-xl font-black text-white tracking-tight">Leaderboard</h2>

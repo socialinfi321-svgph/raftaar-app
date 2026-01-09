@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ArrowLeft, Medal, Lock, Star } from 'lucide-react';
+import { ChevronLeft, Medal, Lock, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Profile } from '../types';
 
@@ -56,8 +56,8 @@ export const AchievementsScreen: React.FC<AchievementsScreenProps> = ({ profile,
       className="h-full flex flex-col bg-white overflow-y-auto absolute inset-0 z-50"
     >
       <div className="px-5 py-4 bg-white border-b border-gray-100 flex items-center gap-3 sticky top-0 z-30 shadow-sm">
-        <button onClick={onBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors -ml-1 active:scale-95">
-          <ArrowLeft size={20} />
+        <button onClick={onBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors -ml-1 active:scale-95">
+          <ChevronLeft size={24} />
         </button>
         <h2 className="text-xl font-black text-gray-900">Achievements</h2>
       </div>
