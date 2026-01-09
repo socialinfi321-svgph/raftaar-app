@@ -130,12 +130,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const dragOffset = isDragging ? touchCurrent - touchStart : 0;
 
   return (
-    <div className="space-y-4 pb-24 pt-[13px] animate-fade-in bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+    <div className="space-y-4 pb-24 pt-[15px] animate-fade-in bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
         
         {/* Rounded Premium Slider */}
         <div className="px-5">
             <div 
-                className="rounded-[1.5rem] overflow-hidden shadow-xl shadow-slate-900/10 dark:shadow-black/50 relative h-[160px] touch-pan-y border border-slate-200 dark:border-slate-800"
+                className="rounded-[1.5rem] overflow-hidden shadow-xl shadow-slate-900/10 dark:shadow-black/50 relative h-[173px] touch-pan-y border border-slate-200 dark:border-slate-800"
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}

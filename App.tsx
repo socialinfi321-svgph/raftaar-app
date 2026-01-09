@@ -22,11 +22,11 @@ import { useStatusBar } from './hooks/useStatusBar';
 import { useTheme } from './hooks/useTheme';
 
 const RaftaarLogo = () => (
-  <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center shadow-lg transform -rotate-3 border border-slate-800 dark:bg-slate-800 dark:border-slate-700">
-          <span className="text-white font-black text-xl font-sans">R</span>
+  <div className="flex items-center gap-2.5">
+      <div className="w-[38px] h-[38px] bg-slate-900 rounded-lg flex items-center justify-center shadow-lg transform -rotate-3 border border-slate-800 dark:bg-slate-800 dark:border-slate-700">
+          <span className="text-white font-black text-2xl font-sans">R</span>
       </div>
-      <div className="font-black text-xl tracking-tighter text-slate-900 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-white dark:via-slate-200 dark:to-slate-400">
+      <div className="font-black text-2xl tracking-tighter text-slate-900 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-white dark:via-slate-200 dark:to-slate-400">
           RAFTAAR
       </div>
   </div>
@@ -420,9 +420,9 @@ export default function App() {
       const isActive = location.pathname === target || (target !== '/' && location.pathname.startsWith(target));
       return (
         <button onClick={() => navigate(target)} className={`flex flex-col items-center justify-center w-16 gap-0.5 transition-all ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}>
-            <i className={`fa-solid ${icon} text-lg mb-0.5`}></i>
+            <i className={`fa-solid ${icon} text-lg mb-0`}></i>
             <span className="text-[10px] font-bold tracking-wide leading-none">{label}</span>
-            <div className={`w-1 h-1 rounded-full mt-0.5 transition-opacity ${isActive ? 'bg-brand-600 dark:bg-brand-400 opacity-100' : 'opacity-0'}`}></div>
+            <div className={`w-1 h-1 rounded-full mt-0 transition-opacity ${isActive ? 'bg-brand-600 dark:bg-brand-400 opacity-100' : 'opacity-0'}`}></div>
         </button>
       )
   };
@@ -435,7 +435,7 @@ export default function App() {
         
         {showTopHeader && (
             <div className="px-5 pb-3 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center sticky top-0 z-30 border-b border-slate-100 dark:border-slate-800 shadow-sm transition-all">
-                <div className="flex items-center gap-2"><RaftaarLogo /></div>
+                <div className="flex items-center gap-2 relative -top-[1px]"><RaftaarLogo /></div>
                 <div className="flex items-center gap-4">
                     <button 
                         onClick={toggleTheme} 
@@ -543,7 +543,10 @@ export default function App() {
                                     }
                                 }} 
                                 onComplete={handleTestComplete} 
-                                onAnswerSubmit={async (qId, opt, correct, timeTaken) => { await api.submitAnswer(session.user.id, qId, opt, correct, timeTaken); }} 
+                                onAnswerSubmit={async (qId, opt, correct, timeTaken) => { 
+                                  await api.submitAnswer(session.user.id, qId, opt, correct, timeTaken);
+                                  if (correct && session?.user?.id) fetchProfile(session.user.id); // Refresh header XP
+                                }} 
                                 defaultLanguage={userProfile?.exam_language}
                             />
                         } 
@@ -637,8 +640,8 @@ export default function App() {
         </AnimatePresence>
 
         {showNav && (
-            <div className="fixed bottom-0 w-full max-w-md bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex justify-around py-2 pb-safe-offset-2 z-40 shadow-lg">
-                <div className="pb-safe flex w-full justify-around pt-2">
+            <div className="fixed bottom-0 w-full max-w-md bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 flex justify-around py-1 pb-safe-offset-2 z-40 shadow-lg">
+                <div className="pb-safe flex w-full justify-around pt-1">
                     <NavIcon icon="fa-house" label="Home" target="/" />
                     <NavIcon icon="fa-book-open" label="Practice" target="/practice" />
                     <NavIcon icon="fa-file-signature" label="Exam" target="/exam" />

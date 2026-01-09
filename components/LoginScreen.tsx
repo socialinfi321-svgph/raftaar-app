@@ -83,8 +83,8 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
             <div className="absolute -top-[10%] -right-[10%] w-[80vw] h-[80vw] bg-gradient-to-br from-brand-100 to-blue-100 dark:from-brand-900 dark:to-blue-900 rounded-full blur-3xl opacity-50 dark:opacity-20"></div>
             <div className="absolute -bottom-[10%] -left-[10%] w-[70vw] h-[70vw] bg-gradient-to-tr from-purple-100 to-pink-100 dark:from-purple-900 dark:to-pink-900 rounded-full blur-3xl opacity-50 dark:opacity-20"></div>
             
-            {/* Adjusted Atom Icon: Moved up slightly and darkened color for light mode */}
-            <div className="absolute top-[12%] left-[8%] text-brand-300 dark:text-brand-700 opacity-60 dark:opacity-30">
+            {/* Adjusted Atom Icon: Positioned to align center with the progress bar line */}
+            <div className="absolute top-[101px] left-[8%] text-brand-300 dark:text-brand-700 opacity-60 dark:opacity-30">
                 <Atom size={56} strokeWidth={1.5} />
             </div>
             <div className="absolute top-[12%] right-[10%] text-blue-200 dark:text-blue-700 opacity-60 dark:opacity-30">
