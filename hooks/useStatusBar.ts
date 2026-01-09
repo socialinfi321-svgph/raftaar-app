@@ -1,21 +1,28 @@
 
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useTheme } from './useTheme';
 
 /**
- * Automatically manages the Status Bar color (PWA Theme Color) based on the current route and theme.
+ * Automatically manages the Status Bar color (PWA Theme Color) based on the current route.
+ * 
+ * - Light Pages (Home, Practice, Exam) -> White Background (#ffffff) -> Black Icons
+ * - Dark Pages (Leaderboard/Rewards) -> Dark Background (#020617) -> White Icons
  */
 export const useStatusBar = () => {
   const location = useLocation();
-  const { theme } = useTheme();
 
   useEffect(() => {
-    // Light Mode: #f8fafc (Slate-50), Dark Mode: #020617 (Slate-950)
-    let themeColor = theme === 'dark' ? '#020617' : '#f8fafc';
+    const path = location.pathname;
     
-    // You can add specific overrides for routes here if needed
-    // if (location.pathname === '/some-colored-header') themeColor = '#...';
+    // Default to White (Black Text/Icons)
+    let themeColor = '#ffffff'; 
+
+    // List of Dark Routes (White Text/Icons)
+    const darkRoutes = ['/rewards'];
+
+    if (darkRoutes.includes(path)) {
+      themeColor = '#020617'; // slate-950
+    }
 
     // Apply the meta tag
     let meta = document.querySelector('meta[name="theme-color"]');
@@ -26,5 +33,5 @@ export const useStatusBar = () => {
     }
     meta.setAttribute('content', themeColor);
     
-  }, [location, theme]);
+  }, [location]);
 };

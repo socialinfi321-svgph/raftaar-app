@@ -16,24 +16,27 @@ export const updateUserXP = async (userId: string, correctAnswersCount: number) 
   try {
     const xpEarned = correctAnswersCount * 3; // 3 XP per correct answer
     
-    // 1. Fetch current profile to get current XP
-    const { data: profile, error: fetchError } = await supabase
+    // 1. Fetch current profile
+    const { data: profile } = await supabase
       .from('profiles')
-      .select('total_xp, weekly_xp')
+      .select('*')
       .eq('id', userId)
       .single();
 
-    if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error("XP Fetch Error:", fetchError);
-        return { success: false };
-    }
-
     // 2. Calculate New Values
-    const currentTotalXP = profile?.total_xp || 0;
-    const currentWeeklyXP = profile?.weekly_xp || 0;
-    
-    const newTotalXP = currentTotalXP + xpEarned;
-    const newWeeklyXP = currentWeeklyXP + xpEarned;
+    let newTotalXP = xpEarned;
+    let newWeeklyXP = xpEarned;
+    let fullName = 'Student';
+    let avatarUrl = '';
+    let currentStudyMinutes = 0;
+
+    if (profile) {
+        newTotalXP += (profile.total_xp || 0);
+        newWeeklyXP += (profile.weekly_xp || 0);
+        fullName = profile.full_name;
+        avatarUrl = profile.avatar_url;
+        currentStudyMinutes = profile.study_minutes || 0;
+    }
 
     // --- LEVEL LOGIC ---
     // Formula: Every 200 XP = +1 Level.
@@ -42,20 +45,23 @@ export const updateUserXP = async (userId: string, correctAnswersCount: number) 
     // --- BADGE LOGIC ---
     const newBadge = calculateBadge(newTotalXP);
 
-    // 3. Update Database - Use UPDATE instead of UPSERT to protect other fields
-    const { error: updateError } = await supabase
+    // 3. Update Database
+    const { error: upsertError } = await supabase
       .from('profiles')
-      .update({
+      .upsert({
+        id: userId,
+        full_name: fullName,
+        avatar_url: avatarUrl,
         total_xp: newTotalXP,
         weekly_xp: newWeeklyXP,
+        study_minutes: currentStudyMinutes, 
         current_level: newLevel, 
         current_badge: newBadge,
         last_active_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
+      });
 
-    if (updateError) {
-        console.error("XP Update Failed:", updateError);
+    if (upsertError) {
+        console.error("XP Update Failed:", upsertError);
         return { success: false };
     }
 

@@ -15,21 +15,9 @@ html, body, #root {
   width: 100%;
   margin: 0;
   padding: 0;
-  @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-50 transition-colors duration-300;
+  background-color: #f8faff;
   /* Use dynamic viewport height for mobile browsers */
   min-height: 100dvh;
-}
-
-/* Globally Hide Scrollbars */
-::-webkit-scrollbar {
-  display: none;
-  width: 0px;
-  background: transparent;
-}
-
-* {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
 }
 
 /* Safe Area Utilities */

@@ -17,8 +17,7 @@ import {
   Play,
   User,
   Zap,
-  Layout,
-  ChevronLeft
+  Layout
 } from 'lucide-react';
 import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
 import { Profile, DashboardStats } from '../types';
@@ -113,8 +112,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ profile, onBac
         <div className="relative z-10 px-6 pt-6">
           {/* Top Nav */}
           <div className="flex justify-between items-center mb-6">
-            <button onClick={onBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 active:bg-white/10 transition-all hover:scale-105">
-              <ChevronLeft size={24} className="text-white" />
+            <button onClick={onBack} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 active:bg-white/10 transition-all hover:scale-105">
+              <ArrowLeft size={20} className="text-white" />
             </button>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 backdrop-blur-md rounded-full border border-white/10 shadow-lg">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>

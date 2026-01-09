@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Check, FlaskConical, Atom, Calculator, Dna, Languages, BookType } from 'lucide-react';
+import { ChevronLeft, Check, FlaskConical, Atom, Calculator, Dna, Languages, BookType, Tablet, PenTool } from 'lucide-react';
 import { api } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
 
@@ -16,12 +16,12 @@ interface InfinityPracticeModalProps {
 }
 
 const subjectsList = [
-  { name: 'Maths', icon: Calculator, color: 'text-sky-500 dark:text-sky-400', bg: 'bg-white dark:bg-slate-900', border: 'border-slate-200 dark:border-slate-800' },
-  { name: 'Chemistry', icon: FlaskConical, color: 'text-sky-500 dark:text-sky-400', bg: 'bg-white dark:bg-slate-900', border: 'border-slate-200 dark:border-slate-800' },
-  { name: 'Physics', icon: Atom, color: 'text-sky-500 dark:text-sky-400', bg: 'bg-white dark:bg-slate-900', border: 'border-slate-200 dark:border-slate-800' },
-  { name: 'Biology', icon: Dna, color: 'text-sky-500 dark:text-sky-400', bg: 'bg-white dark:bg-slate-900', border: 'border-slate-200 dark:border-slate-800' },
-  { name: 'Hindi', icon: Languages, color: 'text-sky-500 dark:text-sky-400', bg: 'bg-white dark:bg-slate-900', border: 'border-slate-200 dark:border-slate-800' },
-  { name: 'English', icon: BookType, color: 'text-sky-500 dark:text-sky-400', bg: 'bg-white dark:bg-slate-900', border: 'border-slate-200 dark:border-slate-800' },
+  { name: 'Maths', icon: Calculator, color: 'text-sky-500', bg: 'bg-white', border: 'border-gray-200' },
+  { name: 'Chemistry', icon: FlaskConical, color: 'text-sky-500', bg: 'bg-white', border: 'border-gray-200' },
+  { name: 'Physics', icon: Atom, color: 'text-sky-500', bg: 'bg-white', border: 'border-gray-200' },
+  { name: 'Biology', icon: Dna, color: 'text-sky-500', bg: 'bg-white', border: 'border-gray-200' },
+  { name: 'Hindi', icon: Languages, color: 'text-sky-500', bg: 'bg-white', border: 'border-gray-200' },
+  { name: 'English', icon: BookType, color: 'text-sky-500', bg: 'bg-white', border: 'border-gray-200' },
 ];
 
 export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({ 
@@ -125,14 +125,14 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
-            className="fixed inset-y-0 right-0 w-full max-w-md bg-white dark:bg-slate-950 z-50 shadow-2xl flex flex-col h-[100dvh] overflow-hidden font-sans text-slate-900 dark:text-white"
+            className="fixed inset-y-0 right-0 w-full max-w-md bg-white z-50 shadow-2xl flex flex-col h-[100dvh] overflow-hidden font-sans"
           >
-            <div className="bg-white dark:bg-slate-950 shadow-sm z-20 border-b border-slate-100 dark:border-slate-800 shrink-0 sticky top-0">
+            <div className="bg-white shadow-sm z-20 border-b border-gray-100 shrink-0 sticky top-0">
                 <div className="pt-safe-header pb-4 px-5 flex items-center gap-3">
-                    <button onClick={handleAppBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors -ml-1 active:scale-95">
-                        <ChevronLeft size={24} strokeWidth={2.5} />
+                    <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-2 rounded-full active:bg-gray-100">
+                        <ChevronLeft size={28} strokeWidth={2.5} />
                     </button>
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                    <h2 className="text-xl font-black text-gray-900 tracking-tight">
                         {step === 1 ? 'Select Subject' : 'Select Chapters'}
                     </h2>
                 </div>
@@ -140,23 +140,23 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
                 <div className="px-6 pb-6">
                     <div className="flex items-center justify-between text-sm w-full">
                         <div className="flex items-center gap-2">
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${step >= 1 ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${step >= 1 ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'}`}>
                                 {step > 1 ? <Check size={10} /> : '1'}
                             </div>
-                            <span className={`${step >= 1 ? 'text-slate-900 dark:text-white font-bold' : 'text-slate-400 dark:text-slate-500 font-medium'}`}>Subject</span>
+                            <span className={`${step >= 1 ? 'text-gray-900 font-bold' : 'text-gray-400 font-medium'}`}>Subject</span>
                         </div>
-                        <div className="flex-1 h-[2px] bg-slate-100 dark:bg-slate-800 mx-3 rounded-full"></div>
+                        <div className="flex-1 h-[2px] bg-gray-100 mx-3 rounded-full"></div>
                         <div className="flex items-center gap-2">
-                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${step >= 2 ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${step >= 2 ? 'bg-black text-white' : 'bg-gray-200 text-gray-500'}`}>
                                 2
                             </div>
-                            <span className={`${step >= 2 ? 'text-slate-900 dark:text-white font-bold' : 'text-slate-400 dark:text-slate-500 font-medium'}`}>Chapter</span>
+                            <span className={`${step >= 2 ? 'text-gray-900 font-bold' : 'text-gray-400 font-medium'}`}>Chapter</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div className="flex-1 min-w-0 relative flex flex-col bg-slate-50 dark:bg-slate-950">
+            <div className="flex-1 min-h-0 relative flex flex-col bg-gray-50">
               <div className="absolute inset-0 overflow-y-auto hide-scrollbar pb-safe">
               
               {step === 1 && (
@@ -171,13 +171,13 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
                             <div 
                             key={sub.name}
                             onClick={() => handleSubjectSelect(sub.name)}
-                            className={`bg-white dark:bg-slate-900 h-16 rounded-xl flex items-center px-4 cursor-pointer transition-all border border-slate-200 dark:border-slate-800 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.98]`}
+                            className={`bg-white h-16 rounded-xl flex items-center px-4 cursor-pointer transition-all border border-gray-200 shadow-sm hover:shadow-md active:scale-[0.98]`}
                             >
-                            <div className="w-10 h-10 flex items-center justify-center rounded-lg border border-slate-100 dark:border-slate-700 mr-4 bg-slate-50 dark:bg-slate-950">
+                            <div className="w-10 h-10 flex items-center justify-center rounded-lg border border-sky-100 mr-4">
                                 <sub.icon size={20} className={sub.color} strokeWidth={1.5} />
                             </div>
-                            <div className="h-8 w-[1px] bg-slate-100 dark:bg-slate-800 mr-4"></div>
-                            <span className="font-bold text-slate-700 dark:text-slate-200 text-sm tracking-wide">{sub.name}</span>
+                            <div className="h-8 w-[1px] bg-gray-100 mr-4"></div>
+                            <span className="font-bold text-gray-800 text-sm tracking-wide">{sub.name}</span>
                             </div>
                         ))}
                     </div>
@@ -192,22 +192,22 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
                     className="p-6 pb-24 flex flex-col min-h-full"
                 >
                   {selectedChapters.length < 2 && (
-                      <div className="mb-4 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shrink-0">
-                          <div className="w-4 h-4 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center text-red-600 dark:text-red-400">!</div>
+                      <div className="mb-4 bg-red-50 border border-red-100 text-red-600 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shrink-0">
+                          <div className="w-4 h-4 bg-red-100 rounded-full flex items-center justify-center text-red-500">!</div>
                           Minimum 2 chapters required
                       </div>
                   )}
 
                   <div className="flex justify-between items-center mb-4 shrink-0">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-lg">Select Chapters</h3>
-                    <span className="bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-3 py-1 rounded-full text-xs font-bold">
+                    <h3 className="font-bold text-gray-900 text-lg">Select Chapters</h3>
+                    <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-xs font-bold">
                       {selectedChapters.length}/{chapters.length}
                     </span>
                   </div>
 
                   {loading ? (
                     <div className="space-y-3">
-                      {[1,2,3,4,5,6].map(i => <div key={i} className="h-16 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 animate-pulse" />)}
+                      {[1,2,3,4,5,6].map(i => <div key={i} className="h-16 bg-white rounded-xl border border-gray-100 animate-pulse" />)}
                     </div>
                   ) : (
                     <div className="space-y-3 pb-4">
@@ -217,19 +217,19 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
                           <div 
                             key={chap.en}
                             onClick={() => toggleChapter(chap.en)}
-                            className={`bg-white dark:bg-slate-900 p-4 rounded-xl border flex items-center gap-4 cursor-pointer transition-all ${isSelected ? 'border-brand-500 ring-1 ring-brand-500 shadow-sm bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}`}
+                            className={`bg-white p-4 rounded-xl border flex items-center gap-4 cursor-pointer transition-all ${isSelected ? 'border-brand-500 ring-1 ring-brand-500 shadow-sm bg-brand-50/30' : 'border-gray-200 hover:border-gray-300'}`}
                           >
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 border ${isSelected ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-600 dark:text-brand-400 border-brand-200 dark:border-brand-500/50' : 'bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-500 border-slate-100 dark:border-slate-800'}`}>
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 border ${isSelected ? 'bg-brand-100 text-brand-600 border-brand-200' : 'bg-gray-50 text-gray-500 border-gray-100'}`}>
                               {idx + 1}
                             </div>
                             <div className="flex-1">
-                              <h4 className={`font-bold text-sm ${isSelected ? 'text-brand-600 dark:text-brand-400' : 'text-slate-800 dark:text-slate-200'}`}>{chap.en}</h4>
+                              <h4 className={`font-bold text-sm ${isSelected ? 'text-brand-700' : 'text-gray-800'}`}>{chap.en}</h4>
                               {chap.hi && (
-                                <p className="text-xs text-slate-500 dark:text-slate-500 font-medium mt-0.5">{chap.hi}</p>
+                                <p className="text-xs text-gray-400 font-medium mt-0.5">{chap.hi}</p>
                               )}
-                              <p className="text-[10px] text-slate-400 dark:text-slate-600 font-medium mt-1">{chap.count} Questions</p>
+                              <p className="text-[10px] text-gray-300 font-medium mt-1">{chap.count} Questions</p>
                             </div>
-                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-brand-600 border-brand-600 text-white' : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900'}`}>
+                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isSelected ? 'bg-brand-600 border-brand-600 text-white' : 'border-gray-300 bg-white'}`}>
                               {isSelected && <Check size={12} strokeWidth={3} />}
                             </div>
                           </div>
@@ -243,17 +243,17 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
             </div>
 
             {step === 2 && (
-              <div className="absolute bottom-0 w-full bg-white dark:bg-slate-950 border-t border-slate-100 dark:border-slate-800 p-4 pb-safe flex gap-4 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-5px_20px_rgba(0,0,0,0.2)] z-20">
+              <div className="absolute bottom-0 w-full bg-white border-t border-gray-100 p-4 pb-safe flex gap-4 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] z-20">
                 <button 
-                  onClick={() => handleSubjectSelect('')} 
-                  className="flex-1 py-3 rounded-xl font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  onClick={() => handleSubjectSelect('')} // Passing empty string triggers unselect logic in parent wrapper if needed, but locally we just set null via handleAppBack logic mostly. Actually handleSubjectSelect('') updates parent param to empty subject.
+                  className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
                 >
                   Previous
                 </button>
                 <button 
                   onClick={handleStart}
                   disabled={selectedChapters.length < 2 || creating}
-                  className="flex-1 py-3 rounded-xl font-bold text-white bg-brand-600 shadow-lg shadow-brand-200 dark:shadow-brand-900 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 dark:hover:bg-brand-500 transition-transform active:scale-95"
+                  className="flex-1 py-3 rounded-xl font-bold text-white bg-brand-600 shadow-lg shadow-brand-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brand-700 transition-transform active:scale-95"
                 >
                   {creating ? 'Creating...' : 'Start'}
                 </button>

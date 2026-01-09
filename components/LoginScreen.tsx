@@ -77,40 +77,38 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
   };
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-slate-50 dark:bg-slate-950 relative overflow-hidden font-sans text-slate-900 dark:text-white transition-colors duration-300">
+    <div className="h-[100dvh] flex flex-col bg-brand-50 relative overflow-hidden font-sans text-slate-900">
         
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute -top-[10%] -right-[10%] w-[80vw] h-[80vw] bg-gradient-to-br from-brand-100 to-blue-100 dark:from-brand-900 dark:to-blue-900 rounded-full blur-3xl opacity-50 dark:opacity-20"></div>
-            <div className="absolute -bottom-[10%] -left-[10%] w-[70vw] h-[70vw] bg-gradient-to-tr from-purple-100 to-pink-100 dark:from-purple-900 dark:to-pink-900 rounded-full blur-3xl opacity-50 dark:opacity-20"></div>
+            <div className="absolute -top-[10%] -right-[10%] w-[80vw] h-[80vw] bg-gradient-to-br from-brand-200 to-blue-100 rounded-full blur-3xl opacity-50"></div>
+            <div className="absolute -bottom-[10%] -left-[10%] w-[70vw] h-[70vw] bg-gradient-to-tr from-purple-200 to-pink-100 rounded-full blur-3xl opacity-50"></div>
             
-            {/* Adjusted Atom Icon: Positioned to align center with the progress bar line */}
-            <div className="absolute top-[101px] left-[8%] text-brand-300 dark:text-brand-700 opacity-60 dark:opacity-30">
+            <div className="absolute top-[15%] left-[8%] text-brand-300 opacity-60">
                 <Atom size={56} strokeWidth={1.5} />
             </div>
-            <div className="absolute top-[12%] right-[10%] text-blue-200 dark:text-blue-700 opacity-60 dark:opacity-30">
+            <div className="absolute top-[12%] right-[10%] text-blue-300 opacity-60">
                 <Target size={40} strokeWidth={1.5} />
             </div>
-            <div className="absolute bottom-[20%] left-[5%] text-slate-200 dark:text-slate-700 opacity-50 dark:opacity-20 transform -rotate-12">
+            <div className="absolute bottom-[20%] left-[5%] text-slate-300 opacity-50 transform -rotate-12">
                 <NotebookText size={120} strokeWidth={1} />
             </div>
-            <div className="absolute bottom-[25%] right-[5%] text-brand-200 dark:text-brand-800 opacity-50 dark:opacity-20 transform rotate-12">
+            <div className="absolute bottom-[25%] right-[5%] text-brand-300 opacity-50 transform rotate-12">
                 <PenTool size={100} strokeWidth={1} />
             </div>
-            <div className="absolute top-[40%] right-[5%] text-purple-200 dark:text-purple-700 opacity-50 dark:opacity-20">
+            <div className="absolute top-[40%] right-[5%] text-purple-300 opacity-40">
                 <Trophy size={32} strokeWidth={1.5} />
             </div>
         </div>
 
         {/* HEADER */}
         <div className="relative z-10 pt-safe-header pb-8 flex flex-col items-center justify-center shrink-0">
-            {/* Added mt-3 to move Raftaar name down by ~10px */}
-            <div className="flex items-center gap-3 mt-3">
-                <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center shadow-lg shadow-brand-200 dark:shadow-brand-900/30 transform -rotate-3 border border-slate-100 dark:border-slate-700">
-                    <span className="text-slate-900 dark:text-white font-black text-2xl italic font-sans pr-1">R</span>
+            <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center shadow-2xl shadow-brand-500/30 transform -rotate-3 border border-white/20">
+                    <span className="text-white font-black text-2xl italic font-sans pr-1">R</span>
                 </div>
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tighter leading-none">RAFTAAR</h1>
-                    <span className="text-[9px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-[0.3em] block mt-1">Test Series App</span>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tighter leading-none">RAFTAAR</h1>
+                    <span className="text-[9px] font-bold text-brand-600 uppercase tracking-[0.3em] block mt-1">Test Series App</span>
                 </div>
             </div>
         </div>
@@ -118,9 +116,9 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
         {/* MAIN CONTENT */}
         <div className="flex-1 relative z-20 flex flex-col px-8 pb-safe max-w-md mx-auto w-full justify-center">
             
-            <div className="w-full h-1 bg-slate-200 dark:bg-slate-800 rounded-full mb-8 overflow-hidden shrink-0">
+            <div className="w-full h-1 bg-slate-200/50 rounded-full mb-8 overflow-hidden shrink-0">
                 <motion.div 
-                    className="h-full bg-brand-600 dark:bg-brand-500"
+                    className="h-full bg-brand-600 rounded-full"
                     initial={{ width: 0 }}
                     animate={{ width: `${(step / 4) * 100}%` }}
                     transition={{ duration: 0.4 }}
@@ -132,10 +130,10 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
                     
                     {step === 1 && (
                         <motion.div key="step1" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Welcome!</h2>
-                            <p className="text-slate-500 dark:text-slate-400 font-medium mb-8">Enter your name to begin your test series.</p>
+                            <h2 className="text-3xl font-black text-slate-900 mb-2">Welcome!</h2>
+                            <p className="text-slate-500 font-medium mb-8">Enter your name to begin your test series.</p>
                             <div className="relative group">
-                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-400">
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-500">
                                     <User size={20} />
                                 </div>
                                 <input 
@@ -143,7 +141,7 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
                                     name="fullName"
                                     type="text" 
                                     placeholder="Enter your name" 
-                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl py-4 pl-12 pr-4 text-lg font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                                    className="w-full bg-white border border-white shadow-sm rounded-2xl py-4 pl-12 pr-4 text-lg font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-300 transition-all"
                                     value={formData.fullName}
                                     onChange={handleChange}
                                     onKeyDown={(e) => e.key === 'Enter' && handleNext()}
@@ -154,10 +152,10 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
 
                     {step === 2 && (
                         <motion.div key="step2" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Location</h2>
-                            <p className="text-slate-500 dark:text-slate-400 font-medium mb-8">Which city or district are you from?</p>
+                            <h2 className="text-3xl font-black text-slate-900 mb-2">Location</h2>
+                            <p className="text-slate-500 font-medium mb-8">Which city or district are you from?</p>
                             <div className="relative group">
-                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-400">
+                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-500">
                                     <MapPin size={20} />
                                 </div>
                                 <input 
@@ -165,7 +163,7 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
                                     name="location"
                                     type="text" 
                                     placeholder="Enter City/District" 
-                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl py-4 pl-12 pr-4 text-lg font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                                    className="w-full bg-white border border-white shadow-sm rounded-2xl py-4 pl-12 pr-4 text-lg font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-300 transition-all"
                                     value={formData.location}
                                     onChange={handleChange}
                                     onKeyDown={(e) => e.key === 'Enter' && handleNext()}
@@ -176,21 +174,21 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
 
                     {step === 3 && (
                         <motion.div key="step3" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Mobile</h2>
-                            <p className="text-slate-500 dark:text-slate-400 font-medium mb-8">Enter your 10-digit number to login.</p>
+                            <h2 className="text-3xl font-black text-slate-900 mb-2">Mobile</h2>
+                            <p className="text-slate-500 font-medium mb-8">Enter your 10-digit number to login.</p>
                             <div className="space-y-4">
                                 <div className="relative group">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-600 dark:text-brand-400">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-brand-500">
                                         <Phone size={20} />
                                     </div>
-                                    <span className="absolute left-11 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400 dark:text-slate-500 border-r border-slate-200 dark:border-slate-700 pr-2 mr-2">+91</span>
+                                    <span className="absolute left-11 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400 border-r border-slate-200 pr-2 mr-2">+91</span>
                                     <input 
                                         autoFocus
                                         name="mobileNumber"
                                         type="tel" 
                                         maxLength={10}
                                         placeholder="00000 00000" 
-                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm rounded-2xl py-4 pl-28 pr-4 text-lg font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 outline-none focus:ring-4 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                                        className="w-full bg-white border border-white shadow-sm rounded-2xl py-4 pl-28 pr-4 text-lg font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-300 transition-all"
                                         value={formData.mobileNumber}
                                         onChange={(e) => {
                                             const val = e.target.value.replace(/\D/g, '');
@@ -200,8 +198,8 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
                                     />
                                 </div>
                                 <div className="flex items-center gap-2 px-2 opacity-60">
-                                    <ShieldCheck size={12} className="text-brand-600 dark:text-brand-400" />
-                                    <p className="text-[10px] text-brand-600 dark:text-brand-400 font-bold">Secure Login • OTP Verification</p>
+                                    <ShieldCheck size={12} className="text-brand-700" />
+                                    <p className="text-[10px] text-brand-800 font-bold">Secure Login • OTP Verification</p>
                                 </div>
                             </div>
                         </motion.div>
@@ -209,8 +207,8 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
 
                     {step === 4 && (
                         <motion.div key="step4" custom={step} variants={variants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }} className="absolute inset-0 flex flex-col">
-                            <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-2">Medium</h2>
-                            <p className="text-slate-500 dark:text-slate-400 font-medium mb-8">Select your preferred exam language.</p>
+                            <h2 className="text-3xl font-black text-slate-900 mb-2">Medium</h2>
+                            <p className="text-slate-500 font-medium mb-8">Select your preferred exam language.</p>
                             
                             <div className="grid grid-cols-1 gap-3">
                                 {['Hindi', 'English'].map((lang) => {
@@ -219,17 +217,17 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
                                         <div 
                                             key={lang}
                                             onClick={() => setFormData({...formData, examLanguage: lang as any})}
-                                            className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between active:scale-[0.98] ${isSelected ? 'border-brand-500 bg-white dark:bg-slate-800 shadow-lg shadow-brand-100 dark:shadow-brand-900/50 ring-1 ring-brand-500' : 'border-transparent bg-white dark:bg-slate-900 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                                            className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between active:scale-[0.98] ${isSelected ? 'border-brand-500 bg-white shadow-lg shadow-brand-500/10 ring-1 ring-brand-500' : 'border-transparent bg-white shadow-sm hover:bg-white/80'}`}
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${isSelected ? 'bg-brand-600 dark:bg-brand-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${isSelected ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-400'}`}>
                                                     <Languages size={20} />
                                                 </div>
                                                 <div>
-                                                    <h3 className={`font-bold text-lg ${isSelected ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{lang}</h3>
+                                                    <h3 className={`font-bold text-lg ${isSelected ? 'text-brand-900' : 'text-slate-700'}`}>{lang}</h3>
                                                 </div>
                                             </div>
-                                            {isSelected && <div className="w-5 h-5 bg-brand-600 dark:bg-brand-500 rounded-full flex items-center justify-center"><div className="w-2 h-2 bg-white rounded-full"></div></div>}
+                                            {isSelected && <div className="w-5 h-5 bg-brand-600 rounded-full flex items-center justify-center"><div className="w-2 h-2 bg-white rounded-full"></div></div>}
                                         </div>
                                     )
                                 })}
@@ -242,16 +240,15 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
             
             {error && (
                 <div className="mb-4 text-center">
-                    <p className="text-red-500 dark:text-red-400 text-xs font-bold bg-red-50 dark:bg-red-950/30 py-2 px-4 rounded-full inline-block shadow-sm border border-red-200 dark:border-red-900/50 animate-pulse">{error}</p>
+                    <p className="text-red-500 text-xs font-bold bg-white/80 py-2 px-4 rounded-full inline-block shadow-sm border border-red-100 animate-pulse">{error}</p>
                 </div>
             )}
 
-            {/* Changed pb-4 to pb-10 to move buttons higher */}
-            <div className="flex items-center gap-4 mt-auto z-30 pb-10">
+            <div className="flex items-center gap-4 mt-auto z-30 pb-4">
                  {step > 1 && (
                     <button 
                         onClick={handleAppBack}
-                        className="w-14 h-14 rounded-full bg-white dark:bg-slate-900 shadow-md text-slate-500 dark:text-slate-400 flex items-center justify-center hover:text-slate-900 dark:hover:text-white transition-colors border border-slate-200 dark:border-slate-800"
+                        className="w-14 h-14 rounded-full bg-white shadow-md text-slate-400 flex items-center justify-center hover:text-slate-600 transition-colors"
                     >
                         <ChevronLeft size={24} />
                     </button>
@@ -265,7 +262,7 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
                         (step === 3 && formData.mobileNumber.length < 10) ||
                         loading
                     }
-                    className="flex-1 h-14 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-full font-bold text-lg shadow-xl shadow-slate-300 dark:shadow-white/10 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                    className="flex-1 h-14 bg-slate-900 text-white rounded-full font-bold text-lg shadow-xl shadow-slate-900/20 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                  >
                     {loading ? <Loader2 className="animate-spin" /> : (
                         step < 4 ? (
