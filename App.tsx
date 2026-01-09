@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from './services/supabase';
@@ -46,7 +45,7 @@ const SplashScreen = () => (
 const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, title: string, profile: Profile | null }) => {
   return (
   <div className="h-full flex flex-col bg-white font-sans animate-fade-in">
-    <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-white flex justify-between items-center border-b border-gray-200 shadow-sm transition-all">
+    <div className="sticky top-0 z-50 px-5 pb-2 pt-safe-header bg-white flex justify-between items-center border-b border-gray-200 shadow-sm transition-all">
         <div className="flex items-center gap-3">
             <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors active:scale-95">
                 <ArrowLeft size={20} />
@@ -93,7 +92,6 @@ const SubjectIcon = ({ subject }: { subject: string }) => {
 
 // Exam Screen
 const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile: Profile | null, navigate: any }) => {
-    // Navigates HOME on back press
     useBackHandler(() => {
         navigate('/');
         return true;
@@ -101,7 +99,7 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
 
     return (
         <div className="h-full flex flex-col bg-white">
-            <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+            <div className="sticky top-0 z-50 px-5 pb-2 pt-safe-header bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={() => navigate('/')} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
@@ -157,7 +155,6 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
       }
     }, [selectedSubject]);
 
-    // Stack Logic: Chapter List -> Subject List -> Home
     const handleAppBack = () => {
         if (selectedSubject) {
             setSearchParams({}, { replace: true }); 
@@ -172,7 +169,7 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
 
     return (
         <div className="h-full flex flex-col bg-white">
-            <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+            <div className="sticky top-0 z-50 px-5 pb-2 pt-safe-header bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
                 <div className="flex items-center gap-3">
                     <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
@@ -232,7 +229,7 @@ const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => 
     const score = stats.correct * 1; 
     return (
         <div className="h-[100dvh] overflow-y-auto bg-white p-6 animate-slide-up pb-20 flex flex-col items-center justify-center text-center">
-            <div className="w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mb-6">
+            <div className="w-20 h-20 bg-brand-5 rounded-full flex items-center justify-center mb-6">
                 <i className="fa-solid fa-trophy text-4xl text-brand-600"></i>
             </div>
             <h2 className="text-3xl font-black text-gray-900 mb-2">Test Completed</h2>
@@ -432,7 +429,7 @@ export default function App() {
     <div className="max-w-md mx-auto h-[100dvh] flex flex-col bg-[#f8faff] font-sans relative shadow-2xl overflow-hidden text-gray-900">
         
         {showTopHeader && (
-            <div className="px-5 pb-3 pt-safe-header bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm transition-all">
+            <div className="px-5 pb-2 pt-safe-header bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm transition-all">
                 <div className="flex items-center gap-2"><RaftaarLogo /></div>
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end">

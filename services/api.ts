@@ -130,7 +130,11 @@ export const api = {
 
   getChapters: async (subject: string): Promise<{en: string, hi: string}[]> => {
     try {
-      const { data, error } = await supabase.from('questions').select('chapter_name_en, chapter_name_hi').eq('subject', subject);
+      const { data, error } = await supabase
+        .from('questions')
+        .select('chapter_name_en, chapter_name_hi')
+        .eq('subject', subject)
+        .order('id', { ascending: true }); // Ensure DB order
       if (error || !data) return [];
       const uniqueMap = new Map();
       data.forEach((item: any) => {
@@ -241,7 +245,13 @@ export const api = {
 
   getChapterStats: async (subject: string): Promise<{ en: string, hi: string, count: number }[]> => {
       try {
-          const { data } = await supabase.from('questions').select('chapter_name_en, chapter_name_hi').eq('subject', subject);
+          // Ordered by ID to ensure sequence matches database entry order (e.g. Ch1, Ch2)
+          const { data } = await supabase
+            .from('questions')
+            .select('chapter_name_en, chapter_name_hi')
+            .eq('subject', subject)
+            .order('id', { ascending: true });
+            
           if (!data) return [];
           const map = new Map<string, { en: string, hi: string, count: number }>();
           data.forEach((q: any) => {
