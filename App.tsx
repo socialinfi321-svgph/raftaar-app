@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from './services/supabase';
@@ -429,7 +430,7 @@ export default function App() {
     <div className="max-w-md mx-auto h-[100dvh] flex flex-col bg-[#f8faff] font-sans relative shadow-2xl overflow-hidden text-gray-900">
         
         {showTopHeader && (
-            <div className="px-5 pb-2 pt-safe-header bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm transition-all">
+            <div className="px-5 pb-1 pt-safe-header bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm transition-all">
                 <div className="flex items-center gap-2"><RaftaarLogo /></div>
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end">

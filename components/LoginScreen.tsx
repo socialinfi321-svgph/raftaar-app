@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { api } from '../services/api';
-import { Loader2, ArrowRight, User, MapPin, Phone, Languages, ChevronLeft, ShieldCheck, Sparkles, GraduationCap, Trophy, Target, Atom, PenTool, NotebookText } from 'lucide-react';
+import { Loader2, ArrowRight, User, MapPin, Phone, Languages, ChevronLeft, ShieldCheck, Sparkles, GraduationCap, Trophy, Target, PenTool, NotebookText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useBackHandler } from '../hooks/useBackHandler';
 
@@ -83,9 +83,6 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
             <div className="absolute -top-[10%] -right-[10%] w-[80vw] h-[80vw] bg-gradient-to-br from-brand-200 to-blue-100 rounded-full blur-3xl opacity-50"></div>
             <div className="absolute -bottom-[10%] -left-[10%] w-[70vw] h-[70vw] bg-gradient-to-tr from-purple-200 to-pink-100 rounded-full blur-3xl opacity-50"></div>
             
-            <div className="absolute top-[15%] left-[8%] text-brand-300 opacity-60">
-                <Atom size={56} strokeWidth={1.5} />
-            </div>
             <div className="absolute top-[12%] right-[10%] text-blue-300 opacity-60">
                 <Target size={40} strokeWidth={1.5} />
             </div>
@@ -101,7 +98,7 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
         </div>
 
         {/* HEADER */}
-        <div className="relative z-10 pt-safe-header pb-8 flex flex-col items-center justify-center shrink-0">
+        <div className="relative z-10 pt-safe-header pb-8 mt-5 flex flex-col items-center justify-center shrink-0">
             <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center shadow-2xl shadow-brand-500/30 transform -rotate-3 border border-white/20">
                     <span className="text-white font-black text-2xl italic font-sans pr-1">R</span>
