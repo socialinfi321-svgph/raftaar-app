@@ -130,11 +130,7 @@ export const api = {
 
   getChapters: async (subject: string): Promise<{en: string, hi: string}[]> => {
     try {
-      const { data, error } = await supabase
-        .from('questions')
-        .select('chapter_name_en, chapter_name_hi')
-        .eq('subject', subject)
-        .order('id', { ascending: true }); // Ensure DB order
+      const { data, error } = await supabase.from('questions').select('chapter_name_en, chapter_name_hi').eq('subject', subject);
       if (error || !data) return [];
       const uniqueMap = new Map();
       data.forEach((item: any) => {
@@ -162,13 +158,11 @@ export const api = {
   submitAnswer: async (userId: string, questionId: number, selectedOption: string, isCorrect: boolean, timeTaken: number) => {
     if (userId === 'demo-user') return true; 
     
-    // Attempt to log the interaction
-    // We ignore the error here (e.g. duplicates) to ensure XP is still processed if correct
-    await supabase.from('user_interactions').insert({
+    const { error } = await supabase.from('user_interactions').insert({
         user_id: userId, question_id: questionId, is_correct: isCorrect, time_spent_seconds: timeTaken
     });
     
-    if (isCorrect) {
+    if (!error && isCorrect) {
         await updateUserXP(userId, 1);
     }
     return true;
@@ -192,7 +186,7 @@ export const api = {
         user_id: userId, question_id: questionId, is_correct: isCorrect, is_liked: isLiked, time_spent_seconds: timeSpentSeconds
     });
 
-    if (isCorrect) {
+    if (!error && isCorrect) {
         await updateUserXP(userId, 1);
     }
     return !error;
@@ -247,13 +241,7 @@ export const api = {
 
   getChapterStats: async (subject: string): Promise<{ en: string, hi: string, count: number }[]> => {
       try {
-          // Ordered by ID to ensure sequence matches database entry order (e.g. Ch1, Ch2)
-          const { data } = await supabase
-            .from('questions')
-            .select('chapter_name_en, chapter_name_hi')
-            .eq('subject', subject)
-            .order('id', { ascending: true });
-            
+          const { data } = await supabase.from('questions').select('chapter_name_en, chapter_name_hi').eq('subject', subject);
           if (!data) return [];
           const map = new Map<string, { en: string, hi: string, count: number }>();
           data.forEach((q: any) => {

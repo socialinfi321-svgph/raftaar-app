@@ -36,14 +36,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     {
       id: 'brand',
       isHero: true,
-      bg: 'bg-gray-900', 
+      bg: 'bg-slate-900', 
       btn: 'Start Practice',
       action: () => navigate('/practice'),
-      overlay: 'bg-gradient-to-br from-gray-900 via-gray-800 to-black'
+      overlay: 'bg-gradient-to-br from-slate-900 via-slate-800 to-black'
     },
     {
       id: 'mission_2026',
-      bg: 'bg-indigo-900',
+      bg: 'bg-indigo-950',
       image: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=800',
       title: 'Dream 450+ Marks',
       subtitle: 'BSEB 2026 • Starts 2 Feb',
@@ -54,7 +54,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     },
     {
       id: 'builder',
-      bg: 'bg-brand-600',
+      bg: 'bg-brand-700',
       image: 'https://images.unsplash.com/photo-1555099962-4199c345e5dd?auto=format&fit=crop&q=80&w=800', 
       profileImg: 'https://raw.githubusercontent.com/socialinfi321-svgph/superkar-reviews/main/IMG_20260106_085046.jpg', 
       title: 'Prem Kashyap',
@@ -66,7 +66,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     },
     {
       id: 'telegram',
-      bg: 'bg-blue-500',
+      bg: 'bg-blue-600',
       image: null,
       isTelegram: true,
       title: 'Join Telegram',
@@ -74,7 +74,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       desc: 'Get exclusive notes and daily quizzes.',
       btn: 'Join Channel',
       link: 'https://t.me/raftartestseries',
-      overlay: 'bg-gradient-to-r from-blue-600/95 to-cyan-500/95'
+      overlay: 'bg-gradient-to-r from-blue-700/95 to-cyan-600/95'
     }
   ];
 
@@ -130,12 +130,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const dragOffset = isDragging ? touchCurrent - touchStart : 0;
 
   return (
-    <div className="space-y-6 pb-24 pt-6 animate-fade-in">
+    <div className="space-y-6 pb-24 pt-4 animate-fade-in bg-slate-950">
         
         {/* Rounded Premium Slider */}
         <div className="px-5">
             <div 
-                className="rounded-3xl overflow-hidden shadow-xl shadow-brand-900/10 relative h-[180px] touch-pan-y"
+                className="rounded-3xl overflow-hidden shadow-xl shadow-brand-900/10 relative h-[180px] touch-pan-y border border-slate-800"
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
@@ -153,7 +153,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                             {/* Background & Overlay */}
                             <div className="absolute inset-0 z-0 pointer-events-none">
                                 {slide.image ? (
-                                    <img src={slide.image} className="w-full h-full object-cover" alt="slide" />
+                                    <img src={slide.image} className="w-full h-full object-cover opacity-80" alt="slide" />
                                 ) : (
                                     <div className={`w-full h-full ${slide.bg}`}></div>
                                 )}
@@ -173,7 +173,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                             {/* Using "as any" to access profileImg because not all slides have it */}
                             {(slide as any).profileImg && (
                                 <div className="absolute top-4 right-4 z-20 flex flex-col items-end animate-fade-in">
-                                    <div className="w-[110px] h-[110px] rounded-full border-4 border-white/30 shadow-2xl overflow-hidden bg-white/10 backdrop-blur-md">
+                                    <div className="w-[110px] h-[110px] rounded-full border-4 border-white/20 shadow-2xl overflow-hidden bg-white/5 backdrop-blur-md">
                                         <img src={(slide as any).profileImg} className="w-full h-full object-cover" alt="Profile" />
                                     </div>
                                 </div>
@@ -183,31 +183,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                             {slide.isHero ? (
                                 <div className="relative z-20 flex flex-col items-center justify-center h-full text-center">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg transform -rotate-6">
-                                            <span className="text-gray-900 font-black text-xl font-sans">R</span>
+                                        <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center shadow-lg transform -rotate-6 border border-slate-700">
+                                            <span className="text-white font-black text-xl font-sans">R</span>
                                         </div>
                                         <h2 className="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-white to-blue-200 drop-shadow-sm">RAFTAAR</h2>
                                     </div>
-                                    <div className="flex flex-wrap justify-center gap-2 text-[8px] font-bold text-white/90 uppercase tracking-widest mb-4">
-                                        <span className="bg-white/10 px-2 py-1 rounded border border-white/10">Infinity Practice</span>
-                                        <span className="bg-white/10 px-2 py-1 rounded border border-white/10">Live Mock Test</span>
+                                    <div className="flex flex-wrap justify-center gap-2 text-[8px] font-bold text-slate-300 uppercase tracking-widest mb-4">
+                                        <span className="bg-slate-800/80 px-2 py-1 rounded border border-slate-700">Infinity Practice</span>
+                                        <span className="bg-slate-800/80 px-2 py-1 rounded border border-slate-700">Live Mock Test</span>
                                     </div>
-                                    <button onClick={slide.action} className="bg-white text-gray-900 px-6 py-2 rounded-full text-[10px] font-black shadow-lg hover:scale-105 transition-transform uppercase tracking-wider">Start Now</button>
+                                    <button onClick={slide.action} className="bg-white text-slate-950 px-6 py-2 rounded-full text-[10px] font-black shadow-lg hover:scale-105 transition-transform uppercase tracking-wider">Start Now</button>
                                 </div>
                             ) : (
                                 <div className="relative z-20 text-white">
                                     <h2 className="text-xl font-black mb-1 tracking-tight drop-shadow-md">{slide.title}</h2>
-                                    <div className="inline-block bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-2 border border-white/20">
+                                    <div className="inline-block bg-white/10 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-2 border border-white/10">
                                         {slide.subtitle}
                                     </div>
-                                    <p className="text-xs opacity-90 leading-relaxed mb-3 max-w-[90%] font-medium text-gray-100 line-clamp-2">{slide.desc}</p>
+                                    <p className="text-xs opacity-90 leading-relaxed mb-3 max-w-[90%] font-medium text-slate-200 line-clamp-2">{slide.desc}</p>
                                     
                                     {slide.link ? (
-                                        <a href={slide.link} target="_blank" rel="noreferrer" className="inline-block bg-white text-gray-900 px-4 py-2 rounded-lg text-[10px] font-bold shadow-md hover:scale-105 transition-transform">
+                                        <a href={slide.link} target="_blank" rel="noreferrer" className="inline-block bg-white text-slate-900 px-4 py-2 rounded-lg text-[10px] font-bold shadow-md hover:scale-105 transition-transform">
                                             {slide.btn}
                                         </a>
                                     ) : (
-                                        <button onClick={slide.action} className="bg-white text-gray-900 px-4 py-2 rounded-lg text-[10px] font-bold shadow-md hover:scale-105 transition-transform">
+                                        <button onClick={slide.action} className="bg-white text-slate-900 px-4 py-2 rounded-lg text-[10px] font-bold shadow-md hover:scale-105 transition-transform">
                                             {slide.btn}
                                         </button>
                                     )}
@@ -223,7 +223,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         <div 
                             key={idx} 
                             onClick={() => { setActiveSlide(idx); setIsPaused(true); setTimeout(() => setIsPaused(false), 5000); }}
-                            className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${activeSlide === idx ? 'w-4 bg-white' : 'w-1 bg-white/40'}`}
+                            className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${activeSlide === idx ? 'w-4 bg-white' : 'w-1 bg-white/30'}`}
                         ></div>
                     ))}
                 </div>
@@ -232,58 +232,58 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         {/* 4-Grid Menu */}
         <div className="px-5">
-            <h3 className="text-gray-500 font-bold text-xs uppercase tracking-widest mb-3 ml-1">Quick Access</h3>
+            <h3 className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-3 ml-1">Quick Access</h3>
             <div className="grid grid-cols-2 gap-3">
                 {/* Infinity Practice */}
-                <div onClick={onOpenInfinity} className="bg-gradient-to-br from-purple-600 to-indigo-700 p-4 rounded-3xl shadow-lg shadow-purple-200 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl -mr-5 -mt-5"></div>
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
+                <div onClick={onOpenInfinity} className="bg-gradient-to-br from-purple-800 to-indigo-900 p-4 rounded-3xl shadow-none active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-purple-800/30">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full blur-xl -mr-5 -mt-5"></div>
+                    <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-purple-200 border border-white/10">
                         <i className="fa-solid fa-infinity text-xl"></i>
                     </div>
-                    <span className="text-xs font-bold text-white">Infinity Practice</span>
+                    <span className="text-xs font-bold text-purple-100">Infinity Practice</span>
                 </div>
 
                 {/* PYQ */}
-                <div onClick={onOpenPYQ} className="bg-gradient-to-br from-emerald-500 to-green-700 p-4 rounded-3xl shadow-lg shadow-green-200 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group">
-                     <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/10 rounded-full blur-xl -ml-5 -mb-5"></div>
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
+                <div onClick={onOpenPYQ} className="bg-gradient-to-br from-emerald-800 to-green-900 p-4 rounded-3xl shadow-none active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-emerald-800/30">
+                     <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full blur-xl -ml-5 -mb-5"></div>
+                    <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-emerald-200 border border-white/10">
                         <i className="fa-solid fa-file-circle-question text-xl"></i>
                     </div>
-                    <span className="text-xs font-bold text-white">PYQ</span>
+                    <span className="text-xs font-bold text-emerald-100">PYQ</span>
                 </div>
 
                 {/* Achievements */}
-                <div onClick={onOpenAchievements} className="bg-gradient-to-br from-yellow-500 to-orange-600 p-4 rounded-3xl shadow-lg shadow-orange-200 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group">
-                     <div className="absolute bottom-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl -mr-5 -mb-5"></div>
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
+                <div onClick={onOpenAchievements} className="bg-gradient-to-br from-yellow-700 to-orange-800 p-4 rounded-3xl shadow-none active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-yellow-700/30">
+                     <div className="absolute bottom-0 right-0 w-20 h-20 bg-white/5 rounded-full blur-xl -mr-5 -mb-5"></div>
+                    <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-yellow-200 border border-white/10">
                         <i className="fa-solid fa-medal text-xl"></i>
                     </div>
-                    <span className="text-xs font-bold text-white">Achievements</span>
+                    <span className="text-xs font-bold text-yellow-100">Achievements</span>
                 </div>
 
                 {/* Dashboard */}
-                <div onClick={onOpenDashboard} className="bg-gradient-to-br from-brand-600 to-blue-700 p-4 rounded-3xl shadow-lg shadow-blue-200 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group">
-                     <div className="absolute top-0 left-0 w-20 h-20 bg-white/10 rounded-full blur-xl -ml-5 -mt-5"></div>
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
+                <div onClick={onOpenDashboard} className="bg-gradient-to-br from-brand-800 to-blue-900 p-4 rounded-3xl shadow-none active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-blue-800/30">
+                     <div className="absolute top-0 left-0 w-20 h-20 bg-white/5 rounded-full blur-xl -ml-5 -mt-5"></div>
+                    <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-blue-200 border border-white/10">
                         <i className="fa-solid fa-chart-pie text-xl"></i>
                     </div>
-                    <span className="text-xs font-bold text-white">My Dashboard</span>
+                    <span className="text-xs font-bold text-blue-100">My Dashboard</span>
                 </div>
             </div>
         </div>
         
         {/* Featured Series */}
         <div className="px-5">
-            <h3 className="text-gray-500 font-bold text-xs uppercase tracking-widest mb-3 ml-1">Featured Series</h3>
-            <div onClick={() => setComingSoonTitle('Wave Optics Series')} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex justify-between items-center cursor-pointer hover:border-brand-200 transition group">
+            <h3 className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-3 ml-1">Featured Series</h3>
+            <div onClick={() => setComingSoonTitle('Wave Optics Series')} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm flex justify-between items-center cursor-pointer hover:bg-slate-800 transition group">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-xl group-hover:scale-110 transition-transform">W</div>
+                    <div className="w-12 h-12 bg-indigo-950/50 rounded-2xl flex items-center justify-center text-indigo-400 font-black text-xl group-hover:scale-110 transition-transform border border-indigo-900/30">W</div>
                     <div>
-                        <h4 className="font-bold text-gray-800 text-sm">Wave Optics</h4>
-                        <p className="text-[10px] text-gray-400 font-medium">Physics • High Yield</p>
+                        <h4 className="font-bold text-white text-sm">Wave Optics</h4>
+                        <p className="text-[10px] text-slate-400 font-medium">Physics • High Yield</p>
                     </div>
                 </div>
-                <div className="bg-gray-100 px-3 py-1 rounded-lg text-[10px] font-bold text-gray-500 flex items-center gap-1">
+                <div className="bg-slate-800 px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 flex items-center gap-1 border border-slate-700">
                     Locked <i className="fa-solid fa-lock text-[10px]"></i>
                 </div>
             </div>

@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,7 +15,8 @@ html, body, #root {
   width: 100%;
   margin: 0;
   padding: 0;
-  background-color: #f8faff;
+  background-color: #020617; /* Slate-950 (Dark Mode Background) */
+  color: #f8fafc; /* Slate-50 (Light Text) */
   /* Use dynamic viewport height for mobile browsers */
   min-height: 100dvh;
 }
@@ -35,12 +37,12 @@ html, body, #root {
 
 /* 
    YouTube-Style Header Spacing 
-   Ensures at least 24px (approx status bar height) of padding,
+   Ensures at least 35px of padding for the status bar, 
    preventing content from being hidden behind the notch 
    even if the browser reports 0px safe area.
 */
 .pt-safe-header {
-  padding-top: max(env(safe-area-inset-top), 24px);
+  padding-top: max(env(safe-area-inset-top), 35px);
 }
 
 /* Header offset: Standard header height + Safe Area 
