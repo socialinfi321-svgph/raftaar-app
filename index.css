@@ -15,8 +15,7 @@ html, body, #root {
   width: 100%;
   margin: 0;
   padding: 0;
-  background-color: #020617; /* Slate-950 (Dark Mode Background) */
-  color: #f8fafc; /* Slate-50 (Light Text) */
+  background-color: #f8faff;
   /* Use dynamic viewport height for mobile browsers */
   min-height: 100dvh;
 }
