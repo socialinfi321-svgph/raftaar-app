@@ -158,11 +158,12 @@ export const api = {
   submitAnswer: async (userId: string, questionId: number, selectedOption: string, isCorrect: boolean, timeTaken: number) => {
     if (userId === 'demo-user') return true; 
     
-    const { error } = await supabase.from('user_interactions').insert({
+    // Attempt to log the interaction, but don't block XP update on failure (e.g. duplicates)
+    await supabase.from('user_interactions').insert({
         user_id: userId, question_id: questionId, is_correct: isCorrect, time_spent_seconds: timeTaken
     });
     
-    if (!error && isCorrect) {
+    if (isCorrect) {
         await updateUserXP(userId, 1);
     }
     return true;
@@ -182,14 +183,15 @@ export const api = {
   submitShortsInteraction: async (userId: string, questionId: number, isCorrect: boolean, isLiked: boolean, timeSpentSeconds: number) => {
     if (userId === 'demo-user') return true;
     
-    const { error } = await supabase.from('user_interactions').insert({
+    // Attempt to log interaction, ignore error
+    await supabase.from('user_interactions').insert({
         user_id: userId, question_id: questionId, is_correct: isCorrect, is_liked: isLiked, time_spent_seconds: timeSpentSeconds
     });
 
-    if (!error && isCorrect) {
+    if (isCorrect) {
         await updateUserXP(userId, 1);
     }
-    return !error;
+    return true;
   },
 
   getLeaderboard: async (): Promise<Profile[]> => {
