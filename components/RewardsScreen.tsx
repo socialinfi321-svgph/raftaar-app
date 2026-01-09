@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Crown, Zap, Star, User } from 'lucide-react';
+import { Crown, Zap, Star, User, ChevronLeft } from 'lucide-react';
 import { Profile } from '../types';
 import { api } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
@@ -8,7 +8,7 @@ import { useBackHandler } from '../hooks/useBackHandler';
 interface RewardsScreenProps {
   profile: Profile | null;
   session: any;
-  navigate: (path: string) => void;
+  navigate: (path: string | number) => void;
 }
 
 export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, navigate }) => {
@@ -17,15 +17,11 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
 
     const totalXP = profile?.total_xp || 0;
     
-    // UI Calculation: Every 200 XP = 1 Level
     const calculatedLevel = Math.floor(totalXP / 200) + 1;
-    
-    // Progress Bar Logic
     const currentLevelStartXP = (calculatedLevel - 1) * 200; 
     const xpProgressInLevel = totalXP - currentLevelStartXP; 
     const progressPercent = Math.min(100, (xpProgressInLevel / 200) * 100);
 
-    // Dynamic Badge Calculation Helper
     const getBadgeFromXP = (xp: number) => {
         if (xp >= 8000) return "Platinum"; 
         if (xp >= 5000) return "Gold";
@@ -34,7 +30,6 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
         return "Rookie"; 
     };
 
-    // Explicitly navigate Home on back
     useBackHandler(() => {
         navigate('/');
         return true;
@@ -51,10 +46,15 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
     }, []);
 
     return (
-        <div className="h-full flex flex-col bg-slate-950 font-sans text-white">
-            {/* Header */}
-            <div className="sticky top-0 z-30 px-5 py-3 bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-lg">
-                <h2 className="text-xl font-black text-white tracking-tight">Leaderboard</h2>
+        <div className="h-[100dvh] flex flex-col bg-slate-950 font-sans text-white">
+            {/* Header with Safe Area (pt-safe-header) */}
+            <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-lg">
+                <div className="flex items-center gap-3">
+                    <button onClick={() => navigate(-1)} className="text-slate-400 hover:text-white transition-colors p-1 -ml-1 rounded-full active:bg-slate-800">
+                        <ChevronLeft size={24} />
+                    </button>
+                    <h2 className="text-xl font-black text-white tracking-tight">Leaderboard</h2>
+                </div>
                 <div className="flex items-center gap-3">
                     <div className="flex flex-col items-end mr-1">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Weekly XP</span>
@@ -63,14 +63,14 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
                             <span className="text-sm">{profile?.weekly_xp || 0}</span>
                         </div>
                     </div>
-                    {/* Profile Icon - Removed onClick to prevent white screen navigation */}
                     <div className="w-9 h-9 rounded-full bg-slate-800 p-0.5 border border-slate-700 shadow-sm">
                         <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.email || 'user'}`} className="w-full h-full rounded-full" alt="User" />
                     </div>
                 </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto hide-scrollbar p-5 pb-24">
+            <div className="flex-1 overflow-y-auto hide-scrollbar p-5 pb-safe">
+                 {/* Container also needs bottom safe padding via pb-safe in class above or spacer below */}
                  
                  {/* CURRENT LEVEL CARD */}
                  <div className="bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-800 relative overflow-hidden mb-8 text-center">
@@ -115,7 +115,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
                      <h3 className="text-slate-400 font-bold text-xs uppercase tracking-widest">Top Students</h3>
                  </div>
 
-                 <div className="space-y-3">
+                 <div className="space-y-3 pb-24">
                      {loading ? (
                          <div className="text-center py-10 text-slate-600 text-sm">Loading ranks...</div>
                      ) : (
@@ -134,18 +134,15 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
                                  rankStyle = "bg-orange-500/10 border-orange-500/50 text-orange-500";
                              }
 
-                             // Calculate dynamic level and badge for list items
                              const dynamicLevel = Math.floor((user.total_xp || 0) / 200) + 1;
                              const dynamicBadge = getBadgeFromXP(user.total_xp || 0);
 
                              return (
                                  <div key={user.id} className={`relative p-3 rounded-2xl border flex items-center gap-4 transition-transform active:scale-[0.98] ${isMe ? 'bg-brand-900/20 border-brand-500/50 shadow-[0_0_15px_rgba(14,165,233,0.15)]' : 'bg-slate-900 border-slate-800 shadow-sm'}`}>
-                                     {/* Rank */}
                                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm border ${rankStyle}`}>
                                          {icon || rank}
                                      </div>
                                      
-                                     {/* Avatar (With Fallback) */}
                                      <div className="w-10 h-10 rounded-full bg-slate-800 p-0.5 shrink-0 border border-slate-700 overflow-hidden flex items-center justify-center">
                                          {user.avatar_url ? (
                                             <img src={user.avatar_url} className="w-full h-full rounded-full object-cover" alt="u" />
@@ -154,7 +151,6 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
                                          )}
                                      </div>
 
-                                     {/* Name & Details */}
                                      <div className="flex-1 min-w-0">
                                          <h4 className={`font-bold text-sm truncate ${isMe ? 'text-brand-400' : 'text-white'}`}>
                                              {user.full_name} {isMe && '(You)'}
@@ -167,7 +163,6 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
                                          </div>
                                      </div>
 
-                                     {/* XP Stat */}
                                      <div className="text-right">
                                          <span className="block font-black text-white">{user.total_xp}</span>
                                          <span className="text-[9px] font-bold text-slate-500 uppercase">XP</span>

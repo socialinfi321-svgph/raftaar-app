@@ -18,65 +18,74 @@ import { HomeScreen } from './components/HomeScreen';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { useBackHandler } from './hooks/useBackHandler';
+import { useStatusBar } from './hooks/useStatusBar';
 
 const RaftaarLogo = () => (
   <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center shadow-lg transform -rotate-3">
+      <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center shadow-lg transform -rotate-3 border border-slate-700">
           <span className="text-white font-black text-xl font-sans">R</span>
       </div>
-      <div className="font-black text-xl tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-gray-900 via-gray-800 to-brand-600">
+      <div className="font-black text-xl tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400">
           RAFTAAR
       </div>
   </div>
 );
 
-// Updated Coming Soon Page with Header
-const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, title: string, profile: Profile | null }) => (
-  <div className="h-full flex flex-col bg-white font-sans animate-fade-in">
-    {/* Header with Safe Area */}
-    <div className="sticky top-0 z-30 px-5 pb-3 pt-safe-offset-14 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm transition-all">
+// Splash Screen
+const SplashScreen = () => (
+  <div className="h-[100dvh] flex flex-col items-center justify-center bg-slate-950 animate-fade-in">
+    <div className="scale-150 mb-8 animate-bounce">
+      <RaftaarLogo />
+    </div>
+    <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
+    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mt-6 animate-pulse">Initializing...</p>
+  </div>
+);
+
+// Full Page Coming Soon
+const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, title: string, profile: Profile | null }) => {
+  return (
+  <div className="h-full flex flex-col bg-slate-950 font-sans animate-fade-in">
+    <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-sm transition-all">
         <div className="flex items-center gap-3">
-            <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-gray-100 text-gray-600 transition-colors active:scale-95">
+            <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-slate-900 text-slate-400 transition-colors active:scale-95">
                 <ArrowLeft size={20} />
             </button>
-            <h2 className="text-xl font-black text-gray-900 tracking-tight truncate max-w-[200px]">{title}</h2>
+            <h2 className="text-xl font-black text-white tracking-tight truncate max-w-[200px]">{title}</h2>
         </div>
-        {/* Weekly XP Badge */}
-        <div className="flex items-center gap-1 text-brand-600 font-black">
+        <div className="flex items-center gap-1 text-brand-400 font-black">
              <i className="fa-solid fa-bolt text-xs"></i>
              <span>{profile?.weekly_xp || 0}</span>
         </div>
     </div>
-
-    {/* Content */}
-    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-32 h-32 bg-blue-50 rounded-full flex items-center justify-center mb-6 animate-bounce shadow-xl shadow-brand-100">
-            <i className="fa-solid fa-rocket text-6xl text-brand-600"></i>
+    <div className="flex-1 flex flex-col items-center justify-center p-6 text-center overflow-y-auto">
+        <div className="w-32 h-32 bg-slate-900 rounded-full flex items-center justify-center mb-6 animate-bounce shadow-xl border border-slate-800">
+            <i className="fa-solid fa-rocket text-6xl text-brand-500"></i>
         </div>
-        <h3 className="text-2xl font-black text-gray-900 mb-2">Coming Soon</h3>
-        <p className="text-gray-500 max-w-xs mx-auto mb-10 leading-relaxed font-medium">
+        <h3 className="text-2xl font-black text-white mb-2">Coming Soon</h3>
+        <p className="text-slate-400 max-w-xs mx-auto mb-10 leading-relaxed font-medium">
             We are crafting the <strong>{title}</strong> module for the Class of 2026. Excellence takes time.
         </p>
-        <button onClick={onClose} className="bg-gray-900 text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform w-full max-w-xs">
+        <button onClick={onClose} className="bg-slate-100 text-slate-950 px-8 py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition-transform w-full max-w-xs">
             Go Back
         </button>
     </div>
   </div>
-);
+)};
 
-// Subject Icon Helper for Practice Screen
+// Subject Icon Helper
 const SubjectIcon = ({ subject }: { subject: string }) => {
   const map: any = {
-    'Physics': { icon: 'fa-atom', color: 'text-blue-500', bg: 'bg-blue-50' },
-    'Chemistry': { icon: 'fa-flask', color: 'text-teal-500', bg: 'bg-teal-50' },
-    'Maths': { icon: 'fa-calculator', color: 'text-indigo-500', bg: 'bg-indigo-50' },
-    'Biology': { icon: 'fa-dna', color: 'text-rose-500', bg: 'bg-rose-50' },
-    'Hindi': { icon: 'fa-om', color: 'text-orange-500', bg: 'bg-orange-50' },
-    'English': { icon: 'fa-font', color: 'text-violet-500', bg: 'bg-violet-50' },
+    'Physics': { icon: 'fa-atom', color: 'text-blue-400', bg: 'bg-blue-950/30' },
+    'Chemistry': { icon: 'fa-flask', color: 'text-teal-400', bg: 'bg-teal-950/30' },
+    'Maths': { icon: 'fa-calculator', color: 'text-indigo-400', bg: 'bg-indigo-950/30' },
+    'Biology': { icon: 'fa-dna', color: 'text-rose-400', bg: 'bg-rose-950/30' },
+    'Hindi': { icon: 'fa-om', color: 'text-orange-400', bg: 'bg-orange-950/30' },
+    'English': { icon: 'fa-font', color: 'text-violet-400', bg: 'bg-violet-950/30' },
   };
-  const style = map[subject] || { icon: 'fa-book', color: 'text-gray-500', bg: 'bg-gray-50' };
+  const style = map[subject] || { icon: 'fa-book', color: 'text-slate-400', bg: 'bg-slate-900' };
   return (
-    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${style.bg} mb-2 shadow-sm`}>
+    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${style.bg} mb-2 shadow-sm border border-slate-800`}>
         <i className={`fa-solid ${style.icon} text-2xl ${style.color}`}></i>
     </div>
   );
@@ -84,43 +93,40 @@ const SubjectIcon = ({ subject }: { subject: string }) => {
 
 // Exam Screen
 const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile: Profile | null, navigate: any }) => {
-    
-    // Explicitly navigate Home on back
+    // Navigates HOME on back press
     useBackHandler(() => {
         navigate('/');
         return true;
     });
 
     return (
-        <div className="h-full flex flex-col bg-white">
-            {/* Header with Safe Area */}
-            <div className="sticky top-0 z-30 px-5 pb-3 pt-safe-offset-14 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+        <div className="h-full flex flex-col bg-slate-950">
+            <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <button onClick={() => navigate('/')} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
+                    <button onClick={() => navigate('/')} className="text-slate-400 hover:text-white transition-colors p-1 -ml-1 rounded-full active:bg-slate-900">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
                     </button>
-                    <h2 className="text-xl font-black text-gray-900">Live Exam</h2>
+                    <h2 className="text-xl font-black text-white">Live Exam</h2>
                 </div>
                 <div className="flex items-center gap-3 ml-auto">
-                    <div className="flex items-center gap-1 text-brand-600 font-black">
+                    <div className="flex items-center gap-1 text-brand-400 font-black">
                         <i className="fa-solid fa-bolt text-xs"></i>
                         <span>{profile?.weekly_xp || 0}</span>
                     </div>
                 </div>
             </div>
-
             <div className="flex-1 overflow-y-auto p-5 pb-24 animate-slide-up">
-                <div onClick={showCS} className="bg-white p-6 rounded-3xl border-l-4 border-l-purple-500 cursor-pointer shadow-sm hover:shadow-md transition relative overflow-hidden mb-4 border border-gray-100 group">
+                <div onClick={showCS} className="bg-slate-900 p-6 rounded-3xl border-l-4 border-l-purple-500 cursor-pointer shadow-none hover:bg-slate-800 transition relative overflow-hidden mb-4 border border-slate-800 group">
                     <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                        <i className="fa-solid fa-clock text-6xl text-purple-600"></i>
+                        <i className="fa-solid fa-clock text-6xl text-purple-400"></i>
                     </div>
                     <div className="relative z-10">
                         <div className="flex justify-between items-start mb-2">
-                            <span className="bg-purple-50 text-purple-600 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">Scheduled</span>
+                            <span className="bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-purple-500/20">Scheduled</span>
                         </div>
-                        <h3 className="text-lg font-bold text-gray-900">BSEB Physics Mega Mock</h3>
-                        <p className="text-gray-500 text-xs mb-4">Full Syllabus • 3 Hours</p>
-                        <button className="bg-gray-900 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md">Register Now</button>
+                        <h3 className="text-lg font-bold text-white">BSEB Physics Mega Mock</h3>
+                        <p className="text-slate-400 text-xs mb-4">Full Syllabus • 3 Hours</p>
+                        <button className="bg-slate-100 text-slate-950 px-4 py-2 rounded-xl text-xs font-bold shadow-md">Register Now</button>
                     </div>
                 </div>
             </div>
@@ -151,10 +157,9 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
       }
     }, [selectedSubject]);
 
-    // --- UNIFIED BACK LOGIC ---
+    // Stack Logic: Chapter List -> Subject List -> Home
     const handleAppBack = () => {
         if (selectedSubject) {
-            // Use replace to prevent stacking history
             setSearchParams({}, { replace: true }); 
             return true; 
         } else {
@@ -166,18 +171,17 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
     useBackHandler(handleAppBack, true); 
 
     return (
-        <div className="h-full flex flex-col bg-white">
-            {/* Header with Safe Area */}
-            <div className="sticky top-0 z-30 px-5 pb-3 pt-safe-offset-14 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+        <div className="h-full flex flex-col bg-slate-950">
+            <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-sm">
                 <div className="flex items-center gap-3">
-                    <button onClick={handleAppBack} className="text-gray-600 hover:text-gray-900 transition-colors p-1 -ml-1 rounded-full active:bg-gray-100">
+                    <button onClick={handleAppBack} className="text-slate-400 hover:text-white transition-colors p-1 -ml-1 rounded-full active:bg-slate-900">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
                     </button>
-                    <h2 className="text-xl font-black text-gray-900">
+                    <h2 className="text-xl font-black text-white">
                         {selectedSubject || 'Practice'}
                     </h2>
                 </div>
-                <div className="flex items-center gap-1 text-brand-600 font-black">
+                <div className="flex items-center gap-1 text-brand-400 font-black">
                     <i className="fa-solid fa-bolt text-xs"></i>
                     <span>{profile?.weekly_xp || 0}</span>
                 </div>
@@ -186,12 +190,12 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
             <div className="flex-1 overflow-y-auto hide-scrollbar p-5 pb-24 animate-fade-in">
                 {!selectedSubject ? (
                     <>
-                        <h2 className="text-2xl font-black text-gray-900 mb-6">Select <span className="text-brand-600">Subject</span></h2>
+                        <h2 className="text-2xl font-black text-white mb-6">Select <span className="text-brand-500">Subject</span></h2>
                         <div className="grid grid-cols-2 gap-4">
                             {subjects.map(sub => (
-                                <div key={sub} onClick={() => setSearchParams({ subject: sub }, { replace: true })} className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform hover:shadow-md hover:border-brand-200 group">
+                                <div key={sub} onClick={() => setSearchParams({ subject: sub }, { replace: true })} className="bg-slate-900 p-6 rounded-3xl border border-slate-800 shadow-none flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform hover:bg-slate-800 hover:border-brand-500/50 group">
                                     <SubjectIcon subject={sub} />
-                                    <span className="font-bold text-gray-700 text-sm group-hover:text-brand-600 transition-colors">{sub}</span>
+                                    <span className="font-bold text-slate-300 text-sm group-hover:text-white transition-colors">{sub}</span>
                                 </div>
                             ))}
                         </div>
@@ -199,17 +203,17 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
                 ) : (
                     <div className="space-y-3">
                         {loading ? (
-                            <div className="text-center p-10 text-gray-400 text-sm font-bold animate-pulse">Loading chapters...</div>
+                            <div className="text-center p-10 text-slate-500 text-sm font-bold animate-pulse">Loading chapters...</div>
                         ) : (
                             chapters.map((chap, idx) => (
-                                <div key={idx} onClick={() => onSelectChapter(selectedSubject, chap.en)} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm active:scale-[0.98] transition-transform flex items-center justify-between cursor-pointer hover:border-brand-200 group">
+                                <div key={idx} onClick={() => onSelectChapter(selectedSubject, chap.en)} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-none active:scale-[0.98] transition-transform flex items-center justify-between cursor-pointer hover:border-brand-500/30 group">
                                     <div>
-                                        <h4 className="font-bold text-gray-800 text-sm group-hover:text-brand-600 transition-colors">
+                                        <h4 className="font-bold text-slate-200 text-sm group-hover:text-brand-400 transition-colors">
                                             {idx + 1}. {chap.en}
                                         </h4>
-                                        {chap.hi && <p className="text-xs text-gray-400 mt-1 font-medium">{chap.hi}</p>}
+                                        {chap.hi && <p className="text-xs text-slate-500 mt-1 font-medium">{chap.hi}</p>}
                                     </div>
-                                    <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-brand-50 group-hover:text-brand-600 transition-colors">
+                                    <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 group-hover:bg-brand-500/20 group-hover:text-brand-400 transition-colors">
                                         <i className="fa-solid fa-chevron-right text-xs"></i>
                                     </div>
                                 </div>
@@ -224,27 +228,27 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
 
 // Result Screen
 const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => {
-    if(!stats) return <div className="h-screen flex items-center justify-center">Loading Result...</div>;
+    if(!stats) return <div className="h-screen flex items-center justify-center bg-slate-950 text-slate-400">Loading Result...</div>;
     const score = stats.correct * 1; 
     return (
-        <div className="h-[100dvh] overflow-y-auto bg-white p-6 animate-slide-up pb-20 flex flex-col items-center justify-center text-center">
-            <div className="w-20 h-20 bg-brand-50 rounded-full flex items-center justify-center mb-6">
-                <i className="fa-solid fa-trophy text-4xl text-brand-600"></i>
+        <div className="h-[100dvh] overflow-y-auto bg-slate-950 p-6 animate-slide-up pb-20 flex flex-col items-center justify-center text-center">
+            <div className="w-20 h-20 bg-brand-500/10 rounded-full flex items-center justify-center mb-6 border border-brand-500/20">
+                <i className="fa-solid fa-trophy text-4xl text-brand-500"></i>
             </div>
-            <h2 className="text-3xl font-black text-gray-900 mb-2">Test Completed</h2>
-            <p className="text-gray-500 font-medium mb-8">Great job! Here is your performance.</p>
+            <h2 className="text-3xl font-black text-white mb-2">Test Completed</h2>
+            <p className="text-slate-400 font-medium mb-8">Great job! Here is your performance.</p>
             
-            <div className="bg-gray-50 rounded-3xl p-8 w-full mb-8">
-                <div className="text-6xl font-black mb-2 text-brand-600">{score}</div>
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Total Score</div>
+            <div className="bg-slate-900 rounded-3xl p-8 w-full mb-8 border border-slate-800">
+                <div className="text-6xl font-black mb-2 text-brand-400">{score}</div>
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Total Score</div>
                 
                 <div className="grid grid-cols-2 gap-4 w-full">
-                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm"><p className="text-2xl font-black text-green-600">{stats.correct}</p><p className="text-[10px] uppercase font-bold text-gray-400">Correct</p></div>
-                    <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm"><p className="text-2xl font-black text-red-500">{stats.wrong}</p><p className="text-[10px] uppercase font-bold text-gray-400">Wrong</p></div>
+                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800"><p className="text-2xl font-black text-emerald-400">{stats.correct}</p><p className="text-[10px] uppercase font-bold text-slate-500">Correct</p></div>
+                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800"><p className="text-2xl font-black text-rose-400">{stats.wrong}</p><p className="text-[10px] uppercase font-bold text-slate-500">Wrong</p></div>
                 </div>
             </div>
             
-            <button onClick={onHome} className="w-full py-4 bg-brand-600 text-white font-bold rounded-xl shadow-lg hover:scale-[1.02] transition-transform">Return to Chapters</button>
+            <button onClick={onHome} className="w-full py-4 bg-brand-600 text-white font-bold rounded-xl shadow-lg hover:scale-[1.02] transition-transform shadow-brand-900/50">Return to Chapters</button>
         </div>
     );
 };
@@ -281,96 +285,67 @@ export default function App() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // --- 1. GLOBAL STATUS BAR MANAGEMENT ---
+  useStatusBar();
+
   // --- DOUBLE BACK TO EXIT LOGIC ---
   useBackHandler(() => {
-    // Only active on Root Route and when NO modals are open
     if (location.pathname === '/' && !isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen) {
         if (exitAttempted) {
-            return false; // Let browser exit/suspend
+            return false; // Exit app
         } else {
             setExitAttempted(true);
-            setTimeout(() => setExitAttempted(false), 2000); // Reset after 2s
-            return true; // Trap back
+            setTimeout(() => setExitAttempted(false), 2000); 
+            return true; 
         }
     }
-    return false; // Let other handlers or default behavior work if modals are open or not on home
+    return false; 
   }, location.pathname === '/' && !isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen);
 
-  // --- AUTH PERSISTENCE LOGIC ---
   useEffect(() => {
     let mounted = true;
-
-    // 1. Initial Session Check with Safety Timeout
-    const initSession = async () => {
-        try {
-            // Race: Supabase Session vs 3s Timeout
-            // This prevents "Buffering" loop if Supabase is unreachable
-            const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ data: { session: null }, error: 'timeout' }), 3000));
-            const sessionPromise = supabase.auth.getSession();
-
-            const { data } : any = await Promise.race([sessionPromise, timeoutPromise]);
-
-            if (mounted) {
-                if (data?.session) {
-                    setSession(data.session);
-                    // Fetch Profile in Background - DO NOT AWAIT
-                    // This ensures App opens immediately
-                    fetchProfile(data.session.user.id).catch(console.error);
-                }
-            }
-        } catch (error) {
-            console.error("Initialization Error:", error);
-        } finally {
-            if (mounted) {
-                setIsAppInitializing(false);
-            }
+    const restoreSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (mounted && session) {
+            setSession(session);
+            fetchProfile(session.user.id).catch(console.error);
         }
+      } catch (error) {
+        console.error("Session fail", error);
+      } finally {
+        if (mounted) setIsAppInitializing(false);
+      }
     };
-    initSession();
+    restoreSession();
 
-    // 2. Auth State Listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (!mounted) return;
       setSession(session);
-      if (session) {
-          fetchProfile(session.user.id).catch(console.error);
-      } else {
-          setUserProfile(null);
-      }
-      // Ensure app isn't stuck in loading state if auth state changes
+      if (session) fetchProfile(session.user.id).catch(console.error);
+      else setUserProfile(null);
       setIsAppInitializing(false);
     });
 
-    return () => {
-        mounted = false;
-        subscription.unsubscribe();
-    };
+    return () => { mounted = false; subscription.unsubscribe(); };
   }, []);
 
-  // --- URL SYNC EFFECT FOR INFINITY MODAL ---
   useEffect(() => {
     const mode = searchParams.get('mode');
-    if (mode === 'infinity') {
-        setInfinityOpen(true);
-    } else {
-        setInfinityOpen(false);
-    }
+    setInfinityOpen(mode === 'infinity');
   }, [searchParams]);
 
-  // Handle return from test detection
   useEffect(() => {
     if (location.state && (location.state as any).returnTo === 'infinity') {
       setInfinityInstantOpen(true);
-      if (!searchParams.get('mode')) {
-          setSearchParams({ mode: 'infinity' }, { replace: true });
-      }
+      if (!searchParams.get('mode')) setSearchParams({ mode: 'infinity' }, { replace: true });
       window.history.replaceState({}, document.title);
     } else {
       setInfinityInstantOpen(false);
     }
   }, [location, searchParams, setSearchParams]);
 
-  // MAGIC LISTENER: Detects if we need to reopen PYQ Dashboard after a test
   useEffect(() => {
     if (location.state && (location.state as any).openPYQ) {
         const state = location.state as any;
@@ -386,7 +361,6 @@ export default function App() {
   const fetchProfile = async (userId: string) => {
     const data = await api.getProfile(userId);
     if (!data) {
-        // Retry creating profile if missing (resilience)
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
             const fullName = user?.user_metadata?.full_name || 'Student';
@@ -431,38 +405,22 @@ export default function App() {
     navigate('/results', { replace: true });
   };
 
-  // --- Infinity Modal Handlers ---
-  const handleOpenInfinity = () => {
-      setSearchParams({ mode: 'infinity' }, { replace: true });
-  };
-
-  const handleCloseInfinity = () => {
-      setSearchParams({}, { replace: true });
-  };
-
   const handleInfinitySubjectUpdate = (sub: string | null) => {
       const newParams: any = { mode: 'infinity' };
       if (sub) newParams.subject = sub;
       setSearchParams(newParams, { replace: true });
   };
 
-  if (isAppInitializing) {
-      return (
-          <div className="h-screen flex items-center justify-center bg-white">
-              <div className="w-10 h-10 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-      );
-  }
-
+  if (isAppInitializing) return <SplashScreen />;
   if (!session) return <LoginScreen onLoginSuccess={(s) => { setSession(s); navigate('/', { replace: true }); }} />;
 
   const NavIcon = ({ icon, label, target }: { icon: string, label: string, target: string }) => {
       const isActive = location.pathname === target || (target !== '/' && location.pathname.startsWith(target));
       return (
-        <button onClick={() => navigate(target)} className={`flex flex-col items-center justify-center w-16 gap-0.5 transition-all ${isActive ? 'text-brand-600' : 'text-gray-400 hover:text-gray-600'}`}>
+        <button onClick={() => navigate(target)} className={`flex flex-col items-center justify-center w-16 gap-0.5 transition-all ${isActive ? 'text-brand-400' : 'text-slate-500 hover:text-slate-300'}`}>
             <i className={`fa-solid ${icon} text-lg mb-0.5`}></i>
             <span className="text-[10px] font-bold tracking-wide leading-none">{label}</span>
-            <div className={`w-1 h-1 rounded-full mt-0.5 transition-opacity ${isActive ? 'bg-brand-600 opacity-100' : 'opacity-0'}`}></div>
+            <div className={`w-1 h-1 rounded-full mt-0.5 transition-opacity ${isActive ? 'bg-brand-400 opacity-100' : 'opacity-0'}`}></div>
         </button>
       )
   };
@@ -471,22 +429,20 @@ export default function App() {
   const showTopHeader = location.pathname === '/';
 
   return (
-    // Replaced h-screen with h-[100dvh] for mobile browsers
-    <div className="max-w-md mx-auto h-[100dvh] flex flex-col bg-[#f8faff] font-sans relative shadow-2xl overflow-hidden text-gray-900">
+    <div className="max-w-md mx-auto h-[100dvh] flex flex-col bg-slate-950 font-sans relative shadow-2xl overflow-hidden text-white">
         
         {showTopHeader && (
-            // Apply pt-safe-offset to handle Status Bar
-            <div className="px-5 pb-3 pt-safe-offset-16 bg-gray-50 flex justify-between items-center sticky top-0 z-30 border-b border-gray-200 shadow-sm transition-all">
+            <div className="px-5 pb-3 pt-safe-header bg-slate-950 flex justify-between items-center sticky top-0 z-30 border-b border-slate-800 shadow-sm transition-all">
                 <div className="flex items-center gap-2"><RaftaarLogo /></div>
                 <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end">
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Weekly XP</span>
-                        <div className="flex items-center gap-1 text-brand-600 font-black">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Weekly XP</span>
+                        <div className="flex items-center gap-1 text-brand-400 font-black">
                              <i className="fa-solid fa-bolt text-xs"></i>
                              <span>{userProfile?.weekly_xp || 0}</span>
                         </div>
                     </div>
-                    <div className="w-9 h-9 rounded-full bg-white p-0.5 border border-gray-200 cursor-pointer shadow-sm" onClick={() => setDashboardOpen(true)}>
+                    <div className="w-9 h-9 rounded-full bg-slate-900 p-0.5 border border-slate-700 cursor-pointer shadow-sm" onClick={() => setDashboardOpen(true)}>
                         <img src={userProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.email}`} className="w-full h-full rounded-full" alt="User" />
                     </div>
                 </div>
@@ -502,12 +458,8 @@ export default function App() {
                             <HomeScreen 
                                 profile={userProfile} 
                                 setComingSoonTitle={(t) => { setComingSoonTitle(t); navigate('/coming-soon'); }} 
-                                onOpenInfinity={handleOpenInfinity} 
-                                onOpenPYQ={() => { 
-                                    setInstantOpen(false); 
-                                    setPyqInitialTab('objective'); 
-                                    setPYQOpen(true); 
-                                }}
+                                onOpenInfinity={() => setSearchParams({ mode: 'infinity' }, { replace: true })} 
+                                onOpenPYQ={() => { setInstantOpen(false); setPyqInitialTab('objective'); setPYQOpen(true); }}
                                 onOpenDashboard={() => setDashboardOpen(true)}
                                 onOpenAchievements={() => setAchievementsOpen(true)}
                                 navigate={navigate} 
@@ -528,8 +480,10 @@ export default function App() {
                                 pyqYear={parseInt(new URLSearchParams(location.search).get('year') || '0')} 
                                 onExit={() => { 
                                     if(session?.user?.id) fetchProfile(session.user.id); 
+                                    // Navigate back to Home but with state to re-open PYQ modal at Objective tab
                                     navigate('/', { replace: true, state: { openPYQ: true, tab: 'objective' } });
                                 }} 
+                                defaultLanguage={userProfile?.exam_language}
                             />
                         } 
                     />
@@ -539,7 +493,8 @@ export default function App() {
                             <PYQSubjectiveScreen 
                                 subject={new URLSearchParams(location.search).get('subject') || ''} 
                                 year={parseInt(new URLSearchParams(location.search).get('year') || '0')} 
-                                onExit={() => navigate('/', { replace: true, state: { openPYQ: true, tab: 'subjective' } })} 
+                                onExit={() => navigate('/', { replace: true, state: { openPYQ: true, tab: 'subjective' } })}
+                                defaultLanguage={userProfile?.exam_language} 
                             />
                         } 
                     />
@@ -555,6 +510,7 @@ export default function App() {
                                     if (activeSubject) {
                                         navigate(`/practice?subject=${activeSubject}`, { replace: true });
                                     } else {
+                                        // For Modal based tests, go home, state will handle re-opening if needed (logic specific to modal types)
                                         navigate('/', { replace: true, state: { openPYQ: true, tab: 'objective' } });
                                     }
                                 }} 
@@ -570,8 +526,10 @@ export default function App() {
                                 subjectName={activeSubject} 
                                 userId={session?.user?.id} 
                                 onExit={() => {
+                                    // Fix: Explicitly navigate to the previous context instead of relying on history stack (-1)
+                                    // which might be polluted by the back handler trap.
                                     if (activeSubject) {
-                                        navigate(`/practice?subject=${activeSubject}`, { replace: true });
+                                        navigate(`/practice?subject=${encodeURIComponent(activeSubject)}`, { replace: true });
                                     } else {
                                         navigate('/', { replace: true });
                                     }
@@ -592,9 +550,11 @@ export default function App() {
                                 selectedChapters={infinityConfig.chapters} 
                                 onExit={async () => { 
                                     if(session?.user?.id) await fetchProfile(session.user.id); 
+                                    // Return to Home with Infinity Modal open logic
                                     const subjectParam = infinityConfig?.subject ? `&subject=${encodeURIComponent(infinityConfig.subject)}` : '';
                                     navigate(`/?mode=infinity${subjectParam}`, { replace: true, state: { returnTo: 'infinity' } });
                                 }} 
+                                defaultLanguage={userProfile?.exam_language}
                             /> : 
                             <div className="p-10 text-center">Loading...</div>
                         } 
@@ -613,10 +573,9 @@ export default function App() {
             </AnimatePresence>
         </div>
 
-        {/* Global Modals */}
         <InfinityPracticeModal 
             isOpen={isInfinityOpen} 
-            onClose={handleCloseInfinity} 
+            onClose={() => setSearchParams({}, { replace: true })} 
             userId={session?.user?.id}
             initialSubject={searchParams.get('subject')}
             onUpdateSubject={handleInfinitySubjectUpdate}
@@ -655,25 +614,22 @@ export default function App() {
             profile={userProfile}
         />
 
-        {/* Exit Toast Notification - WHITE THEME */}
         <AnimatePresence>
             {exitAttempted && (
                 <motion.div 
                     initial={{ y: 50, opacity: 0, scale: 0.9 }}
                     animate={{ y: 0, opacity: 1, scale: 1 }}
                     exit={{ y: 50, opacity: 0, scale: 0.95 }}
-                    transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                    className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-white text-gray-900 px-6 py-3 rounded-full text-sm font-bold shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-[60] border border-gray-100 flex items-center gap-2 pb-safe"
+                    className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full text-sm font-bold shadow-lg z-[60] border border-slate-700 flex items-center gap-2 pb-safe"
                 >
-                    <div className="w-2 h-2 bg-gray-900 rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-brand-400 rounded-full animate-pulse"></div>
                     Press back again to exit
                 </motion.div>
             )}
         </AnimatePresence>
 
         {showNav && (
-            <div className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-100 flex justify-around py-2 pb-safe-offset-2 z-40 shadow-[0_-5px_20px_rgba(0,0,0,0.02)]">
-                {/* pb-safe-offset-2 manually handles Safe Area + Padding */}
+            <div className="fixed bottom-0 w-full max-w-md bg-slate-950 border-t border-slate-800 flex justify-around py-2 pb-safe-offset-2 z-40 shadow-lg">
                 <div className="pb-safe flex w-full justify-around pt-2">
                     <NavIcon icon="fa-house" label="Home" target="/" />
                     <NavIcon icon="fa-book-open" label="Practice" target="/practice" />
