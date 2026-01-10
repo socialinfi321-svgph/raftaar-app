@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Profile } from '../types';
 
@@ -134,7 +135,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Rounded Premium Slider */}
         <div className="px-5">
             <div 
-                className="rounded-3xl overflow-hidden shadow-xl shadow-brand-900/10 relative h-[180px] touch-pan-y border border-slate-200 dark:border-slate-800"
+                className="rounded-3xl overflow-hidden shadow-xl shadow-brand-900/10 relative h-[185px] touch-pan-y border border-slate-200 dark:border-slate-800"
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
@@ -234,7 +235,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <h3 className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-3 ml-1">Quick Access</h3>
             <div className="grid grid-cols-2 gap-3">
                 {/* Infinity Practice - Purple/Violet Gradient */}
-                <div onClick={onOpenInfinity} className="bg-gradient-to-br from-violet-600 to-purple-700 p-4 rounded-3xl shadow-lg shadow-purple-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-transparent">
+                <div onClick={onOpenInfinity} className="bg-gradient-to-br from-violet-600 to-purple-700 p-4 rounded-3xl shadow-lg shadow-purple-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-[130px] cursor-pointer relative overflow-hidden group border border-transparent">
                     <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl -mr-5 -mt-5"></div>
                     <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full blur-xl -ml-5 -mb-5"></div>
                     
@@ -245,7 +246,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </div>
 
                 {/* PYQ - Green/Teal Gradient */}
-                <div onClick={onOpenPYQ} className="bg-gradient-to-br from-emerald-500 to-teal-600 p-4 rounded-3xl shadow-lg shadow-emerald-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-transparent">
+                <div onClick={onOpenPYQ} className="bg-gradient-to-br from-emerald-500 to-teal-600 p-4 rounded-3xl shadow-lg shadow-emerald-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-[130px] cursor-pointer relative overflow-hidden group border border-transparent">
                      <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/10 rounded-full blur-xl -ml-5 -mb-5"></div>
                      <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl -mr-5 -mt-5"></div>
                      
@@ -256,7 +257,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </div>
 
                 {/* Achievements - Orange/Amber Gradient */}
-                <div onClick={onOpenAchievements} className="bg-gradient-to-br from-amber-400 to-orange-500 p-4 rounded-3xl shadow-lg shadow-orange-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-transparent">
+                <div onClick={onOpenAchievements} className="bg-gradient-to-br from-amber-400 to-orange-500 p-4 rounded-3xl shadow-lg shadow-orange-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-[130px] cursor-pointer relative overflow-hidden group border border-transparent">
                      <div className="absolute bottom-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl -mr-5 -mb-5"></div>
                      <div className="absolute top-0 left-0 w-16 h-16 bg-white/5 rounded-full blur-xl -ml-5 -mt-5"></div>
                      
@@ -267,7 +268,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </div>
 
                 {/* Dashboard - Blue Gradient */}
-                <div onClick={onOpenDashboard} className="bg-gradient-to-br from-blue-500 to-blue-700 p-4 rounded-3xl shadow-lg shadow-blue-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-transparent">
+                <div onClick={onOpenDashboard} className="bg-gradient-to-br from-blue-500 to-blue-700 p-4 rounded-3xl shadow-lg shadow-blue-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-[130px] cursor-pointer relative overflow-hidden group border border-transparent">
                      <div className="absolute top-0 left-0 w-20 h-20 bg-white/10 rounded-full blur-xl -ml-5 -mt-5"></div>
                      <div className="absolute bottom-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl -mr-5 -mb-5"></div>
                      
