@@ -1,18 +1,16 @@
-
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 /**
- * Automatically manages the Status Bar color (PWA Theme Color) based on the current route.
- * 
- * - All Pages -> Dark Background (#020617) -> White Icons
+ * Automatically manages the Status Bar color (PWA Theme Color) based on the current route and theme.
  */
-export const useStatusBar = () => {
+export const useStatusBar = (theme: 'light' | 'dark' = 'light') => {
   const location = useLocation();
 
   useEffect(() => {
-    // Default to Dark Slate (White Text/Icons) for the entire app now
-    let themeColor = '#020617'; 
+    // Light Mode: White background (#ffffff)
+    // Dark Mode: Dark Slate (#020617)
+    const themeColor = theme === 'dark' ? '#020617' : '#ffffff';
 
     // Apply the meta tag
     let meta = document.querySelector('meta[name="theme-color"]');
@@ -23,5 +21,5 @@ export const useStatusBar = () => {
     }
     meta.setAttribute('content', themeColor);
     
-  }, [location]);
+  }, [location, theme]);
 };

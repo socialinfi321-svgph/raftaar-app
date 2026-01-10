@@ -251,9 +251,17 @@ export const api = {
 
   getChapterStats: async (subject: string): Promise<{ en: string, hi: string, count: number }[]> => {
       try {
-          const { data } = await supabase.from('questions').select('chapter_name_en, chapter_name_hi').eq('subject', subject);
+          // STRICT SORTING: Order by ID to ensure chapters appear in book order
+          const { data } = await supabase
+            .from('questions')
+            .select('chapter_name_en, chapter_name_hi, id')
+            .eq('subject', subject)
+            .order('id', { ascending: true });
+          
           if (!data) return [];
           const map = new Map<string, { en: string, hi: string, count: number }>();
+          
+          // Map preserves insertion order, so sorting by ID first guarantees correct Chapter order
           data.forEach((q: any) => {
               const en = q.chapter_name_en;
               const hi = q.chapter_name_hi || '';

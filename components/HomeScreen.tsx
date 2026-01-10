@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Profile } from '../types';
 
@@ -130,12 +129,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const dragOffset = isDragging ? touchCurrent - touchStart : 0;
 
   return (
-    <div className="space-y-6 pb-24 pt-4 animate-fade-in bg-slate-950">
+    <div className="space-y-6 pb-24 pt-4 animate-fade-in bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
         
         {/* Rounded Premium Slider */}
         <div className="px-5">
             <div 
-                className="rounded-3xl overflow-hidden shadow-xl shadow-brand-900/10 relative h-[180px] touch-pan-y border border-slate-800"
+                className="rounded-3xl overflow-hidden shadow-xl shadow-brand-900/10 relative h-[180px] touch-pan-y border border-slate-200 dark:border-slate-800"
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
@@ -234,40 +233,48 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <div className="px-5">
             <h3 className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-3 ml-1">Quick Access</h3>
             <div className="grid grid-cols-2 gap-3">
-                {/* Infinity Practice */}
-                <div onClick={onOpenInfinity} className="bg-gradient-to-br from-purple-800 to-indigo-900 p-4 rounded-3xl shadow-none active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-purple-800/30">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full blur-xl -mr-5 -mt-5"></div>
-                    <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-purple-200 border border-white/10">
+                {/* Infinity Practice - Purple/Violet Gradient */}
+                <div onClick={onOpenInfinity} className="bg-gradient-to-br from-violet-600 to-purple-700 p-4 rounded-3xl shadow-lg shadow-purple-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-transparent">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl -mr-5 -mt-5"></div>
+                    <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full blur-xl -ml-5 -mb-5"></div>
+                    
+                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
                         <i className="fa-solid fa-infinity text-xl"></i>
                     </div>
-                    <span className="text-xs font-bold text-purple-100">Infinity Practice</span>
+                    <span className="text-xs font-bold text-white tracking-wide">Infinity Practice</span>
                 </div>
 
-                {/* PYQ */}
-                <div onClick={onOpenPYQ} className="bg-gradient-to-br from-emerald-800 to-green-900 p-4 rounded-3xl shadow-none active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-emerald-800/30">
-                     <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full blur-xl -ml-5 -mb-5"></div>
-                    <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-emerald-200 border border-white/10">
+                {/* PYQ - Green/Teal Gradient */}
+                <div onClick={onOpenPYQ} className="bg-gradient-to-br from-emerald-500 to-teal-600 p-4 rounded-3xl shadow-lg shadow-emerald-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-transparent">
+                     <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/10 rounded-full blur-xl -ml-5 -mb-5"></div>
+                     <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl -mr-5 -mt-5"></div>
+                     
+                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
                         <i className="fa-solid fa-file-circle-question text-xl"></i>
                     </div>
-                    <span className="text-xs font-bold text-emerald-100">PYQ</span>
+                    <span className="text-xs font-bold text-white tracking-wide">PYQ</span>
                 </div>
 
-                {/* Achievements */}
-                <div onClick={onOpenAchievements} className="bg-gradient-to-br from-yellow-700 to-orange-800 p-4 rounded-3xl shadow-none active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-yellow-700/30">
-                     <div className="absolute bottom-0 right-0 w-20 h-20 bg-white/5 rounded-full blur-xl -mr-5 -mb-5"></div>
-                    <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-yellow-200 border border-white/10">
+                {/* Achievements - Orange/Amber Gradient */}
+                <div onClick={onOpenAchievements} className="bg-gradient-to-br from-amber-400 to-orange-500 p-4 rounded-3xl shadow-lg shadow-orange-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-transparent">
+                     <div className="absolute bottom-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl -mr-5 -mb-5"></div>
+                     <div className="absolute top-0 left-0 w-16 h-16 bg-white/5 rounded-full blur-xl -ml-5 -mt-5"></div>
+                     
+                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
                         <i className="fa-solid fa-medal text-xl"></i>
                     </div>
-                    <span className="text-xs font-bold text-yellow-100">Achievements</span>
+                    <span className="text-xs font-bold text-white tracking-wide">Achievements</span>
                 </div>
 
-                {/* Dashboard */}
-                <div onClick={onOpenDashboard} className="bg-gradient-to-br from-brand-800 to-blue-900 p-4 rounded-3xl shadow-none active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-blue-800/30">
-                     <div className="absolute top-0 left-0 w-20 h-20 bg-white/5 rounded-full blur-xl -ml-5 -mt-5"></div>
-                    <div className="w-10 h-10 bg-white/10 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-blue-200 border border-white/10">
+                {/* Dashboard - Blue Gradient */}
+                <div onClick={onOpenDashboard} className="bg-gradient-to-br from-blue-500 to-blue-700 p-4 rounded-3xl shadow-lg shadow-blue-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-32 cursor-pointer relative overflow-hidden group border border-transparent">
+                     <div className="absolute top-0 left-0 w-20 h-20 bg-white/10 rounded-full blur-xl -ml-5 -mt-5"></div>
+                     <div className="absolute bottom-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl -mr-5 -mb-5"></div>
+                     
+                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
                         <i className="fa-solid fa-chart-pie text-xl"></i>
                     </div>
-                    <span className="text-xs font-bold text-blue-100">My Dashboard</span>
+                    <span className="text-xs font-bold text-white tracking-wide">My Dashboard</span>
                 </div>
             </div>
         </div>
@@ -275,15 +282,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Featured Series */}
         <div className="px-5">
             <h3 className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-3 ml-1">Featured Series</h3>
-            <div onClick={() => setComingSoonTitle('Wave Optics Series')} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm flex justify-between items-center cursor-pointer hover:bg-slate-800 transition group">
+            <div onClick={() => setComingSoonTitle('Wave Optics Series')} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition group">
                 <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-950/50 rounded-2xl flex items-center justify-center text-indigo-400 font-black text-xl group-hover:scale-110 transition-transform border border-indigo-900/30">W</div>
+                    <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/50 rounded-2xl flex items-center justify-center text-indigo-500 dark:text-indigo-400 font-black text-xl group-hover:scale-110 transition-transform border border-indigo-100 dark:border-indigo-900/30">W</div>
                     <div>
-                        <h4 className="font-bold text-white text-sm">Wave Optics</h4>
-                        <p className="text-[10px] text-slate-400 font-medium">Physics • High Yield</p>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">Wave Optics</h4>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Physics • High Yield</p>
                     </div>
                 </div>
-                <div className="bg-slate-800 px-3 py-1 rounded-lg text-[10px] font-bold text-slate-400 flex items-center gap-1 border border-slate-700">
+                <div className="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 border border-slate-200 dark:border-slate-700">
                     Locked <i className="fa-solid fa-lock text-[10px]"></i>
                 </div>
             </div>

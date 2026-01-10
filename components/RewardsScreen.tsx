@@ -38,8 +38,19 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
     useEffect(() => {
         const fetchLeaderboard = async () => {
             setLoading(true);
+            const cacheKey = 'leaderboard_cache';
+            const cached = localStorage.getItem(cacheKey);
+            
+            // 1. Instant Load from Cache
+            if (cached) {
+                setLeaderboard(JSON.parse(cached));
+                setLoading(false);
+            }
+
+            // 2. Background Refresh
             const data = await api.getLeaderboard();
             setLeaderboard(data);
+            localStorage.setItem(cacheKey, JSON.stringify(data));
             setLoading(false);
         };
         fetchLeaderboard();
@@ -116,7 +127,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
                  </div>
 
                  <div className="space-y-3 pb-24">
-                     {loading ? (
+                     {loading && leaderboard.length === 0 ? (
                          <div className="text-center py-10 text-slate-600 text-sm">Loading ranks...</div>
                      ) : (
                          leaderboard.map((user, idx) => {
