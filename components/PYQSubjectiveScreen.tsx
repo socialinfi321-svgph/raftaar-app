@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, ZoomIn, ZoomOut, BookOpen, Hash, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ZoomIn, ZoomOut, CheckCircle, Sun, Moon } from 'lucide-react';
 import { PYQQuestion, Language } from '../types';
 import { api } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
+import { useStatusBar } from '../hooks/useStatusBar';
 
 interface PYQSubjectiveScreenProps {
   subject: string;
@@ -12,145 +13,72 @@ interface PYQSubjectiveScreenProps {
   defaultLanguage?: 'Hindi' | 'English';
 }
 
-// --- HELPER COMPONENT: Smart Text Formatter (Crash Proof) ---
-const FormattedText = ({ text, style }: { text: string | null | undefined; style?: React.CSSProperties }) => {
-  if (!text) return null;
-  
-  // SAFETY: Convert to string immediately to prevent crashes on bad data
-  const safeText = String(text || ""); 
-  const lines = safeText.split('\n');
-
-  return (
-    <div className="space-y-4 font-sans text-slate-700 dark:text-slate-300" style={style}>
-      {lines.map((line, index) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <div key={index} className="h-2" />; // Spacer
-
-        // 1. Detect Math/Formulas (Basic heuristic)
-        const isMath = /[=≈→⇒∫∑√θπ]/.test(trimmed) && trimmed.length < 50;
-        if (isMath) {
-            return (
-                <div key={index} className="flex justify-center my-4">
-                    <span className="font-mono bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-lg text-slate-900 dark:text-white font-medium border border-slate-200 dark:border-slate-700 shadow-sm">
-                        {trimmed}
-                    </span>
-                </div>
-            );
-        }
-
-        // 2. Handle Headers (Ends with :)
-        if (trimmed.endsWith(':')) {
-            return (
-                <h4 key={index} className="font-bold text-slate-900 dark:text-white mt-6 mb-2 text-lg underline decoration-brand-500/30 decoration-2 underline-offset-4">
-                    {trimmed}
-                </h4>
-            );
-        }
-
-        // 3. Handle Bullet Points (Numbers, letters, bullets)
-        const listMatch = trimmed.match(/^(\d+\.|[a-z]\)|\-|•|\*)\s+(.*)/);
-        if (listMatch && listMatch[2]) {
-          return (
-            <div key={index} className="flex gap-3 mb-3">
-               {/* Bullet/Number Marker */}
-               <div className="shrink-0 mt-0.5 w-6 flex justify-center">
-                    <span className="text-brand-600 dark:text-brand-400 font-bold text-sm bg-brand-50 dark:bg-brand-900/20 px-1.5 py-0.5 rounded border border-brand-100 dark:border-brand-900/30">
-                        {listMatch[1].replace(/[•\-*]/, '•')}
-                    </span>
-               </div>
-               {/* Content */}
-               <p className="leading-relaxed text-justify flex-1">
-                   {listMatch[2]}
-               </p>
-            </div>
-          );
-        }
-
-        // 4. Standard Paragraph
-        return (
-            <p key={index} className="leading-relaxed text-justify mb-4">
-                {line}
-            </p>
-        );
-      })}
-    </div>
-  );
-};
-
 export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({ 
     subject, 
     year, 
     onExit,
-    defaultLanguage = 'English' 
+    defaultLanguage = 'English'
 }) => {
   const [questions, setQuestions] = useState<PYQQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
   
-  // ✅ Initialize Language Safe Mode
-  const [lang, setLang] = useState<Language>(() => {
-    try {
-        const saved = localStorage.getItem('raftaar-language');
-        if (saved === 'Hindi' || saved === 'hi') return 'hi';
-        return defaultLanguage === 'Hindi' ? 'hi' : 'en';
-    } catch (e) {
-        return 'en';
+  // Theme State
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+        return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
     }
+    return 'light';
   });
 
-  const toggleLanguage = () => {
-    setLang(prev => {
-      const newLang = prev === 'en' ? 'hi' : 'en';
-      localStorage.setItem('raftaar-language', newLang === 'hi' ? 'Hindi' : 'English');
-      return newLang;
-    });
-  };
+  // Sync Status Bar
+  useStatusBar(theme);
 
-  const [fontSize, setFontSize] = useState(16);
+  const [lang, setLang] = useState<Language>('en');
+  const [fontSize, setFontSize] = useState(16); // Base font size
+  const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Sync mobile back button with app back action
+  // Fixed: return true to ensure navigation is handled explicitly by onExit
   useBackHandler(() => {
-    onExit(); 
-    return true;
+      onExit();
+      return true; 
   });
 
   useEffect(() => {
-    let isMounted = true;
     const fetchQuestions = async () => {
         setLoading(true);
-        try {
-            const data = await api.getPYQs(subject, year, 'subjective');
-            if (isMounted) {
-                // Ensure array to prevent map crashes
-                setQuestions(Array.isArray(data) ? data : []);
-            }
-        } catch (e) {
-            console.error("Failed to fetch subjective questions", e);
-            if (isMounted) setQuestions([]);
-        } finally {
-            if (isMounted) setLoading(false);
-        }
+        const data = await api.getPYQs(subject, year, 'subjective');
+        setQuestions(data);
+        setLoading(false);
     };
     if (subject && year) {
         fetchQuestions();
     }
-    return () => { isMounted = false; };
   }, [subject, year]);
 
-  // Scroll to top when question changes
+  // Scroll to top on question change
   useEffect(() => {
       if (scrollRef.current) {
           scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
       }
   }, [currentIndex]);
 
-  const currentQ = (questions && questions.length > 0) ? questions[currentIndex] : null;
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(newTheme);
+    localStorage.setItem('raftaar-theme', newTheme);
+  };
+
+  const currentQ = questions[currentIndex];
 
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
-      onExit();
+      onExit(); // Finish
     }
   };
 
@@ -160,158 +88,135 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
     }
   };
 
-  // Safe Text Getter
-  const getTxt = (en?: string | null, hi?: string | null): string => {
-      try {
-          if (!en && !hi) return "";
-          const txt = lang === 'hi' ? (hi || en || "") : (en || "");
-          return String(txt);
-      } catch (e) {
-          return "";
-      }
-  };
+  const getTxt = (en?: string | null, hi?: string | null) => lang === 'hi' ? (hi || en) : en;
 
+  // Render Loading
   if (loading) {
       return (
-        <div className="h-[100dvh] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 gap-4 transition-colors">
-            <div className="w-10 h-10 border-4 border-slate-200 dark:border-slate-800 border-t-brand-500 rounded-full animate-spin"></div>
-            <p className="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-widest animate-pulse">Loading Notes...</p>
+        <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-slate-950 gap-4 transition-colors">
+            <div className="w-10 h-10 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-500 dark:text-slate-400 font-medium text-sm animate-pulse">Loading Questions...</p>
         </div>
       );
   }
 
-  if (!currentQ) {
+  // Render Empty
+  if (!questions || questions.length === 0) {
     return (
-      <div className="h-[100dvh] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 transition-colors p-6 text-center">
-        <div className="w-16 h-16 bg-slate-200 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4 text-slate-400">
-            <BookOpen size={24} />
-        </div>
-        <p className="text-slate-500 dark:text-slate-400 font-medium mb-6">No subjective questions found for {subject} {year}.</p>
-        <button onClick={onExit} className="px-6 py-3 bg-slate-900 dark:bg-white rounded-xl text-sm font-bold text-white dark:text-slate-900 shadow-lg hover:scale-105 transition-transform">Go Back</button>
+      <div className="h-full flex flex-col items-center justify-center bg-white dark:bg-slate-950 transition-colors">
+        <p className="text-gray-500 dark:text-slate-400 font-medium">No subjective questions found for this year.</p>
+        <button onClick={onExit} className="mt-4 px-6 py-2 bg-gray-100 dark:bg-slate-800 rounded-lg text-sm font-bold text-gray-700 dark:text-slate-300">Go Back</button>
       </div>
     );
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-slate-50 dark:bg-slate-950 font-sans animate-fade-in text-slate-900 dark:text-white transition-colors duration-300">
+    <div className="h-full flex flex-col bg-white dark:bg-slate-950 font-sans animate-fade-in transition-colors">
       
-      {/* Header */}
-      <div className="px-4 pb-3 pt-safe-header bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center sticky top-0 z-50 transition-colors shadow-sm shrink-0">
+      {/* 1. Header */}
+      <div className="px-4 pb-3 pt-safe-header bg-white dark:bg-slate-950 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center sticky top-0 z-20 shadow-sm transition-colors">
         <div className="flex items-center gap-3">
-          <button onClick={onExit} className="p-2 -ml-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-full transition-colors active:scale-95">
-            <ArrowLeft size={20} />
+          <button onClick={onExit} className="p-2 -ml-2 text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-900 rounded-full transition-colors">
+            <ArrowLeft size={22} />
           </button>
           <div>
-            <h2 className="text-lg font-black text-slate-900 dark:text-white leading-none">Subjective</h2>
-            <p className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase mt-1 tracking-wide">{subject} • {year}</p>
+            <h2 className="text-lg font-black text-gray-900 dark:text-white leading-none">Learn Subjective</h2>
+            <p className="text-[10px] font-bold text-gray-400 dark:text-slate-500 uppercase mt-1">{subject} • {year}</p>
           </div>
         </div>
 
-        <div className="flex items-center bg-slate-100 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-slate-800 p-1">
-          <button 
-            onClick={() => setFontSize(s => Math.max(14, s - 2))}
-            className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-90"
-          >
-            <ZoomOut size={16} />
-          </button>
-          <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-700 mx-1"></div>
-          <button 
-            onClick={() => setFontSize(s => Math.min(24, s + 2))}
-            className="p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all active:scale-90"
-          >
-            <ZoomIn size={16} />
-          </button>
+        <div className="flex items-center gap-3">
+            {/* Theme Toggle */}
+            <button 
+                onClick={toggleTheme}
+                className="w-9 h-9 flex items-center justify-center rounded-lg bg-gray-50 dark:bg-slate-900 text-gray-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors border border-gray-200 dark:border-slate-800"
+            >
+                {theme === 'light' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
+            {/* Font Controls */}
+            <div className="flex items-center bg-gray-50 dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-800 p-1">
+            <button 
+                onClick={() => setFontSize(s => Math.max(12, s - 2))}
+                className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-brand-600 active:bg-white dark:active:bg-slate-800 rounded-md transition-all"
+            >
+                <ZoomOut size={16} />
+            </button>
+            <div className="w-[1px] h-4 bg-gray-200 dark:bg-slate-700 mx-1"></div>
+            <button 
+                onClick={() => setFontSize(s => Math.min(24, s + 2))}
+                className="p-1.5 text-gray-500 dark:text-slate-400 hover:text-brand-600 active:bg-white dark:active:bg-slate-800 rounded-md transition-all"
+            >
+                <ZoomIn size={16} />
+            </button>
+            </div>
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div className="px-5 py-3 flex justify-between items-center bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 transition-colors shrink-0">
-        <div className="flex gap-1 overflow-x-auto hide-scrollbar max-w-[200px]" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {(questions || []).map((_, idx) => (
+      {/* 2. Top Bar (Progress & Lang) */}
+      <div className="px-5 py-3 flex justify-between items-center bg-gray-50/50 dark:bg-slate-900/50 border-b border-gray-100 dark:border-slate-800 transition-colors">
+        <div className="flex gap-1 overflow-x-auto hide-scrollbar max-w-[200px]">
+            {questions.map((_, idx) => (
                 <div 
                     key={idx} 
-                    className={`h-1.5 rounded-full transition-all duration-300 shrink-0 ${idx === currentIndex ? 'w-6 bg-brand-600 dark:bg-brand-400' : 'w-1.5 bg-slate-300 dark:bg-slate-700'}`}
+                    className={`h-1.5 rounded-full transition-all duration-300 shrink-0 ${idx === currentIndex ? 'w-6 bg-brand-600 dark:bg-brand-500' : 'w-1.5 bg-gray-200 dark:bg-slate-700'}`}
                 />
             ))}
         </div>
-        
-        <button 
-            onClick={toggleLanguage} 
-            className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-800 text-[10px] font-bold text-slate-600 dark:text-slate-400 shadow-sm shrink-0 active:scale-95 transition-transform"
-        >
-            <BookOpen size={12} />
-            {lang === 'en' ? 'ENGLISH' : 'HINDI'}
+        <button onClick={() => setLang(l => l==='en'?'hi':'en')} className="flex items-center gap-1 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-gray-200 dark:border-slate-800 text-[10px] font-bold text-gray-600 dark:text-slate-300 shadow-sm shrink-0 active:scale-95 transition-transform">
+            {lang === 'en' ? 'ENG' : 'HIN'}
         </button>
       </div>
 
-      {/* Content Area - Scrollable */}
-      <div 
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950 transition-colors pb-32 hide-scrollbar scroll-smooth"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
-        <div className="max-w-2xl mx-auto p-5">
-            
-            {/* QUESTION CARD */}
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm mb-6 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-slate-900 dark:bg-slate-700"></div>
-                <div className="flex items-center justify-between mb-4">
-                    <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider flex items-center gap-2">
-                        <Hash size={12} /> Question {currentIndex + 1}
+      {/* 3. Content Area */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 pb-32 hide-scrollbar scroll-smooth">
+        
+        {/* Question Card */}
+        <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-bold text-gray-400 dark:text-slate-500 uppercase tracking-widest">Question {currentIndex + 1}</span>
+                {currentQ.marks && (
+                    <span className="bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 px-2 py-1 rounded text-[10px] font-bold border border-brand-100 dark:border-brand-900/30">
+                        +{currentQ.marks} Marks
                     </span>
-                    {currentQ?.marks && (
-                        <span className="bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-1 rounded text-[10px] font-bold border border-slate-200 dark:border-slate-700">
-                            {currentQ.marks} Marks
-                        </span>
-                    )}
-                </div>
-                
-                <h1 
-                    className="font-bold text-slate-900 dark:text-white leading-relaxed break-words font-serif"
-                    style={{ fontSize: `${fontSize + 2}px` }}
-                >
-                    {getTxt(currentQ?.question_text_en, currentQ?.question_text_hi)}
-                </h1>
+                )}
             </div>
-
-            {/* ANSWER CARD */}
-            <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-brand-500"></div>
-                
-                <div className="flex items-center gap-2 mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">
-                    <div className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
-                        <CheckCircle size={14} />
-                    </div>
-                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Model Answer</h3>
-                </div>
-
-                <div className="select-text">
-                    <FormattedText 
-                        text={getTxt(currentQ?.answer_text_en, currentQ?.answer_text_hi) || getTxt(currentQ?.solution_short_en, currentQ?.solution_short_hi) || "Detailed answer not available."} 
-                        style={{ fontSize: `${fontSize}px` }}
-                    />
-                </div>
-            </div>
-            
-            <div className="flex justify-center mt-8 opacity-30">
-                <div className="w-12 h-1 bg-slate-200 dark:bg-slate-800 rounded-full"></div>
-            </div>
-
+            <h1 
+                className="font-bold text-gray-900 dark:text-white leading-snug font-serif break-words"
+                style={{ fontSize: `${fontSize + 4}px` }}
+            >
+                {getTxt(currentQ.question_text_en, currentQ.question_text_hi)}
+            </h1>
         </div>
+
+        {/* Answer Section */}
+        <div className="relative pl-4 border-l-2 border-green-500 dark:border-green-600">
+            <div className="absolute -left-[9px] -top-1 w-4 h-4 bg-green-500 dark:bg-green-600 rounded-full flex items-center justify-center text-white ring-4 ring-white dark:ring-slate-950 transition-colors">
+                <CheckCircle size={10} strokeWidth={3} />
+            </div>
+            <h3 className="text-green-700 dark:text-green-400 font-bold text-sm uppercase mb-3 ml-2 tracking-wide">Solution</h3>
+            <div 
+                className="text-gray-700 dark:text-slate-300 leading-relaxed ml-2 font-serif whitespace-pre-line"
+                style={{ fontSize: `${fontSize}px` }}
+            >
+                {getTxt(currentQ.answer_text_en, currentQ.answer_text_hi) || getTxt(currentQ.solution_short_en, currentQ.solution_short_hi) || "Detailed answer not available."}
+            </div>
+        </div>
+
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 w-full bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 p-4 pb-safe z-30 flex gap-4 transition-colors shadow-[0_-5px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-5px_20px_rgba(0,0,0,0.2)]">
+      {/* 4. Bottom Navigation - Fixed with Safe Area */}
+      <div className="fixed bottom-0 w-full bg-white dark:bg-slate-950 border-t border-gray-100 dark:border-slate-800 p-4 pb-safe z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_-5px_20px_rgba(0,0,0,0.2)] flex gap-4 transition-colors">
         <button 
             onClick={handlePrev}
             disabled={currentIndex === 0}
-            className="flex-1 py-3.5 rounded-xl font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors active:scale-95 hover:bg-slate-200 dark:hover:bg-slate-800"
+            className="flex-1 py-3.5 rounded-xl font-bold text-gray-600 dark:text-slate-400 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors hover:bg-gray-100 dark:hover:bg-slate-800"
         >
             Previous
         </button>
         <button 
             onClick={handleNext}
-            className="flex-1 py-3.5 rounded-xl font-bold text-white bg-slate-900 dark:bg-white dark:text-slate-950 shadow-lg hover:scale-[1.02] transition-transform active:scale-[0.98]"
+            className="flex-1 py-3.5 rounded-xl font-bold text-white bg-brand-600 shadow-lg shadow-brand-200 dark:shadow-brand-900/50 hover:bg-brand-700 transition-transform active:scale-[0.98]"
         >
             {currentIndex === questions.length - 1 ? 'Finish' : 'Next'}
         </button>

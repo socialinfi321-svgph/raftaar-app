@@ -135,7 +135,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Rounded Premium Slider */}
         <div className="px-5">
             <div 
-                className="rounded-3xl overflow-hidden shadow-xl shadow-brand-900/10 relative h-[185px] touch-pan-y border border-slate-200 dark:border-slate-800"
+                className="rounded-3xl overflow-hidden shadow-xl shadow-brand-900/10 relative h-[190px] touch-pan-y border border-slate-200 dark:border-slate-800"
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
