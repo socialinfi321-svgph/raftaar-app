@@ -15,12 +15,10 @@ import { DashboardModal } from './components/DashboardModal';
 import { AchievementsModal } from './components/AchievementsModal';
 import { RewardsScreen } from './components/RewardsScreen';
 import { HomeScreen } from './components/HomeScreen';
-import { NoInternetScreen } from './components/NoInternetScreen'; // Import
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Moon, Sun } from 'lucide-react';
 import { useBackHandler } from './hooks/useBackHandler';
 import { useStatusBar } from './hooks/useStatusBar';
-import { useOnlineStatus } from './hooks/useOnlineStatus'; // Import Hook
 
 const RaftaarLogo = () => (
   <div className="flex items-center gap-2 select-none shrink-0">
@@ -291,7 +289,6 @@ const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [isAppInitializing, setIsAppInitializing] = useState(true);
-  const isOnline = useOnlineStatus(); // Track online status
   
   // Theme State - Default 'light'
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -464,12 +461,6 @@ export default function App() {
   };
 
   if (isAppInitializing) return <SplashScreen />;
-
-  // OFFLINE CHECK OVERLAY
-  if (!isOnline) {
-      return <NoInternetScreen />;
-  }
-
   if (!session) return <LoginScreen onLoginSuccess={(s) => { setSession(s); navigate('/', { replace: true }); }} />;
 
   const NavIcon = ({ icon, label, target }: { icon: string, label: string, target: string }) => {
@@ -696,7 +687,7 @@ export default function App() {
         </AnimatePresence>
 
         {showNav && (
-            <div className="fixed bottom-0 w-full max-w-md bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-around py-[7px] pb-safe z-40 shadow-lg transition-colors duration-300">
+            <div className="fixed bottom-0 w-full max-w-md bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-around py-[5px] pb-safe z-40 shadow-lg transition-colors duration-300">
                 <div className="flex w-full justify-around pt-1">
                     <NavIcon icon="fa-house" label="Home" target="/" />
                     <NavIcon icon="fa-book-open" label="Practice" target="/practice" />
