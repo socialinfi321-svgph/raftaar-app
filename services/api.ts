@@ -158,11 +158,17 @@ export const api = {
   submitAnswer: async (userId: string, questionId: number, selectedOption: string, isCorrect: boolean, timeTaken: number) => {
     if (userId === 'demo-user') return true; 
     
-    const { error } = await supabase.from('user_interactions').insert({
-        user_id: userId, question_id: questionId, is_correct: isCorrect, time_spent_seconds: timeTaken
-    });
+    // Attempt to log the interaction inside a try-catch so it doesn't block XP update
+    try {
+      await supabase.from('user_interactions').insert({
+          user_id: userId, question_id: questionId, is_correct: isCorrect, time_spent_seconds: timeTaken
+      });
+    } catch (err) {
+      console.log("Interaction logging skipped (duplicate or error)", err);
+    }
     
-    if (!error && isCorrect) {
+    // Always update XP if correct, regardless of interaction log success
+    if (isCorrect) {
         await updateUserXP(userId, 1);
     }
     return true;
@@ -182,14 +188,18 @@ export const api = {
   submitShortsInteraction: async (userId: string, questionId: number, isCorrect: boolean, isLiked: boolean, timeSpentSeconds: number) => {
     if (userId === 'demo-user') return true;
     
-    const { error } = await supabase.from('user_interactions').insert({
-        user_id: userId, question_id: questionId, is_correct: isCorrect, is_liked: isLiked, time_spent_seconds: timeSpentSeconds
-    });
+    try {
+      await supabase.from('user_interactions').insert({
+          user_id: userId, question_id: questionId, is_correct: isCorrect, is_liked: isLiked, time_spent_seconds: timeSpentSeconds
+      });
+    } catch (err) {
+       // Ignore duplicate logs
+    }
 
-    if (!error && isCorrect) {
+    if (isCorrect) {
         await updateUserXP(userId, 1);
     }
-    return !error;
+    return true;
   },
 
   getLeaderboard: async (): Promise<Profile[]> => {
@@ -241,9 +251,17 @@ export const api = {
 
   getChapterStats: async (subject: string): Promise<{ en: string, hi: string, count: number }[]> => {
       try {
-          const { data } = await supabase.from('questions').select('chapter_name_en, chapter_name_hi').eq('subject', subject);
+          // STRICT SORTING: Order by ID to ensure chapters appear in book order
+          const { data } = await supabase
+            .from('questions')
+            .select('chapter_name_en, chapter_name_hi, id')
+            .eq('subject', subject)
+            .order('id', { ascending: true });
+          
           if (!data) return [];
           const map = new Map<string, { en: string, hi: string, count: number }>();
+          
+          // Map preserves insertion order, so sorting by ID first guarantees correct Chapter order
           data.forEach((q: any) => {
               const en = q.chapter_name_en;
               const hi = q.chapter_name_hi || '';
