@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, ZoomIn, ZoomOut, BookOpen, Hash, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ZoomIn, ZoomOut, BookOpen, Hash, CheckCircle, RefreshCw, AlertTriangle } from 'lucide-react';
 import { PYQQuestion, Language } from '../types';
 import { api } from '../services/api';
 import { useBackHandler } from '../hooks/useBackHandler';
@@ -85,6 +85,7 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
 }) => {
   const [questions, setQuestions] = useState<PYQQuestion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -109,38 +110,40 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
 
   const [fontSize, setFontSize] = useState(16);
 
+  // Unified Back Handler
   useBackHandler(() => {
     onExit(); 
     return true;
   });
 
+  const fetchQuestions = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+          const data = await api.getPYQs(subject, year, 'subjective');
+          if (Array.isArray(data) && data.length > 0) {
+              setQuestions(data);
+          } else {
+              setQuestions([]);
+          }
+      } catch (e) {
+          console.error("Failed to fetch subjective questions", e);
+          setError("Failed to load questions. Please check your internet connection.");
+      } finally {
+          setLoading(false);
+      }
+  };
+
   useEffect(() => {
-    let isMounted = true;
-    const fetchQuestions = async () => {
-        setLoading(true);
-        try {
-            const data = await api.getPYQs(subject, year, 'subjective');
-            if (isMounted) {
-                // Ensure array to prevent map crashes
-                setQuestions(Array.isArray(data) ? data : []);
-            }
-        } catch (e) {
-            console.error("Failed to fetch subjective questions", e);
-            if (isMounted) setQuestions([]);
-        } finally {
-            if (isMounted) setLoading(false);
-        }
-    };
     if (subject && year) {
         fetchQuestions();
     }
-    return () => { isMounted = false; };
   }, [subject, year]);
 
   // Scroll to top when question changes
   useEffect(() => {
       if (scrollRef.current) {
-          scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+          scrollRef.current.scrollTo({ top: 0, behavior: 'instant' });
       }
   }, [currentIndex]);
 
@@ -178,6 +181,24 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
             <p className="text-slate-500 dark:text-slate-400 font-bold text-xs uppercase tracking-widest animate-pulse">Loading Notes...</p>
         </div>
       );
+  }
+
+  if (error) {
+    return (
+        <div className="h-[100dvh] flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 p-6 text-center transition-colors">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4 text-red-500 dark:text-red-400">
+                <AlertTriangle size={32} />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Something went wrong</h3>
+            <p className="text-slate-500 dark:text-slate-400 mb-6">{error}</p>
+            <div className="flex gap-4">
+                <button onClick={onExit} className="px-6 py-2.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold">Cancel</button>
+                <button onClick={fetchQuestions} className="px-6 py-2.5 bg-brand-600 text-white rounded-xl font-bold shadow-lg flex items-center gap-2">
+                    <RefreshCw size={16} /> Retry
+                </button>
+            </div>
+        </div>
+    );
   }
 
   if (!currentQ) {
