@@ -15,12 +15,12 @@ import { DashboardModal } from './components/DashboardModal';
 import { AchievementsModal } from './components/AchievementsModal';
 import { RewardsScreen } from './components/RewardsScreen';
 import { HomeScreen } from './components/HomeScreen';
-import { NoInternetScreen } from './components/NoInternetScreen'; 
+import { NoInternetScreen } from './components/NoInternetScreen'; // Import
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Moon, Sun } from 'lucide-react';
 import { useBackHandler } from './hooks/useBackHandler';
 import { useStatusBar } from './hooks/useStatusBar';
-import { useOnlineStatus } from './hooks/useOnlineStatus'; 
+import { useOnlineStatus } from './hooks/useOnlineStatus'; // Import Hook
 
 const RaftaarLogo = () => (
   <div className="flex items-center gap-2 select-none shrink-0">
@@ -101,20 +101,12 @@ const SubjectIcon = ({ subject }: { subject: string }) => {
 };
 
 // Exam Screen
-const ExamScreen = ({ showCS, profile, navigate }: { showCS: (title: string) => void, profile: Profile | null, navigate: any }) => {
+const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile: Profile | null, navigate: any }) => {
+    // Navigates HOME on back press
     useBackHandler(() => {
         navigate('/');
         return true;
     });
-
-    const exams = [
-        { id: 1, subject: 'Physics', title: 'Physics Mega Mock', icon: 'fa-atom', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-100 dark:border-blue-900/50' },
-        { id: 2, subject: 'Chemistry', title: 'Chemistry Target', icon: 'fa-flask', color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-900/20', border: 'border-teal-100 dark:border-teal-900/50' },
-        { id: 3, subject: 'Maths', title: 'Maths Formula Test', icon: 'fa-calculator', color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20', border: 'border-indigo-100 dark:border-indigo-900/50' },
-        { id: 4, subject: 'Biology', title: 'Biology Diagram Test', icon: 'fa-dna', color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-900/20', border: 'border-rose-100 dark:border-rose-900/50' },
-        { id: 5, subject: 'Hindi', title: 'Hindi Vyakaran', icon: 'fa-om', color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-100 dark:border-orange-900/50' },
-        { id: 6, subject: 'English', title: 'English Grammar', icon: 'fa-font', color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-900/20', border: 'border-violet-100 dark:border-violet-900/50' },
-    ];
 
     return (
         <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
@@ -132,38 +124,18 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: (title: string) => 
                     </div>
                 </div>
             </div>
-            
-            <div className="flex-1 overflow-y-auto p-5 pb-24 animate-slide-up space-y-3">
-                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 pl-1">Upcoming Exams</h3>
-                
-                {exams.map((exam) => (
-                    <div 
-                        key={exam.id} 
-                        onClick={() => showCS(exam.title)} 
-                        className={`relative p-4 rounded-2xl border ${exam.border} bg-white dark:bg-slate-900 shadow-sm flex items-center gap-4 cursor-pointer active:scale-[0.98] transition-transform`}
-                    >
-                        {/* Icon Container */}
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${exam.bg} ${exam.color}`}>
-                            <i className={`fa-solid ${exam.icon} text-xl`}></i>
-                        </div>
-                        
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start">
-                                <h4 className="font-bold text-slate-900 dark:text-white text-base truncate pr-2">{exam.title}</h4>
-                                <span className="shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border border-slate-200 dark:border-slate-700">Scheduled</span>
-                            </div>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium truncate">Full Syllabus • 100 Marks</p>
-                        </div>
+            <div className="flex-1 overflow-y-auto p-5 pb-24 animate-slide-up">
+                <div onClick={showCS} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border-l-4 border-l-purple-500 cursor-pointer shadow-sm hover:shadow-md dark:shadow-none hover:bg-slate-50 dark:hover:bg-slate-800 transition relative overflow-hidden mb-4 border border-slate-200 dark:border-slate-800 group">
+                    <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <i className="fa-solid fa-clock text-6xl text-purple-400"></i>
                     </div>
-                ))}
-
-                <div className="mt-6 p-6 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white text-center relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
                     <div className="relative z-10">
-                        <h4 className="font-bold text-lg mb-1">Weekly Mega Test</h4>
-                        <p className="text-slate-300 text-xs mb-4 max-w-[200px] mx-auto">Compete with thousands of students every Sunday.</p>
-                        <span className="inline-block bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold border border-white/20">Coming Soon</span>
+                        <div className="flex justify-between items-start mb-2">
+                            <span className="bg-purple-100 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border border-purple-200 dark:border-purple-500/20">Scheduled</span>
+                        </div>
+                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">BSEB Physics Mega Mock</h3>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs mb-4">Full Syllabus • 3 Hours</p>
+                        <button className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950 px-4 py-2 rounded-xl text-xs font-bold shadow-md">Register Now</button>
                     </div>
                 </div>
             </div>
@@ -180,27 +152,37 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
     const [chapters, setChapters] = useState<{en: string, hi: string, count: number}[]>([]);
     const [loading, setLoading] = useState(false);
   
+    // 1. Caching Strategy for Subjects
     useEffect(() => {
       const cacheKey = 'subjects_cache';
       const cached = localStorage.getItem(cacheKey);
+      
+      // Instant Load from Cache
       if (cached) {
           setSubjects(JSON.parse(cached));
       }
+
+      // Background Fetch & Update
       api.getSubjects().then(data => {
           setSubjects(data);
           localStorage.setItem(cacheKey, JSON.stringify(data));
       });
     }, []);
   
+    // 2. Caching Strategy for Chapters (Strict Sorting handled in API)
     useEffect(() => {
       if (selectedSubject) {
           setLoading(true);
           const cacheKey = `chapters_cache_${selectedSubject}`;
           const cached = localStorage.getItem(cacheKey);
+
+          // Instant Load from Cache
           if (cached) {
               setChapters(JSON.parse(cached));
               setLoading(false); 
           }
+
+          // Background Fetch & Update
           api.getChapterStats(selectedSubject).then(data => {
               setChapters(data);
               localStorage.setItem(cacheKey, JSON.stringify(data));
@@ -209,6 +191,7 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
       }
     }, [selectedSubject]);
 
+    // Stack Logic: Chapter List -> Subject List -> Home
     const handleAppBack = () => {
         if (selectedSubject) {
             setSearchParams({}, { replace: true }); 
@@ -310,6 +293,7 @@ export default function App() {
   const [isAppInitializing, setIsAppInitializing] = useState(true);
   const isOnline = useOnlineStatus(); // Track online status
   
+  // Theme State - Default 'light'
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('raftaar-theme') as 'light' | 'dark') || 'light';
   });
@@ -320,25 +304,31 @@ export default function App() {
   const [testStats, setTestStats] = useState<any>(null);
   const [comingSoonTitle, setComingSoonTitle] = useState('');
   
+  // Infinity Practice State
   const [isInfinityOpen, setInfinityOpen] = useState(false);
   const [infinityConfig, setInfinityConfig] = useState<{subject: string, chapters: string[]} | null>(null);
   const [infinityInstantOpen, setInfinityInstantOpen] = useState(false);
   
+  // PYQ Modal State
   const [isPYQOpen, setPYQOpen] = useState(false);
   const [pyqInitialTab, setPyqInitialTab] = useState<'objective' | 'subjective'>('objective');
   const [instantOpen, setInstantOpen] = useState(false); 
   
+  // Dashboard & Achievements Modals State
   const [isDashboardOpen, setDashboardOpen] = useState(false);
   const [isAchievementsOpen, setAchievementsOpen] = useState(false);
   
+  // Double Back to Exit State
   const [exitAttempted, setExitAttempted] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // --- 1. GLOBAL STATUS BAR MANAGEMENT ---
   useStatusBar(theme);
 
+  // --- THEME MANAGEMENT ---
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
@@ -350,10 +340,11 @@ export default function App() {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
 
+  // --- DOUBLE BACK TO EXIT LOGIC ---
   useBackHandler(() => {
     if (location.pathname === '/' && !isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen) {
         if (exitAttempted) {
-            return false; 
+            return false; // Exit app
         } else {
             setExitAttempted(true);
             setTimeout(() => setExitAttempted(false), 2000); 
@@ -474,6 +465,7 @@ export default function App() {
 
   if (isAppInitializing) return <SplashScreen />;
 
+  // OFFLINE CHECK OVERLAY
   if (!isOnline) {
       return <NoInternetScreen />;
   }
@@ -501,6 +493,7 @@ export default function App() {
             <div className="px-4 pb-3 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
                 <div className="flex items-center gap-2"><RaftaarLogo /></div>
                 <div className="flex items-center gap-3 shrink-0">
+                    {/* Theme Toggle Button */}
                     <button 
                         onClick={toggleTheme}
                         className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors shrink-0"
@@ -540,7 +533,7 @@ export default function App() {
                         } 
                     />
                     <Route path="/practice" element={<PracticeScreen onSelectChapter={handleStartTest} navigate={navigate} profile={userProfile} />} />
-                    <Route path="/exam" element={<ExamScreen showCS={(title) => { setComingSoonTitle(title); navigate('/coming-soon'); }} profile={userProfile} navigate={navigate} />} />
+                    <Route path="/exam" element={<ExamScreen showCS={() => { setComingSoonTitle('BSEB Physics Mega Mock'); navigate('/coming-soon'); }} profile={userProfile} navigate={navigate} />} />
                     <Route path="/rewards" element={<RewardsScreen profile={userProfile} session={session} navigate={navigate} />} />
                     
                     <Route 
@@ -553,6 +546,7 @@ export default function App() {
                                 pyqYear={parseInt(new URLSearchParams(location.search).get('year') || '0')} 
                                 onExit={() => { 
                                     if(session?.user?.id) fetchProfile(session.user.id); 
+                                    // Navigate back to Home but with state to re-open PYQ modal at Objective tab
                                     navigate('/', { replace: true, state: { openPYQ: true, tab: 'objective' } });
                                 }} 
                                 defaultLanguage={userProfile?.exam_language}
@@ -582,6 +576,7 @@ export default function App() {
                                     if (activeSubject) {
                                         navigate(`/practice?subject=${activeSubject}`, { replace: true });
                                     } else {
+                                        // For Modal based tests, go home, state will handle re-opening if needed (logic specific to modal types)
                                         navigate('/', { replace: true, state: { openPYQ: true, tab: 'objective' } });
                                     }
                                 }} 
@@ -597,6 +592,7 @@ export default function App() {
                                 subjectName={activeSubject} 
                                 userId={session?.user?.id} 
                                 onExit={() => {
+                                    // Fetch Profile on exit to ensure XP updates
                                     if(session?.user?.id) fetchProfile(session.user.id); 
                                     
                                     if (activeSubject) {
@@ -621,6 +617,7 @@ export default function App() {
                                 selectedChapters={infinityConfig.chapters} 
                                 onExit={async () => { 
                                     if(session?.user?.id) await fetchProfile(session.user.id); 
+                                    // Return to Home with Infinity Modal open logic
                                     const subjectParam = infinityConfig?.subject ? `&subject=${encodeURIComponent(infinityConfig.subject)}` : '';
                                     navigate(`/?mode=infinity${subjectParam}`, { replace: true, state: { returnTo: 'infinity' } });
                                 }} 
