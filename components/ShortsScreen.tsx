@@ -42,16 +42,16 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-slate-950">
-        <div className="w-8 h-8 border-2 border-brand-500 rounded-full animate-spin border-t-transparent"></div>
+      <div className="h-full flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-brand-600 rounded-full animate-spin border-t-transparent"></div>
       </div>
     );
   }
 
   if (!currentQuestion) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6 bg-slate-950">
-        <p className="text-slate-400 text-center">No questions available</p>
+      <div className="h-full flex flex-col items-center justify-center p-6">
+        <p className="text-gray-400 text-center">No questions available</p>
         <button 
           onClick={() => navigate('/')} 
           className="mt-4 bg-brand-600 text-white px-6 py-2 rounded-xl font-bold"
@@ -63,12 +63,12 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-950 text-white">
-      {/* Header */}
-      <div className="sticky top-0 z-30 px-5 py-3 bg-slate-950 flex justify-between items-center border-b border-slate-800 shadow-sm">
-        <h2 className="text-xl font-black text-white">Shorts</h2>
+    <div className="h-full flex flex-col bg-white">
+      {/* Header with Safe Area (pt-12) */}
+      <div className="sticky top-0 z-30 px-5 pt-12 pb-3 bg-white flex justify-between items-center border-b border-gray-200 shadow-sm">
+        <h2 className="text-xl font-black text-gray-900">Shorts</h2>
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-slate-800 p-0.5 border border-slate-700 cursor-pointer shadow-sm" onClick={() => navigate('/profile')}>
+          <div className="w-9 h-9 rounded-full bg-white p-0.5 border border-gray-200 cursor-pointer shadow-sm" onClick={() => navigate('/profile')}>
             <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.email || 'user'}`} className="w-full h-full rounded-full" alt="User" />
           </div>
         </div>
@@ -78,19 +78,19 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
       <div className="flex-1 overflow-y-auto hide-scrollbar p-6 flex flex-col justify-center">
         <div className="max-w-md mx-auto w-full">
           <div className="mb-4">
-            <span className="text-xs text-brand-400 bg-brand-900/30 px-2 py-1 rounded font-bold uppercase tracking-wider border border-brand-900/50">{currentQuestion.subject}</span>
+            <span className="text-xs text-brand-600 bg-brand-50 px-2 py-1 rounded font-bold uppercase tracking-wider">{currentQuestion.subject}</span>
           </div>
           
-          <p className="text-xl font-bold text-white mb-6 leading-relaxed">
+          <p className="text-xl font-bold text-gray-900 mb-6 leading-relaxed">
             {currentQuestion.question_text_en}
           </p>
           
           {/* Options Display (Static for Shorts view) */}
           <div className="space-y-2 mb-8 opacity-80">
-             <div className="p-3 border border-slate-800 rounded-lg text-sm text-slate-300 bg-slate-900">A. {currentQuestion.option_a_en}</div>
-             <div className="p-3 border border-slate-800 rounded-lg text-sm text-slate-300 bg-slate-900">B. {currentQuestion.option_b_en}</div>
-             <div className="p-3 border border-slate-800 rounded-lg text-sm text-slate-300 bg-slate-900">C. {currentQuestion.option_c_en}</div>
-             <div className="p-3 border border-slate-800 rounded-lg text-sm text-slate-300 bg-slate-900">D. {currentQuestion.option_d_en}</div>
+             <div className="p-3 border border-gray-100 rounded-lg text-sm text-gray-600">A. {currentQuestion.option_a_en}</div>
+             <div className="p-3 border border-gray-100 rounded-lg text-sm text-gray-600">B. {currentQuestion.option_b_en}</div>
+             <div className="p-3 border border-gray-100 rounded-lg text-sm text-gray-600">C. {currentQuestion.option_c_en}</div>
+             <div className="p-3 border border-gray-100 rounded-lg text-sm text-gray-600">D. {currentQuestion.option_d_en}</div>
           </div>
 
           {/* Action Buttons */}
@@ -99,20 +99,20 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
               onClick={() => handleSwipe(false)}
               className="flex flex-col items-center gap-1 group"
             >
-              <div className="w-16 h-16 rounded-full bg-red-900/20 text-red-500 border border-red-900/50 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+              <div className="w-16 h-16 rounded-full bg-red-50 text-red-500 border border-red-100 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                 <i className="fa-solid fa-xmark text-2xl"></i>
               </div>
-              <span className="text-xs font-bold text-slate-500">Skip</span>
+              <span className="text-xs font-bold text-gray-400">Skip</span>
             </button>
             
             <button
               onClick={() => handleSwipe(true)}
               className="flex flex-col items-center gap-1 group"
             >
-              <div className="w-16 h-16 rounded-full bg-green-900/20 text-green-500 border border-green-900/50 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
+              <div className="w-16 h-16 rounded-full bg-green-50 text-green-500 border border-green-100 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm">
                 <i className="fa-solid fa-heart text-2xl"></i>
               </div>
-              <span className="text-xs font-bold text-slate-500">Like</span>
+              <span className="text-xs font-bold text-gray-400">Like</span>
             </button>
           </div>
         </div>

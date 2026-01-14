@@ -1,14 +1,12 @@
 <!DOCTYPE html>
-<html lang="en" class="light">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Raftaar - The Speed of Success</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
-        darkMode: 'class',
         theme: {
           extend: {
             colors: {
@@ -19,9 +17,6 @@
                 500: '#0ea5e9',
                 600: '#0284c7',
                 700: '#0369a1',
-                800: '#075985',
-                900: '#0c4a6e',
-                950: '#082f49',
               },
             },
             fontFamily: {
@@ -55,16 +50,9 @@
     <style>
       body { 
         font-family: 'Inter', sans-serif; 
-        background-color: #f8fafc; /* Default Light Background */
-        color: #0f172a; /* Default Light Text */
+        background-color: #f8faff; /* Light Background */
+        color: #1e293b;
         -webkit-tap-highlight-color: transparent;
-        overscroll-behavior-y: none; /* Prevent pull-to-refresh on mobile */
-      }
-      
-      /* Dark mode overrides applied via Tailwind 'dark' class */
-      html.dark body {
-        background-color: #020617;
-        color: #f8fafc;
       }
       
       /* Hide Scrollbar */
