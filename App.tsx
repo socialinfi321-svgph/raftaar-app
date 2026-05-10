@@ -289,8 +289,8 @@ const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => 
 
 // --- Main App Component ---
 export default function App() {
-  const [session, setSession] = useState<any>(null);
-  const [isAppInitializing, setIsAppInitializing] = useState(true);
+  const [session, setSession] = useState<any>({ user: { id: 'dev-user-id', email: 'dev@example.com' } });
+  const [isAppInitializing, setIsAppInitializing] = useState(false);
   const isOnline = useOnlineStatus(); // Track online status
   
   // Theme State - Default 'light'
@@ -298,7 +298,17 @@ export default function App() {
     return (localStorage.getItem('raftaar-theme') as 'light' | 'dark') || 'light';
   });
 
-  const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [userProfile, setUserProfile] = useState<Profile | null>({
+    id: 'dev-user-id',
+    full_name: 'Developer Mode',
+    avatar_url: 'https://api.dicebear.com/7.x/avataaars/svg?seed=dev',
+    study_minutes: 0,
+    total_xp: 500,
+    weekly_xp: 100,
+    current_level: 5,
+    current_badge: 'Gold',
+    last_active_at: new Date().toISOString(),
+  });
   const [activeTestQuestions, setActiveTestQuestions] = useState<Question[]>([]);
   const [activeSubject, setActiveSubject] = useState<string>('');
   const [testStats, setTestStats] = useState<any>(null);
@@ -355,32 +365,7 @@ export default function App() {
   }, location.pathname === '/' && !isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen);
 
   useEffect(() => {
-    let mounted = true;
-    const restoreSession = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        if (mounted && session) {
-            setSession(session);
-            fetchProfile(session.user.id).catch(console.error);
-        }
-      } catch (error) {
-        console.error("Session fail", error);
-      } finally {
-        if (mounted) setIsAppInitializing(false);
-      }
-    };
-    restoreSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted) return;
-      setSession(session);
-      if (session) fetchProfile(session.user.id).catch(console.error);
-      else setUserProfile(null);
-      setIsAppInitializing(false);
-    });
-
-    return () => { mounted = false; subscription.unsubscribe(); };
+    // Auth disabled for development
   }, []);
 
   useEffect(() => {
@@ -484,7 +469,7 @@ export default function App() {
   };
 
   const showNav = ['/', '/practice', '/rewards', '/profile', '/exam'].includes(location.pathname);
-  const showTopHeader = location.pathname === '/';
+  const showTopHeader = false; // Always false, Home screen will handle its own header
 
   return (
     <div className="max-w-md mx-auto h-[100dvh] flex flex-col bg-slate-50 dark:bg-slate-950 font-sans relative shadow-2xl overflow-hidden text-slate-900 dark:text-white transition-colors duration-300">

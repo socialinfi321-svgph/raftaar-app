@@ -23,279 +23,412 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const [activeSlide, setActiveSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  
-  // Swipe Logic State
-  const [touchStart, setTouchStart] = useState<number>(0);
-  const [touchCurrent, setTouchCurrent] = useState<number>(0);
-  const [isDragging, setIsDragging] = useState(false);
+  const sliderRef = useRef<HTMLDivElement>(null);
 
-  const autoSlideInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  
   // Slide data
   const slides = [
     {
-      id: 'brand',
-      isHero: true,
-      bg: 'bg-slate-900', 
-      btn: 'Start Practice',
-      action: () => navigate('/practice'),
-      overlay: 'bg-gradient-to-br from-slate-900 via-slate-800 to-black'
+      id: 'mock_test',
+      bg: 'bg-[#15202b]', 
+      title: 'BSEB 12th Mega Mock Test',
+      subtitle: 'Dynamic graphics!',
+      tag: 'LIVE NOW!',
+      btn: 'Join Now',
+      action: () => setComingSoonTitle('BSEB Mega Mock'),
+    },
+    {
+      id: 'batch',
+      bg: 'bg-[#0f172a]',
+      title: 'Patna Vidya Hub - Join Topper Batch!',
+      subtitle: 'Premium Series',
+      tag: 'NEW',
+      btn: 'Join Now',
+      action: () => setComingSoonTitle('Topper Batch'),
     },
     {
       id: 'mission_2026',
-      bg: 'bg-indigo-950',
-      image: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=800',
+      bg: 'bg-indigo-900',
       title: 'Dream 450+ Marks',
-      subtitle: 'BSEB 2026 • Starts 2 Feb',
-      desc: '25,000+ Objectives.',
-      btn: 'Start Journey',
+      subtitle: '25,000+ Objectives.',
+      tag: '2026',
+      btn: 'Start',
       action: () => navigate('/practice'),
-      overlay: 'bg-gradient-to-t from-black via-black/60 to-transparent'
-    },
-    {
-      id: 'builder',
-      bg: 'bg-brand-700',
-      image: 'https://images.unsplash.com/photo-1555099962-4199c345e5dd?auto=format&fit=crop&q=80&w=800', 
-      profileImg: 'https://raw.githubusercontent.com/socialinfi321-svgph/superkar-reviews/main/IMG_20260106_085046.jpg', 
-      title: 'Prem Kashyap',
-      subtitle: 'Builder of Raftaar',
-      desc: 'Coding the future of education.',
-      btn: 'Donate',
-      link: 'https://socialinfi321-svgph.github.io/komal-caterers/',
-      overlay: 'bg-gradient-to-t from-black via-black/80 to-transparent'
-    },
-    {
-      id: 'telegram',
-      bg: 'bg-blue-600',
-      image: null,
-      isTelegram: true,
-      title: 'Join Telegram',
-      subtitle: 'Daily Quizzes',
-      desc: 'Get exclusive notes and daily quizzes.',
-      btn: 'Join Channel',
-      link: 'https://t.me/raftartestseries',
-      overlay: 'bg-gradient-to-r from-blue-700/95 to-cyan-600/95'
     }
   ];
 
   // Auto Slider Logic
   useEffect(() => {
-    if (isPaused || isDragging) return;
+    if (isPaused) return;
+    const interval = setInterval(() => {
+        setActiveSlide(prev => {
+            const next = (prev + 1) % slides.length;
+            if (sliderRef.current) {
+                // Determine width of one slide which is container width
+                const slideWidth = sliderRef.current.offsetWidth;
+                sliderRef.current.scrollTo({
+                    left: next * slideWidth,
+                    behavior: 'smooth'
+                });
+            }
+            return next;
+        });
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [slides.length, isPaused]);
 
-    autoSlideInterval.current = setInterval(() => {
-        setActiveSlide(prev => (prev + 1) % slides.length);
-    }, 5000);
-
-    return () => {
-        if (autoSlideInterval.current) clearInterval(autoSlideInterval.current);
-    };
-  }, [slides.length, isPaused, isDragging]);
-
-  // Touch Handlers for Manual Swipe with Drag Visualization
-  const onTouchStart = (e: React.TouchEvent) => {
-    setIsPaused(true);
-    setIsDragging(true);
-    setTouchStart(e.targetTouches[0].clientX);
-    setTouchCurrent(e.targetTouches[0].clientX);
-  }
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    setTouchCurrent(e.targetTouches[0].clientX);
-  }
-
-  const onTouchEnd = () => {
-    setIsDragging(false);
-    const diff = touchStart - touchCurrent;
-    const threshold = 50; // Minimum px distance to trigger slide change
-
-    if (Math.abs(diff) > threshold) {
-        if (diff > 0) {
-           // Swipe Left -> Next Slide
-           setActiveSlide(prev => (prev + 1) % slides.length);
-        } else {
-           // Swipe Right -> Prev Slide
-           setActiveSlide(prev => (prev - 1 + slides.length) % slides.length);
+  const handleScroll = () => {
+    if (sliderRef.current) {
+        const scrollLeft = sliderRef.current.scrollLeft;
+        const slideWidth = sliderRef.current.offsetWidth;
+        // avoid divide by zero or NaN
+        if(slideWidth > 0) {
+            const newIndex = Math.round(scrollLeft / slideWidth);
+            if (newIndex !== activeSlide && newIndex < slides.length) {
+                setActiveSlide(newIndex);
+            }
         }
     }
+  };
 
-    // Reset Drag State
-    setTouchStart(0);
-    setTouchCurrent(0);
-
-    // Resume auto-slide after interaction
-    setTimeout(() => setIsPaused(false), 5000);
-  }
-
-  // Calculate transform with visual drag offset
-  const dragOffset = isDragging ? touchCurrent - touchStart : 0;
+  const nameParts = (profile?.full_name || 'Aman').split(' ');
+  const firstName = nameParts[0];
+  const xp = profile?.weekly_xp || 0;
+  const avatar = profile?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=dev';
 
   return (
-    <div className="space-y-6 pb-24 pt-4 animate-fade-in bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+    <div className="bg-slate-50 dark:bg-slate-950 pb-24 transition-colors duration-300 min-h-[100dvh]">
         
-        {/* Rounded Premium Slider */}
-        <div className="px-5">
+        {/* Header block without heavy curve */}
+        <div className="bg-[#0f2133] px-4 pt-safe-header pb-4 relative shadow-sm">
+            {/* Top Row: Menu, Logo, Icons */}
+            <div className="flex justify-between items-center mb-4 mt-2">
+                <div className="flex items-center gap-3">
+                    <button className="text-white hover:bg-white/10 p-1.5 rounded-lg transition-colors">
+                        <i className="fa-solid fa-bars text-xl"></i>
+                    </button>
+                    
+                    <div className="flex items-center gap-1 select-none shrink-0">
+                      <div className="relative flex items-center justify-center">
+                          <div className="italic font-black text-white text-2xl" style={{ fontFamily: 'sans-serif' }}>R</div>
+                          <i className="fa-solid fa-bolt text-yellow-500 absolute -left-1 opacity-90 text-xl transform -rotate-12"></i>
+                      </div>
+                      <div className="font-bold text-lg tracking-wide shrink-0 text-white">
+                          RAFTAAR
+                      </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3 text-white">
+                    <button onClick={onOpenAchievements} className="hover:text-blue-200 transition-colors relative p-1">
+                        <i className="fa-regular fa-bell text-lg"></i>
+                        <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border border-[#0f2133]"></span>
+                    </button>
+                    <div className="w-7 h-7 rounded-full overflow-hidden border border-white/20">
+                        <img src={avatar} alt="Profile" className="w-full h-full object-cover" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Greeting */}
+            <div>
+                <h1 className="text-white text-[15px] font-medium tracking-wide">
+                    Namaste, <span className="text-yellow-500 font-bold">{firstName}!</span>
+                </h1>
+            </div>
+        </div>
+
+        {/* Banners */}
+        <div className="px-4 mt-4">
             <div 
-                className="rounded-3xl overflow-hidden shadow-xl shadow-brand-900/10 relative h-[190px] touch-pan-y border border-slate-200 dark:border-slate-800"
-                onTouchStart={onTouchStart}
-                onTouchMove={onTouchMove}
-                onTouchEnd={onTouchEnd}
+                ref={sliderRef}
+                className="flex overflow-x-auto hide-scrollbar gap-0 snap-x snap-mandatory rounded-xl shadow-sm"
+                onScroll={handleScroll}
+                onTouchStart={() => setIsPaused(true)}
+                onTouchEnd={() => setIsPaused(false)}
             >
-                {/* Slider Track */}
-                <div 
-                    className="flex h-full" 
-                    style={{ 
-                        transform: `translateX(calc(-${activeSlide * 100}% + ${dragOffset}px))`,
-                        transition: isDragging ? 'none' : 'transform 0.5s ease-out'
-                    }}
-                >
-                    {slides.map((slide, idx) => (
-                        <div key={idx} className="min-w-full relative h-full flex flex-col justify-end p-5 overflow-hidden select-none">
-                            {/* Background & Overlay */}
-                            <div className="absolute inset-0 z-0 pointer-events-none">
-                                {slide.image ? (
-                                    <img src={slide.image} className="w-full h-full object-cover opacity-80" alt="slide" />
-                                ) : (
-                                    <div className={`w-full h-full ${slide.bg}`}></div>
-                                )}
-                                <div className={`absolute inset-0 z-10 ${slide.overlay}`}></div>
-                                
-                                {/* Telegram Pattern */}
-                                {slide.isTelegram && (
-                                    <div className="absolute inset-0 opacity-10 grid grid-cols-6 gap-4 p-4 transform -rotate-12">
-                                        {[...Array(24)].map((_, i) => (
-                                            <i key={i} className="fa-brands fa-telegram text-4xl text-white"></i>
-                                        ))}
-                                    </div>
-                                )}
+                {slides.map((slide, idx) => (
+                    <div key={idx} className="snap-center min-w-full w-full h-[150px] relative overflow-hidden flex-shrink-0 bg-[#0c1622] rounded-xl border border-slate-700/50">
+                        <div className={`absolute inset-0 ${slide.bg} opacity-50`}></div>
+                        
+                        <div className="relative z-10 p-4 h-full flex flex-col justify-between">
+                            <div className="flex justify-between items-start">
+                                <div className="w-3/4">
+                                    <h3 className="text-white font-bold text-base leading-tight drop-shadow-sm">{slide.title}</h3>
+                                    <p className="text-slate-300 text-[11px] mt-1">{slide.subtitle}</p>
+                                </div>
+                                <div className="absolute right-[-10px] top-[-10px] opacity-80 pointer-events-none transform -rotate-12">
+                                  {/* Custom lightning bolt graphic for banner */}
+                                  <div className="w-24 h-24 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full blur-xl opacity-20"></div>
+                                  <i className="fa-solid fa-bolt text-7xl text-gradient bg-clip-text text-transparent bg-gradient-to-b from-yellow-300 to-orange-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>
+                                </div>
                             </div>
                             
-                            {/* Top Right Profile Image (For Builder Slide) */}
-                            {/* Using "as any" to access profileImg because not all slides have it */}
-                            {(slide as any).profileImg && (
-                                <div className="absolute top-4 right-4 z-20 flex flex-col items-end animate-fade-in">
-                                    <div className="w-[110px] h-[110px] rounded-full border-4 border-white/20 shadow-2xl overflow-hidden bg-white/5 backdrop-blur-md">
-                                        <img src={(slide as any).profileImg} className="w-full h-full object-cover" alt="Profile" />
+                            <div className="flex justify-between items-end">
+                                {slide.id === 'mock_test' ? (
+                                    <div className="flex gap-1 items-center bg-black/40 px-2 py-1 rounded-md border border-slate-700/50">
+                                        <span className="bg-[#b3261e] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-[inset_0px_1px_rgba(255,255,255,0.3)]">01</span>
+                                        <span className="text-white font-bold text-[10px]">:</span>
+                                        <span className="bg-[#b3261e] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-[inset_0px_1px_rgba(255,255,255,0.3)]">03</span>
+                                        <span className="text-white font-bold text-[10px]">:</span>
+                                        <span className="bg-[#b3261e] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-[inset_0px_1px_rgba(255,255,255,0.3)]">35</span>
                                     </div>
-                                </div>
-                            )}
-                            
-                            {/* Content */}
-                            {slide.isHero ? (
-                                <div className="relative z-20 flex flex-col items-center justify-center h-full text-center">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center shadow-lg transform -rotate-6 border border-slate-700">
-                                            <span className="text-white font-black text-xl font-sans">R</span>
-                                        </div>
-                                        <h2 className="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-200 via-white to-blue-200 drop-shadow-sm">RAFTAAR</h2>
-                                    </div>
-                                    <div className="flex flex-wrap justify-center gap-2 text-[8px] font-bold text-slate-300 uppercase tracking-widest mb-4">
-                                        <span className="bg-slate-800/80 px-2 py-1 rounded border border-slate-700">Infinity Practice</span>
-                                        <span className="bg-slate-800/80 px-2 py-1 rounded border border-slate-700">Live Mock Test</span>
-                                    </div>
-                                    <button onClick={slide.action} className="bg-white text-slate-950 px-6 py-2 rounded-full text-[10px] font-black shadow-lg hover:scale-105 transition-transform uppercase tracking-wider">Start Now</button>
-                                </div>
-                            ) : (
-                                <div className="relative z-20 text-white">
-                                    <h2 className="text-xl font-black mb-1 tracking-tight drop-shadow-md">{slide.title}</h2>
-                                    <div className="inline-block bg-white/10 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest mb-2 border border-white/10">
-                                        {slide.subtitle}
-                                    </div>
-                                    <p className="text-xs opacity-90 leading-relaxed mb-3 max-w-[90%] font-medium text-slate-200 line-clamp-2">{slide.desc}</p>
-                                    
-                                    {slide.link ? (
-                                        <a href={slide.link} target="_blank" rel="noreferrer" className="inline-block bg-white text-slate-900 px-4 py-2 rounded-lg text-[10px] font-bold shadow-md hover:scale-105 transition-transform">
-                                            {slide.btn}
-                                        </a>
-                                    ) : (
-                                        <button onClick={slide.action} className="bg-white text-slate-900 px-4 py-2 rounded-lg text-[10px] font-bold shadow-md hover:scale-105 transition-transform">
-                                            {slide.btn}
-                                        </button>
-                                    )}
-                                </div>
-                            )}
+                                ) : (
+                                    <span className="text-amber-500 text-[10px] font-black uppercase tracking-wider">{slide.tag}</span>
+                                )}
+
+                                <button onClick={slide.action} className="bg-gradient-to-b from-amber-400 to-orange-500 text-white font-bold text-xs px-4 py-1.5 rounded-full shadow-[inset_0px_1px_rgba(255,255,255,0.4),0px_2px_4px_rgba(0,0,0,0.3)] active:scale-95 transition-transform z-20">
+                                    {slide.btn}
+                                </button>
+                            </div>
                         </div>
-                    ))}
+                    </div>
+                ))}
+            </div>
+            
+            {/* Dots */}
+            <div className="flex justify-center gap-1.5 mt-2.5">
+                {slides.map((_, idx) => (
+                    <div 
+                        key={idx} 
+                        onClick={() => {
+                            setActiveSlide(idx);
+                            if (sliderRef.current) {
+                                sliderRef.current.scrollTo({
+                                    left: idx * sliderRef.current.offsetWidth,
+                                    behavior: 'smooth'
+                                });
+                            }
+                        }}
+                        className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${activeSlide === idx ? 'w-5 bg-amber-500' : 'w-1.5 bg-slate-300 dark:bg-slate-700'}`}
+                    ></div>
+                ))}
+            </div>
+        </div>
+
+        <div className="px-5 space-y-7 mt-6">
+            
+            {/* Quick Icons - Row 1 (Image Icons) */}
+            <div className="flex justify-between items-start gap-1">
+                <IconBtn 
+                    icon="fa-solid fa-stopwatch" 
+                    label="Mock Tests" 
+                    color="text-slate-700 dark:text-slate-300" 
+                    onClick={() => setComingSoonTitle('Mock Tests')} 
+                />
+                <IconBtn 
+                    icon="fa-solid fa-play" 
+                    label="Live Classes" 
+                    color="text-slate-700 dark:text-slate-300" 
+                    onClick={() => setComingSoonTitle('Live Classes')} 
+                />
+                <IconBtn 
+                    icon="fa-solid fa-brain" 
+                    label="Practice Zone" 
+                    color="text-slate-700 dark:text-slate-300" 
+                    onClick={() => navigate('/practice')} 
+                />
+                <IconBtn 
+                    icon="fa-solid fa-users" 
+                    label="My Batch" 
+                    color="text-slate-700 dark:text-slate-300" 
+                    onClick={() => setComingSoonTitle('My Batch')} 
+                />
+                <IconBtn 
+                    icon="fa-solid fa-file-pdf" 
+                    label="PDF Notes" 
+                    color="text-slate-700 dark:text-slate-300" 
+                    onClick={() => setComingSoonTitle('PDF Notes')} 
+                />
+            </div>
+
+        </div>
+
+        {/* Feature Cards (Practice Zone Style) */}
+        <div className="mt-7 pl-4">
+            <h2 className="text-[15px] font-bold text-slate-900 dark:text-white mb-3">App Features</h2>
+            <div className="flex overflow-x-auto hide-scrollbar gap-3 pb-2 pr-4">
+                
+                {/* Infinity Practice */}
+                <FeatureCard 
+                    title="Infinity" 
+                    subtitle="Practice Math" 
+                    icon="fa-solid fa-infinity" 
+                    iconColor="text-purple-600 dark:text-purple-400" 
+                    bgTintColor="bg-purple-100 dark:bg-purple-900" 
+                    arrowColor="bg-purple-600"
+                    onClick={onOpenInfinity} 
+                />
+                
+                {/* PYQ */}
+                <FeatureCard 
+                    title="PYQ" 
+                    subtitle="Previous Papers" 
+                    icon="fa-solid fa-file-circle-question" 
+                    iconColor="text-teal-600 dark:text-teal-400" 
+                    bgTintColor="bg-teal-100 dark:bg-teal-900" 
+                    arrowColor="bg-teal-600"
+                    onClick={onOpenPYQ} 
+                />
+
+                {/* Achievements */}
+                <FeatureCard 
+                    title="Achievement" 
+                    subtitle="Your Medals" 
+                    icon="fa-solid fa-medal" 
+                    iconColor="text-orange-600 dark:text-orange-400" 
+                    bgTintColor="bg-orange-100 dark:bg-orange-900" 
+                    arrowColor="bg-orange-600"
+                    onClick={onOpenAchievements} 
+                />
+
+                {/* Dashboard */}
+                <FeatureCard 
+                    title="Dashboard" 
+                    subtitle="Your Stats" 
+                    icon="fa-solid fa-chart-pie" 
+                    iconColor="text-blue-600 dark:text-blue-400" 
+                    bgTintColor="bg-blue-100 dark:bg-blue-900" 
+                    arrowColor="bg-blue-600"
+                    onClick={onOpenDashboard} 
+                />
+            </div>
+        </div>
+
+        {/* Explore Coaching Marketplace */}
+        <div className="mt-7 pl-4">
+            <h2 className="text-[15px] font-bold text-slate-900 dark:text-white mb-3">Explore Coaching Marketplace</h2>
+            <div className="flex overflow-x-auto hide-scrollbar gap-4 pb-4 pr-4">
+                
+                {/* Coaching Card 1 */}
+                <div className="min-w-[260px] w-[260px] bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm flex-shrink-0 flex flex-col">
+                    <div className="h-28 bg-[#1e293b] relative p-3 flex flex-col justify-end">
+                       <div className="absolute inset-0 opacity-40">
+                           <img src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&q=80&w=800" className="w-full h-full object-cover" alt="" />
+                       </div>
+                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                       <div className="relative z-10">
+                           <h3 className="text-white font-bold text-[13px] leading-snug w-5/6">Patna Vidya Hub - Complete BSEB 12th Science Series</h3>
+                           <div className="mt-2 flex items-center gap-1.5 text-slate-300 text-[9px] font-medium">
+                               <i className="fa-solid fa-user-group"></i> 12K students
+                           </div>
+                       </div>
+                    </div>
+                    <div className="p-3 border-t border-slate-100 dark:border-slate-800 flex-1 flex flex-col">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm truncate">Patna Vidya Hub - Complete BSEB 12th</h4>
+                        <p className="text-slate-500 text-[10px] mt-0.5">Institute Vidya Hub</p>
+                        <p className="text-slate-400 text-[10px] mt-1 mb-3">Course Info : 1 Series</p>
+                        
+                        <div className="flex gap-2 mt-auto">
+                            <button className="flex-1 border border-amber-500 text-amber-500 font-bold text-[11px] py-1.5 rounded-[10px] hover:bg-amber-50 active:scale-95 transition-all">View Details</button>
+                            <button className="flex-1 bg-amber-500 text-white font-bold text-[11px] py-1.5 rounded-[10px] hover:bg-amber-600 active:scale-95 transition-all">Enroll Now</button>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Dots Indicator */}
-                <div className="absolute bottom-4 right-4 z-30 flex gap-1.5">
-                    {slides.map((_, idx) => (
-                        <div 
-                            key={idx} 
-                            onClick={() => { setActiveSlide(idx); setIsPaused(true); setTimeout(() => setIsPaused(false), 5000); }}
-                            className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${activeSlide === idx ? 'w-4 bg-white' : 'w-1 bg-white/30'}`}
-                        ></div>
-                    ))}
+                {/* Coaching Card 2 */}
+                <div className="min-w-[260px] w-[260px] bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm flex-shrink-0 flex flex-col">
+                    <div className="h-28 bg-[#0f172a] relative p-3 flex flex-col justify-end">
+                       <div className="absolute inset-0 opacity-40">
+                           <img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&q=80&w=800" className="w-full h-full object-cover" alt="" />
+                       </div>
+                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+                       <div className="relative z-10">
+                           <h3 className="text-white font-bold text-[13px] leading-snug w-5/6 uppercase">DARBHANGA ACHIEVERS</h3>
+                           <p className="text-slate-300 text-[9px] font-medium mt-1">Subjective Notes & PYQ</p>
+                       </div>
+                    </div>
+                    <div className="p-3 border-t border-slate-100 dark:border-slate-800 flex-1 flex flex-col">
+                        <h4 className="font-bold text-slate-800 dark:text-slate-200 text-sm truncate">Darbhanga Achievers - Subjective Notes</h4>
+                        <p className="text-slate-500 text-[10px] mt-0.5">Darbhanga Achievers</p>
+                        <p className="text-slate-400 text-[10px] mt-1 mb-3">Course Info : Subjective Notes</p>
+                        
+                        <div className="flex gap-2 mt-auto">
+                            <button className="flex-1 border border-amber-500 text-amber-500 font-bold text-[11px] py-1.5 rounded-[10px] hover:bg-amber-50 active:scale-95 transition-all">View Details</button>
+                            <button className="flex-1 bg-amber-500 text-white font-bold text-[11px] py-1.5 rounded-[10px] hover:bg-amber-600 active:scale-95 transition-all">Enroll Now</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        {/* 4-Grid Menu */}
-        <div className="px-5">
-            <h3 className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-3 ml-1">Quick Access</h3>
-            <div className="grid grid-cols-2 gap-3">
-                {/* Infinity Practice - Purple/Violet Gradient */}
-                <div onClick={onOpenInfinity} className="bg-gradient-to-br from-violet-600 to-purple-700 p-4 rounded-3xl shadow-lg shadow-purple-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-[130px] cursor-pointer relative overflow-hidden group border border-transparent">
-                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl -mr-5 -mt-5"></div>
-                    <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full blur-xl -ml-5 -mb-5"></div>
-                    
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
-                        <i className="fa-solid fa-infinity text-xl"></i>
+        {/* Top Featured Institutes */}
+        <div className="mt-2 px-4 pb-8">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-[15px] font-bold text-slate-900 dark:text-white">Top Featured Institutes</h2>
+                <span className="text-[10px] text-slate-400 font-medium cursor-pointer uppercase">View All</span>
+            </div>
+            <div className="flex justify-between items-start gap-2 overflow-x-auto hide-scrollbar pb-2">
+                {/* Institute 1 */}
+                <div className="flex flex-col items-center gap-1.5 min-w-[65px]">
+                    <div className="w-14 h-14 rounded-full border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm">
+                        <i className="fa-solid fa-graduation-cap text-[22px] text-blue-800 dark:text-blue-400"></i>
                     </div>
-                    <span className="text-xs font-bold text-white tracking-wide">Infinity Practice</span>
+                    <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 text-center leading-tight">Gaya Excellence</span>
+                </div>
+                
+                {/* Institute 2 */}
+                <div className="flex flex-col items-center gap-1.5 min-w-[65px]">
+                    <div className="w-14 h-14 rounded-full border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm p-1">
+                        <div className="w-full h-full rounded-full border border-red-800 flex items-center justify-center overflow-hidden">
+                           <img src="https://images.unsplash.com/photo-1544717297-fa95b6ee9643?auto=format&fit=crop&w=100&q=80" alt="Muzaffarpur" className="w-full h-full object-cover" />
+                        </div>
+                    </div>
+                    <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 text-center leading-tight">Muzaffarpur Toppers</span>
                 </div>
 
-                {/* PYQ - Green/Teal Gradient */}
-                <div onClick={onOpenPYQ} className="bg-gradient-to-br from-emerald-500 to-teal-600 p-4 rounded-3xl shadow-lg shadow-emerald-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-[130px] cursor-pointer relative overflow-hidden group border border-transparent">
-                     <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/10 rounded-full blur-xl -ml-5 -mb-5"></div>
-                     <div className="absolute top-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl -mr-5 -mt-5"></div>
-                     
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
-                        <i className="fa-solid fa-file-circle-question text-xl"></i>
+                {/* Institute 3 */}
+                <div className="flex flex-col items-center gap-1.5 min-w-[65px]">
+                     <div className="w-14 h-14 rounded-full border border-slate-100 dark:border-slate-700 bg-yellow-50 flex items-center justify-center overflow-hidden shadow-sm p-0.5">
+                        <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80" alt="Logo" className="w-full h-full object-cover rounded-full" />
                     </div>
-                    <span className="text-xs font-bold text-white tracking-wide">PYQ</span>
+                     <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 text-center leading-tight">Muzaffarpur Toppers</span>
                 </div>
 
-                {/* Achievements - Orange/Amber Gradient */}
-                <div onClick={onOpenAchievements} className="bg-gradient-to-br from-amber-400 to-orange-500 p-4 rounded-3xl shadow-lg shadow-orange-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-[130px] cursor-pointer relative overflow-hidden group border border-transparent">
-                     <div className="absolute bottom-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-xl -mr-5 -mb-5"></div>
-                     <div className="absolute top-0 left-0 w-16 h-16 bg-white/5 rounded-full blur-xl -ml-5 -mt-5"></div>
-                     
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
-                        <i className="fa-solid fa-medal text-xl"></i>
+                {/* Institute 4 */}
+                <div className="flex flex-col items-center gap-1.5 min-w-[65px]">
+                     <div className="w-14 h-14 rounded-full border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center overflow-hidden shadow-sm">
+                        <div className="w-full h-full rounded-full border border-slate-300 bg-slate-100 flex items-center justify-center overflow-hidden">
+                            <i className="fa-solid fa-user text-slate-400"></i>
+                        </div>
                     </div>
-                    <span className="text-xs font-bold text-white tracking-wide">Achievements</span>
-                </div>
-
-                {/* Dashboard - Blue Gradient */}
-                <div onClick={onOpenDashboard} className="bg-gradient-to-br from-blue-500 to-blue-700 p-4 rounded-3xl shadow-lg shadow-blue-900/10 active:scale-95 transition-transform flex flex-col items-center justify-center text-center h-[130px] cursor-pointer relative overflow-hidden group border border-transparent">
-                     <div className="absolute top-0 left-0 w-20 h-20 bg-white/10 rounded-full blur-xl -ml-5 -mt-5"></div>
-                     <div className="absolute bottom-0 right-0 w-16 h-16 bg-white/5 rounded-full blur-xl -mr-5 -mb-5"></div>
-                     
-                    <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center mb-2 text-white border border-white/20">
-                        <i className="fa-solid fa-chart-pie text-xl"></i>
-                    </div>
-                    <span className="text-xs font-bold text-white tracking-wide">My Dashboard</span>
+                     <span className="text-[9px] font-bold text-slate-600 dark:text-slate-300 text-center leading-tight">Hind Scholar</span>
                 </div>
             </div>
         </div>
-        
-        {/* Featured Series */}
-        <div className="px-5">
-            <h3 className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-3 ml-1">Featured Series</h3>
-            <div onClick={() => setComingSoonTitle('Wave Optics Series')} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex justify-between items-center cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition group">
-                <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/50 rounded-2xl flex items-center justify-center text-indigo-500 dark:text-indigo-400 font-black text-xl group-hover:scale-110 transition-transform border border-indigo-100 dark:border-indigo-900/30">W</div>
-                    <div>
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">Wave Optics</h4>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Physics • High Yield</p>
-                    </div>
-                </div>
-                <div className="bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg text-[10px] font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1 border border-slate-200 dark:border-slate-700">
-                    Locked <i className="fa-solid fa-lock text-[10px]"></i>
-                </div>
-            </div>
-        </div>
+
     </div>
   );
 };
+
+const IconBtn = ({ icon, label, color, onClick }: { icon: string, label: string, color: string, onClick: () => void }) => (
+    <div onClick={onClick} className="flex flex-col items-center justify-start gap-1.5 w-[65px] cursor-pointer group">
+        <div className="w-[52px] h-[52px] rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-800 flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] group-hover:scale-105 transition-transform">
+            <i className={`${icon} ${color} text-[22px]`}></i>
+        </div>
+        <span className="text-[9px] font-semibold text-slate-600 dark:text-slate-300 text-center leading-tight">
+            {label}
+        </span>
+    </div>
+);
+
+const FeatureCard = ({ title, subtitle, icon, iconColor, bgTintColor, arrowColor, onClick }: any) => (
+    <div onClick={onClick} className={`min-w-[110px] w-[110px] h-[130px] rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex flex-col justify-between cursor-pointer flex-shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-shadow relative overflow-hidden group`}>
+        {/* Subtle background glow from top left */}
+        <div className={`absolute -top-6 -left-6 w-20 h-20 ${bgTintColor} blur-2xl rounded-full opacity-40 dark:opacity-20`}></div>
+        
+        <div className="relative z-10 w-8 h-8 rounded-lg flex items-center justify-center">
+            <i className={`${icon} ${iconColor} text-[22px]`}></i>
+        </div>
+        
+        <div className="relative z-10 mt-auto mb-1">
+            <h3 className="font-bold text-slate-800 dark:text-white text-[11px] leading-tight mb-0.5">{title}</h3>
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-tight">{subtitle}</p>
+        </div>
+        
+        <div className="absolute bottom-3 right-3 z-10">
+            <div className={`w-5 h-5 rounded-full inline-flex items-center justify-center ${arrowColor} text-white group-hover:scale-110 transition-transform`}>
+                <i className="fa-solid fa-arrow-right text-[9px]"></i>
+            </div>
+        </div>
+    </div>
+);
