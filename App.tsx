@@ -293,9 +293,14 @@ export default function App() {
   const [isAppInitializing, setIsAppInitializing] = useState(false);
   const isOnline = useOnlineStatus(); // Track online status
   
-  // Theme State - Default 'light'
+  // Theme State - System Default
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('raftaar-theme') as 'light' | 'dark') || 'light';
+    const savedTheme = localStorage.getItem('raftaar-theme');
+    if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
   });
 
   const [userProfile, setUserProfile] = useState<Profile | null>({

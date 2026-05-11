@@ -208,35 +208,40 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <div className="px-5 space-y-7 mt-6">
             
             {/* Quick Icons - Row 1 (Image Icons) */}
-            <div className="flex justify-between items-start gap-1">
-                <IconBtn 
+            <div className="grid grid-cols-5 gap-2 w-full justify-items-center">
+                <GradientIconBtn 
                     icon="fa-solid fa-stopwatch" 
                     label="Mock Tests" 
-                    color="text-slate-700 dark:text-slate-300" 
+                    gradient="bg-gradient-to-br from-[#ff4d79] to-[#ff004d]"
+                    shadow="shadow-[0_4px_12px_rgba(255,0,77,0.3)]"
                     onClick={() => setComingSoonTitle('Mock Tests')} 
                 />
-                <IconBtn 
+                <GradientIconBtn 
                     icon="fa-solid fa-play" 
-                    label="Live Classes" 
-                    color="text-slate-700 dark:text-slate-300" 
-                    onClick={() => setComingSoonTitle('Live Classes')} 
+                    label="All Classes" 
+                    gradient="bg-gradient-to-br from-[#4facfe] to-[#00f2fe]"
+                    shadow="shadow-[0_4px_12px_rgba(0,242,254,0.3)]"
+                    onClick={() => setComingSoonTitle('All Classes')} 
                 />
-                <IconBtn 
+                <GradientIconBtn 
                     icon="fa-solid fa-brain" 
                     label="Practice Zone" 
-                    color="text-slate-700 dark:text-slate-300" 
+                    gradient="bg-gradient-to-br from-[#43e97b] to-[#38f9d7]"
+                    shadow="shadow-[0_4px_12px_rgba(67,233,123,0.3)]"
                     onClick={() => navigate('/practice')} 
                 />
-                <IconBtn 
+                <GradientIconBtn 
                     icon="fa-solid fa-users" 
                     label="My Batch" 
-                    color="text-slate-700 dark:text-slate-300" 
+                    gradient="bg-gradient-to-br from-[#a18cd1] to-[#fbc2eb]"
+                    shadow="shadow-[0_4px_12px_rgba(161,140,209,0.3)]"
                     onClick={() => setComingSoonTitle('My Batch')} 
                 />
-                <IconBtn 
+                <GradientIconBtn 
                     icon="fa-solid fa-file-pdf" 
                     label="PDF Notes" 
-                    color="text-slate-700 dark:text-slate-300" 
+                    gradient="bg-gradient-to-br from-[#f6d365] to-[#fda085]"
+                    shadow="shadow-[0_4px_12px_rgba(253,160,133,0.3)]"
                     onClick={() => setComingSoonTitle('PDF Notes')} 
                 />
             </div>
@@ -245,7 +250,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         {/* Feature Cards (Practice Zone Style) */}
         <div className="mt-7 pl-4">
-            <h2 className="text-[15px] font-bold text-slate-900 dark:text-white mb-3">App Features</h2>
+            <h2 className="text-[15px] font-bold text-slate-900 dark:text-white mb-3">My Study Zone</h2>
             <div className="flex overflow-x-auto hide-scrollbar gap-3 pb-2 pr-4">
                 
                 {/* Infinity Practice */}
@@ -357,7 +362,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <h2 className="text-[15px] font-bold text-slate-900 dark:text-white">Top Featured Institutes</h2>
                 <span className="text-[10px] text-slate-400 font-medium cursor-pointer uppercase">View All</span>
             </div>
-            <div className="flex justify-between items-start gap-2 overflow-x-auto hide-scrollbar pb-2">
+            <div className="flex items-start gap-5 overflow-x-auto hide-scrollbar pb-2">
                 {/* Institute 1 */}
                 <div className="flex flex-col items-center gap-1.5 min-w-[65px]">
                     <div className="w-14 h-14 rounded-full border border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm">
@@ -400,12 +405,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   );
 };
 
-const IconBtn = ({ icon, label, color, onClick }: { icon: string, label: string, color: string, onClick: () => void }) => (
-    <div onClick={onClick} className="flex flex-col items-center justify-start gap-1.5 w-[65px] cursor-pointer group">
-        <div className="w-[52px] h-[52px] rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-800 flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] group-hover:scale-105 transition-transform">
-            <i className={`${icon} ${color} text-[22px]`}></i>
+const GradientIconBtn = ({ icon, label, gradient, shadow, onClick }: { icon: string, label: string, gradient: string, shadow: string, onClick: () => void }) => (
+    <div onClick={onClick} className="flex flex-col items-center justify-start gap-2 cursor-pointer group w-full max-w-[70px]">
+        <div className={`w-[90%] aspect-square rounded-[18px] ${gradient} ${shadow} flex items-center justify-center group-hover:scale-105 transition-transform duration-300`}>
+            <i className={`${icon} text-white text-[24px]`}></i>
         </div>
-        <span className="text-[9px] font-semibold text-slate-600 dark:text-slate-300 text-center leading-tight">
+        <span className="text-[10px] font-medium text-slate-800 dark:text-slate-200 text-center leading-tight break-words w-full">
             {label}
         </span>
     </div>
