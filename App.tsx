@@ -303,6 +303,18 @@ export default function App() {
     return 'light';
   });
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      const savedTheme = localStorage.getItem('raftaar-theme');
+      if (!savedTheme) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
   const [userProfile, setUserProfile] = useState<Profile | null>({
     id: 'dev-user-id',
     full_name: 'Developer Mode',
@@ -513,6 +525,8 @@ export default function App() {
                         element={
                             <HomeScreen 
                                 profile={userProfile} 
+                                theme={theme}
+                                setTheme={setTheme}
                                 setComingSoonTitle={(t) => { setComingSoonTitle(t); navigate('/coming-soon'); }} 
                                 onOpenInfinity={() => setSearchParams({ mode: 'infinity' }, { replace: true })} 
                                 onOpenPYQ={() => { setInstantOpen(false); setPyqInitialTab('objective'); setPYQOpen(true); }}

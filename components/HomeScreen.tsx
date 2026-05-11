@@ -4,6 +4,8 @@ import { Profile } from '../types';
 
 interface HomeScreenProps {
   profile: Profile | null;
+  theme: 'light' | 'dark';
+  setTheme: (t: 'light' | 'dark') => void;
   setComingSoonTitle: (t: string) => void;
   onOpenInfinity: () => void;
   onOpenPYQ: () => void;
@@ -14,6 +16,8 @@ interface HomeScreenProps {
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ 
   profile, 
+  theme,
+  setTheme,
   setComingSoonTitle, 
   onOpenInfinity, 
   onOpenPYQ, 
@@ -21,6 +25,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenAchievements, 
   navigate 
 }) => {
+  const [isDrawerOpen, setDrawerOpen] = useState(false);
+  const [isBoardDropdownOpen, setBoardDropdownOpen] = useState(false);
+  const [selectedBoard, setSelectedBoard] = useState('Board');
   const [activeSlide, setActiveSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -103,8 +110,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {/* Top Row: Menu, Logo, Icons */}
             <div className="flex justify-between items-center mb-4 mt-2">
                 <div className="flex items-center gap-3">
-                    <button className="text-white hover:bg-white/10 p-1.5 rounded-lg transition-colors">
-                        <i className="fa-solid fa-bars text-xl"></i>
+                    <button onClick={() => setDrawerOpen(true)} className="relative mr-2 flex-shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 rounded-full">
+                        <div className="w-10 h-10 rounded-full bg-[#00897b] flex items-center justify-center text-white text-[22px] font-normal uppercase shadow-sm ring-2 ring-white/10">
+                            {firstName.charAt(0)}
+                        </div>
+                        <div className="absolute -bottom-1 -right-1.5 w-[22px] h-[22px] bg-white rounded-full shadow-md flex flex-col items-center justify-center gap-[3px]">
+                            <div className="w-3 cursor-pointer h-[1.5px] bg-slate-900 rounded-full"></div>
+                            <div className="w-3 cursor-pointer h-[1.5px] bg-slate-900 rounded-full"></div>
+                            <div className="w-3 cursor-pointer h-[1.5px] bg-slate-900 rounded-full"></div>
+                        </div>
                     </button>
                     
                     <div className="flex items-center gap-1 select-none shrink-0">
@@ -205,96 +219,88 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </div>
         </div>
 
-        <div className="px-5 space-y-7 mt-6">
-            
-            {/* Quick Icons - Row 1 (Image Icons) */}
-            <div className="grid grid-cols-5 gap-2 w-full justify-items-center">
+        <div className="px-4 mt-4 relative z-20">
+            {/* Quick Icons Container */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 rounded-[24px] shadow-sm flex justify-between items-start w-full">
                 <GradientIconBtn 
                     icon="fa-solid fa-stopwatch" 
-                    label="Mock Tests" 
+                    label="All Tests" 
                     gradient="bg-gradient-to-br from-[#ff4d79] to-[#ff004d]"
-                    shadow="shadow-[0_4px_12px_rgba(255,0,77,0.3)]"
-                    onClick={() => setComingSoonTitle('Mock Tests')} 
+                    onClick={() => setComingSoonTitle('All Tests')} 
                 />
                 <GradientIconBtn 
                     icon="fa-solid fa-play" 
                     label="All Classes" 
                     gradient="bg-gradient-to-br from-[#4facfe] to-[#00f2fe]"
-                    shadow="shadow-[0_4px_12px_rgba(0,242,254,0.3)]"
                     onClick={() => setComingSoonTitle('All Classes')} 
                 />
                 <GradientIconBtn 
                     icon="fa-solid fa-brain" 
                     label="Practice Zone" 
                     gradient="bg-gradient-to-br from-[#43e97b] to-[#38f9d7]"
-                    shadow="shadow-[0_4px_12px_rgba(67,233,123,0.3)]"
                     onClick={() => navigate('/practice')} 
                 />
                 <GradientIconBtn 
                     icon="fa-solid fa-users" 
                     label="My Batch" 
                     gradient="bg-gradient-to-br from-[#a18cd1] to-[#fbc2eb]"
-                    shadow="shadow-[0_4px_12px_rgba(161,140,209,0.3)]"
                     onClick={() => setComingSoonTitle('My Batch')} 
                 />
                 <GradientIconBtn 
                     icon="fa-solid fa-file-pdf" 
                     label="PDF Notes" 
                     gradient="bg-gradient-to-br from-[#f6d365] to-[#fda085]"
-                    shadow="shadow-[0_4px_12px_rgba(253,160,133,0.3)]"
                     onClick={() => setComingSoonTitle('PDF Notes')} 
                 />
             </div>
-
         </div>
 
-        {/* Feature Cards (Practice Zone Style) */}
-        <div className="mt-7 pl-4">
-            <h2 className="text-[15px] font-bold text-slate-900 dark:text-white mb-3">My Study Zone</h2>
-            <div className="flex overflow-x-auto hide-scrollbar gap-3 pb-2 pr-4">
-                
-                {/* Infinity Practice */}
-                <FeatureCard 
+        {/* My Study Zone */}
+        <div className="mt-8 px-4">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-[16px] font-bold text-slate-900 dark:text-white">My Study Zone</h2>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+                <StudyZoneCard 
+                    title="My Batches" 
+                    icon="fa-solid fa-graduation-cap" 
+                    iconColor="text-indigo-600 dark:text-indigo-400" 
+                    onClick={() => setComingSoonTitle('My Batches')} 
+                />
+
+                <StudyZoneCard 
                     title="Infinity" 
-                    subtitle="Practice Math" 
                     icon="fa-solid fa-infinity" 
                     iconColor="text-purple-600 dark:text-purple-400" 
-                    bgTintColor="bg-purple-100 dark:bg-purple-900" 
-                    arrowColor="bg-purple-600"
                     onClick={onOpenInfinity} 
                 />
                 
-                {/* PYQ */}
-                <FeatureCard 
+                <StudyZoneCard 
                     title="PYQ" 
-                    subtitle="Previous Papers" 
                     icon="fa-solid fa-file-circle-question" 
-                    iconColor="text-teal-600 dark:text-teal-400" 
-                    bgTintColor="bg-teal-100 dark:bg-teal-900" 
-                    arrowColor="bg-teal-600"
+                    iconColor="text-pink-600 dark:text-pink-400" 
                     onClick={onOpenPYQ} 
                 />
 
-                {/* Achievements */}
-                <FeatureCard 
+                <StudyZoneCard 
                     title="Achievement" 
-                    subtitle="Your Medals" 
                     icon="fa-solid fa-medal" 
-                    iconColor="text-orange-600 dark:text-orange-400" 
-                    bgTintColor="bg-orange-100 dark:bg-orange-900" 
-                    arrowColor="bg-orange-600"
+                    iconColor="text-amber-500 dark:text-amber-400" 
                     onClick={onOpenAchievements} 
                 />
 
-                {/* Dashboard */}
-                <FeatureCard 
+                <StudyZoneCard 
                     title="Dashboard" 
-                    subtitle="Your Stats" 
                     icon="fa-solid fa-chart-pie" 
-                    iconColor="text-blue-600 dark:text-blue-400" 
-                    bgTintColor="bg-blue-100 dark:bg-blue-900" 
-                    arrowColor="bg-blue-600"
+                    iconColor="text-emerald-600 dark:text-emerald-400" 
                     onClick={onOpenDashboard} 
+                />
+
+                <StudyZoneCard 
+                    title="Bookmarks" 
+                    icon="fa-solid fa-bookmark" 
+                    iconColor="text-blue-600 dark:text-blue-400" 
+                    onClick={() => setComingSoonTitle('Bookmarks')} 
                 />
             </div>
         </div>
@@ -400,40 +406,127 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 </div>
             </div>
         </div>
+        
+        {/* ---- SIDE DRAWER COMPONENT ---- */}
+        {/* Drawer Overlay */}
+        <div 
+            className={`fixed inset-0 bg-black/60 z-[998] transition-opacity duration-300 ${isDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            onClick={() => setDrawerOpen(false)}
+        ></div>
+
+        {/* Drawer Panel */}
+        <div 
+            className={`fixed top-0 left-0 h-[100dvh] w-[85%] max-w-[320px] bg-white dark:bg-slate-900 z-[999] shadow-2xl transition-transform duration-300 ease-in-out transform flex flex-col ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        >
+            {/* Drawer Header */}
+            <div className="pt-safe-top px-6 pt-12 pb-6 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-4 mb-5">
+                    <div className="w-16 h-16 rounded-full bg-[#00897b] flex items-center justify-center text-white text-3xl font-normal uppercase shadow">
+                        {firstName.charAt(0)}
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-white capitalize">{firstName}</h2>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Class 12 • 2027</p>
+                    </div>
+                </div>
+
+                <div className="relative">
+                    <button 
+                        onClick={() => setBoardDropdownOpen(!isBoardDropdownOpen)}
+                        className="w-full bg-[#e8f1fd] dark:bg-[#1e2a40] text-[#1a73e8] dark:text-[#669df6] py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-[#d4e4fc] dark:hover:bg-[#162133] transition-colors focus:outline-none"
+                    >
+                        {selectedBoard} <i className={`fa-solid fa-chevron-down text-sm transition-transform ${isBoardDropdownOpen ? 'rotate-180' : ''}`}></i>
+                    </button>
+                    {isBoardDropdownOpen && (
+                        <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-100 dark:border-slate-700 overflow-hidden z-10">
+                            <button 
+                                onClick={() => { setSelectedBoard('Board Class 10'); setBoardDropdownOpen(false); }}
+                                className="w-full text-left px-4 py-3 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-medium transition-colors"
+                            >
+                                Board Class 10
+                            </button>
+                            <button 
+                                onClick={() => { setSelectedBoard('Board Class 12'); setBoardDropdownOpen(false); }}
+                                className="w-full text-left px-4 py-3 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-medium transition-colors border-t border-slate-100 dark:border-slate-700"
+                            >
+                                Board Class 12
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Menu Items */}
+            <div className="flex-1 py-4 flex flex-col gap-1 px-3">
+                <button className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <div className="flex items-center gap-4 text-slate-700 dark:text-slate-300">
+                        <i className="fa-regular fa-bell text-lg w-5 text-center"></i>
+                        <span className="text-[17px] font-medium">Notification</span>
+                    </div>
+                    <i className="fa-solid fa-caret-right text-slate-400 text-sm"></i>
+                </button>
+
+                <button className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <div className="flex items-center gap-4 text-slate-700 dark:text-slate-300">
+                        <i className="fa-solid fa-gear text-lg w-5 text-center"></i>
+                        <span className="text-[17px] font-medium">Settings</span>
+                    </div>
+                    <i className="fa-solid fa-caret-right text-slate-400 text-sm"></i>
+                </button>
+
+                <div className="w-full flex items-center justify-between p-3 rounded-lg">
+                    <div className="flex items-center gap-4 text-slate-700 dark:text-slate-300">
+                        <i className="fa-regular fa-moon text-lg w-5 text-center"></i>
+                        <span className="text-[17px] font-medium">Dark theme</span>
+                    </div>
+                    <button 
+                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                        className={`w-12 h-6 rounded-full transition-colors relative ${theme === 'dark' ? 'bg-[#34c759]' : 'bg-slate-300'}`}
+                    >
+                        <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${theme === 'dark' ? 'translate-x-[26px]' : 'translate-x-[2px]'}`}></div>
+                    </button>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div className="pb-6 pt-4 px-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-1 select-none">
+                    <div className="relative flex items-center justify-center bg-slate-800 rounded-md w-6 h-6 mr-1">
+                        <div className="italic font-black text-white text-[14px]" style={{ fontFamily: 'sans-serif' }}>R</div>
+                        <i className="fa-solid fa-bolt text-yellow-500 absolute -left-0.5 opacity-90 text-[10px] transform -rotate-12"></i>
+                    </div>
+                    <div className="font-bold text-[15px] tracking-wide text-slate-800 dark:text-slate-200">
+                        RAFTAAR
+                    </div>
+                </div>
+                <div className="text-[11px] text-slate-400 font-medium tracking-wide">
+                    v2.0.5.1 (Beta)
+                </div>
+            </div>
+        </div>
 
     </div>
   );
 };
 
-const GradientIconBtn = ({ icon, label, gradient, shadow, onClick }: { icon: string, label: string, gradient: string, shadow: string, onClick: () => void }) => (
-    <div onClick={onClick} className="flex flex-col items-center justify-start gap-2 cursor-pointer group w-full max-w-[70px]">
-        <div className={`w-[90%] aspect-square rounded-[18px] ${gradient} ${shadow} flex items-center justify-center group-hover:scale-105 transition-transform duration-300`}>
-            <i className={`${icon} text-white text-[24px]`}></i>
+const GradientIconBtn = ({ icon, label, gradient, onClick }: { icon: string, label: string, gradient: string, onClick: () => void }) => (
+    <div onClick={onClick} className="flex flex-col items-center justify-start gap-1.5 cursor-pointer group flex-1">
+        <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl ${gradient} flex items-center justify-center group-hover:scale-105 transition-transform duration-300 shadow-sm`}>
+            <i className={`${icon} text-white text-[22px]`}></i>
         </div>
-        <span className="text-[10px] font-medium text-slate-800 dark:text-slate-200 text-center leading-tight break-words w-full">
+        <span className="text-[9px] sm:text-[10px] font-medium text-slate-800 dark:text-slate-200 text-center leading-tight whitespace-nowrap inline-block w-full overflow-visible">
             {label}
         </span>
     </div>
 );
 
-const FeatureCard = ({ title, subtitle, icon, iconColor, bgTintColor, arrowColor, onClick }: any) => (
-    <div onClick={onClick} className={`min-w-[110px] w-[110px] h-[130px] rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 flex flex-col justify-between cursor-pointer flex-shrink-0 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-shadow relative overflow-hidden group`}>
-        {/* Subtle background glow from top left */}
-        <div className={`absolute -top-6 -left-6 w-20 h-20 ${bgTintColor} blur-2xl rounded-full opacity-40 dark:opacity-20`}></div>
-        
-        <div className="relative z-10 w-8 h-8 rounded-lg flex items-center justify-center">
-            <i className={`${icon} ${iconColor} text-[22px]`}></i>
+const StudyZoneCard = ({ title, icon, iconColor, onClick }: any) => (
+    <div onClick={onClick} className="rounded-[16px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 py-5 flex flex-col justify-center items-center cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.02)] hover:shadow-md active:scale-95 transition-all w-full text-center group">
+        <div className="relative mb-3">
+            <i className={`${icon} ${iconColor} text-[32px] group-hover:scale-110 transition-transform duration-300`}></i>
         </div>
-        
-        <div className="relative z-10 mt-auto mb-1">
-            <h3 className="font-bold text-slate-800 dark:text-white text-[11px] leading-tight mb-0.5">{title}</h3>
-            <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-tight">{subtitle}</p>
-        </div>
-        
-        <div className="absolute bottom-3 right-3 z-10">
-            <div className={`w-5 h-5 rounded-full inline-flex items-center justify-center ${arrowColor} text-white group-hover:scale-110 transition-transform`}>
-                <i className="fa-solid fa-arrow-right text-[9px]"></i>
-            </div>
-        </div>
+        <h3 className="font-semibold text-slate-700 dark:text-slate-300 text-[12px] leading-tight select-none">
+            {title}
+        </h3>
     </div>
 );
