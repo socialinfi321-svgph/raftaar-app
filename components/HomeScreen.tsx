@@ -35,31 +35,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   // Slide data
   const slides = [
     {
-      id: 'mock_test',
-      bg: 'bg-[#15202b]', 
-      title: 'BSEB 12th Mega Mock Test',
-      subtitle: 'Dynamic graphics!',
-      tag: 'LIVE NOW!',
-      btn: 'Join Now',
+      id: 'first_image',
+      customLayout: 'first_image',
+      action: () => setComingSoonTitle('Banner 1'),
+    },
+    {
+      id: 'raftaar_banner',
+      customLayout: 'raftaar_banner',
       action: () => setComingSoonTitle('BSEB Mega Mock'),
     },
     {
-      id: 'batch',
-      bg: 'bg-[#0f172a]',
-      title: 'Patna Vidya Hub - Join Topper Batch!',
-      subtitle: 'Premium Series',
-      tag: 'NEW',
-      btn: 'Join Now',
-      action: () => setComingSoonTitle('Topper Batch'),
+      id: 'mission_2026',
+      customLayout: 'mission_2026',
+      action: () => navigate('/practice'),
     },
     {
-      id: 'mission_2026',
-      bg: 'bg-indigo-900',
-      title: 'Dream 450+ Marks',
-      subtitle: '25,000+ Objectives.',
-      tag: '2026',
-      btn: 'Start',
-      action: () => navigate('/practice'),
+      id: 'telegram',
+      customLayout: 'telegram',
+      action: () => window.open('https://t.me/your_telegram_link', '_blank'),
     }
   ];
 
@@ -79,7 +72,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             }
             return next;
         });
-    }, 4000);
+    }, 10000);
     return () => clearInterval(interval);
   }, [slides.length, isPaused]);
 
@@ -105,10 +98,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   return (
     <div className="bg-slate-50 dark:bg-slate-950 pb-24 transition-colors duration-300 min-h-[100dvh]">
         
-        {/* Header block without heavy curve */}
-        <div className="bg-[#0f2133] px-4 pt-safe-header pb-4 relative shadow-sm">
+        {/* Fixed Top Nav (Sticky) */}
+        <div className="sticky top-0 z-50 bg-[#0f2133] px-4 pt-safe-header pb-2">
             {/* Top Row: Menu, Logo, Icons */}
-            <div className="flex justify-between items-center mb-4 mt-2">
+            <div className="flex justify-between items-center mt-2">
                 <div className="flex items-center gap-3">
                     <button onClick={() => setDrawerOpen(true)} className="relative mr-2 flex-shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 rounded-full">
                         <div className="w-10 h-10 rounded-full bg-[#00897b] flex items-center justify-center text-white text-[22px] font-normal uppercase shadow-sm ring-2 ring-white/10">
@@ -142,9 +135,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     </div>
                 </div>
             </div>
+        </div>
 
-            {/* Greeting */}
-            <div>
+        {/* Scrollable Content starts here */}
+        {/* Greeting with same background to create seamless look */}
+        <div className="bg-[#0f2133] px-4 pb-5 pt-2 relative">
+            <div className="pb-4">
                 <h1 className="text-white text-[15px] font-medium tracking-wide">
                     Namaste, <span className="text-yellow-500 font-bold">{firstName}!</span>
                 </h1>
@@ -152,51 +148,99 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
 
         {/* Banners */}
-        <div className="px-4 mt-4">
+        <div className="px-4 mt-3 relative z-20">
             <div 
                 ref={sliderRef}
-                className="flex overflow-x-auto hide-scrollbar gap-0 snap-x snap-mandatory rounded-xl shadow-sm"
+                className="flex overflow-x-auto hide-scrollbar gap-0 snap-x snap-mandatory rounded-[20px] shadow-sm"
                 onScroll={handleScroll}
                 onTouchStart={() => setIsPaused(true)}
                 onTouchEnd={() => setIsPaused(false)}
             >
-                {slides.map((slide, idx) => (
-                    <div key={idx} className="snap-center min-w-full w-full h-[150px] relative overflow-hidden flex-shrink-0 bg-[#0c1622] rounded-xl border border-slate-700/50">
-                        <div className={`absolute inset-0 ${slide.bg} opacity-50`}></div>
-                        
-                        <div className="relative z-10 p-4 h-full flex flex-col justify-between">
-                            <div className="flex justify-between items-start">
-                                <div className="w-3/4">
-                                    <h3 className="text-white font-bold text-base leading-tight drop-shadow-sm">{slide.title}</h3>
-                                    <p className="text-slate-300 text-[11px] mt-1">{slide.subtitle}</p>
-                                </div>
-                                <div className="absolute right-[-10px] top-[-10px] opacity-80 pointer-events-none transform -rotate-12">
-                                  {/* Custom lightning bolt graphic for banner */}
-                                  <div className="w-24 h-24 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full blur-xl opacity-20"></div>
-                                  <i className="fa-solid fa-bolt text-7xl text-gradient bg-clip-text text-transparent bg-gradient-to-b from-yellow-300 to-orange-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></i>
-                                </div>
+                {slides.map((slide, idx) => {
+                    if (slide.customLayout === 'first_image') {
+                        return (
+                            <div key={idx} className="snap-center min-w-full w-full h-[140px] relative overflow-hidden flex-shrink-0 rounded-[20px] shadow-sm border border-slate-700/50 bg-[#041024]">
+                                <img 
+                                    src="https://lmauqnfzcvhtxlznrwni.supabase.co/storage/v1/object/public/banner/banner%20no%201.png" 
+                                    className="absolute inset-0 w-full h-full object-cover object-center" 
+                                    alt="First Banner" 
+                                />
+                                <div className="absolute inset-0 z-10 w-full h-full cursor-pointer" onClick={slide.action}></div>
                             </div>
-                            
-                            <div className="flex justify-between items-end">
-                                {slide.id === 'mock_test' ? (
-                                    <div className="flex gap-1 items-center bg-black/40 px-2 py-1 rounded-md border border-slate-700/50">
-                                        <span className="bg-[#b3261e] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-[inset_0px_1px_rgba(255,255,255,0.3)]">01</span>
-                                        <span className="text-white font-bold text-[10px]">:</span>
-                                        <span className="bg-[#b3261e] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-[inset_0px_1px_rgba(255,255,255,0.3)]">03</span>
-                                        <span className="text-white font-bold text-[10px]">:</span>
-                                        <span className="bg-[#b3261e] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-[inset_0px_1px_rgba(255,255,255,0.3)]">35</span>
-                                    </div>
-                                ) : (
-                                    <span className="text-amber-500 text-[10px] font-black uppercase tracking-wider">{slide.tag}</span>
-                                )}
+                        );
+                    }
 
-                                <button onClick={slide.action} className="bg-gradient-to-b from-amber-400 to-orange-500 text-white font-bold text-xs px-4 py-1.5 rounded-full shadow-[inset_0px_1px_rgba(255,255,255,0.4),0px_2px_4px_rgba(0,0,0,0.3)] active:scale-95 transition-transform z-20">
-                                    {slide.btn}
-                                </button>
+                    if (slide.customLayout === 'raftaar_banner') {
+                        return (
+                            <div key={idx} className="snap-center min-w-full w-full h-[140px] relative overflow-hidden flex-shrink-0 rounded-[20px] shadow-sm border border-slate-700/50 bg-[#041024]">
+                                <img 
+                                    src="https://lmauqnfzcvhtxlznrwni.supabase.co/storage/v1/object/public/banner/ChatGPT%20Image%20May%2012,%202026,%2003_36_40%20PM.png" 
+                                    className="absolute inset-0 w-full h-full object-cover object-[85%_center] transform scale-[1.3]" 
+                                    alt="Second Banner" 
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-r from-[#041024] via-[#041024]/95 to-transparent w-[85%] z-0"></div>
+                                
+                                <div className="relative z-10 p-4 h-full flex flex-col justify-between w-[90%]">
+                                    <div>
+                                        <h2 className="text-white font-extrabold text-[19px] leading-[1.15] tracking-wide drop-shadow-md">
+                                            Accelerate with <br/><span className="text-[#82bdf9] font-black text-[22px]">Raftaar</span>
+                                        </h2>
+                                        <p className="text-slate-300 mt-1.5 text-[10px] font-medium leading-[1.3] drop-shadow max-w-[75%]">
+                                            Master Your Exam with Daily Live Mocks & PYQs.
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="flex items-end mt-auto pt-[2px]">
+                                        <button onClick={slide.action} className="bg-gradient-to-b from-[#8ebaf5] to-[#2480fb] text-[#020b14] font-extrabold text-[10.5px] px-3.5 py-1.5 rounded-full shadow-[0_0_15px_rgba(36,128,251,0.5)] active:scale-95 transition-transform flex items-center gap-1.5 z-20">
+                                            Start Practicing Now <i className="fa-solid fa-arrow-right text-[10px]"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                ))}
+                        );
+                    }
+
+                    if (slide.customLayout === 'mission_2026') {
+                        return (
+                            <div key={idx} className="snap-center min-w-full w-full h-[140px] relative overflow-hidden flex-shrink-0 bg-indigo-900 rounded-[20px] shadow-sm border border-slate-700/50">
+                                <img 
+                                    src="https://lmauqnfzcvhtxlznrwni.supabase.co/storage/v1/object/public/banner/450banner%20image%20.png" 
+                                    className="absolute inset-0 w-[104%] h-[104%] -top-[2%] -left-[2%] object-cover object-center" 
+                                    alt="Mission 2026 Banner" 
+                                />
+                                <div className="absolute inset-0 z-10 w-full h-full cursor-pointer" onClick={slide.action}></div>
+                            </div>
+                        );
+                    }
+
+                    if (slide.customLayout === 'telegram') {
+                         return (
+                            <div key={idx} className="snap-center min-w-full w-full h-[140px] relative overflow-hidden flex-shrink-0 rounded-[20px] shadow-sm border border-[#1e95d4] bg-[#0088cc]">
+                                <div className="absolute top-[-20%] right-[-10%] w-[150px] h-[150px] bg-white opacity-10 rounded-full blur-2xl"></div>
+                                <i className="fa-brands fa-telegram text-white/20 text-[120px] absolute -right-4 -bottom-4 transform -rotate-12"></i>
+                                
+                                <div className="relative z-10 p-4 h-full flex flex-col justify-between">
+                                    <div>
+                                        <h2 className="text-white font-black text-[20px] leading-[1.1] tracking-wide drop-shadow-sm">
+                                            Join our<br/>Telegram Channel
+                                        </h2>
+                                        <p className="text-white/90 mt-1 text-[11px] font-medium leading-snug max-w-[70%]">
+                                            Get daily PDF notes & quiz updates free.
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="flex items-end mt-auto pt-[2px]">
+                                        <button onClick={slide.action} className="bg-white text-[#0088cc] font-extrabold text-[10px] px-4 py-1.5 rounded-full shadow-md active:scale-95 transition-transform z-20 flex items-center gap-1.5">
+                                            Join Telegram <i className="fa-solid fa-arrow-right text-[9px]"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                         );
+                    }
+                    
+                    return null;
+                })}
             </div>
             
             {/* Dots */}
@@ -263,43 +307,61 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <div className="grid grid-cols-3 gap-3">
                 <StudyZoneCard 
                     title="My Batches" 
+                    subtitle="Enrolled Courses"
                     icon="fa-solid fa-graduation-cap" 
                     iconColor="text-indigo-600 dark:text-indigo-400" 
+                    bgClass="bg-indigo-300"
+                    arrowColor="bg-indigo-600"
                     onClick={() => setComingSoonTitle('My Batches')} 
                 />
 
                 <StudyZoneCard 
                     title="Infinity" 
+                    subtitle="Practice Math"
                     icon="fa-solid fa-infinity" 
                     iconColor="text-purple-600 dark:text-purple-400" 
+                    bgClass="bg-purple-300"
+                    arrowColor="bg-purple-600"
                     onClick={onOpenInfinity} 
                 />
                 
                 <StudyZoneCard 
-                    title="PYQ" 
+                    title="PYQs" 
+                    subtitle="Previous year questions"
                     icon="fa-solid fa-file-circle-question" 
                     iconColor="text-pink-600 dark:text-pink-400" 
+                    bgClass="bg-pink-300"
+                    arrowColor="bg-pink-600"
                     onClick={onOpenPYQ} 
                 />
 
                 <StudyZoneCard 
                     title="Achievement" 
+                    subtitle="View your medals"
                     icon="fa-solid fa-medal" 
                     iconColor="text-amber-500 dark:text-amber-400" 
+                    bgClass="bg-amber-300"
+                    arrowColor="bg-amber-500"
                     onClick={onOpenAchievements} 
                 />
 
                 <StudyZoneCard 
                     title="Dashboard" 
+                    subtitle="Your Analytics"
                     icon="fa-solid fa-chart-pie" 
                     iconColor="text-emerald-600 dark:text-emerald-400" 
+                    bgClass="bg-emerald-300"
+                    arrowColor="bg-emerald-600"
                     onClick={onOpenDashboard} 
                 />
 
                 <StudyZoneCard 
                     title="Bookmarks" 
+                    subtitle="Saved Content"
                     icon="fa-solid fa-bookmark" 
                     iconColor="text-blue-600 dark:text-blue-400" 
+                    bgClass="bg-blue-300"
+                    arrowColor="bg-blue-600"
                     onClick={() => setComingSoonTitle('Bookmarks')} 
                 />
             </div>
@@ -520,13 +582,22 @@ const GradientIconBtn = ({ icon, label, gradient, onClick }: { icon: string, lab
     </div>
 );
 
-const StudyZoneCard = ({ title, icon, iconColor, onClick }: any) => (
-    <div onClick={onClick} className="rounded-[16px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 py-5 flex flex-col justify-center items-center cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.02)] hover:shadow-md active:scale-95 transition-all w-full text-center group">
-        <div className="relative mb-3">
-            <i className={`${icon} ${iconColor} text-[32px] group-hover:scale-110 transition-transform duration-300`}></i>
+const StudyZoneCard = ({ title, subtitle, icon, iconColor, bgClass, arrowColor, onClick }: any) => (
+    <div onClick={onClick} className="rounded-[16px] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-2.5 pb-2 flex flex-col items-start cursor-pointer shadow-[0_4px_12px_rgba(0,0,0,0.02)] hover:shadow-md active:scale-95 transition-all w-full group relative min-h-[105px] overflow-hidden">
+        {bgClass && <div className={`absolute -top-4 -left-4 w-16 h-16 ${bgClass} blur-2xl rounded-full opacity-30 dark:opacity-20`}></div>}
+        <div className="relative mb-2 ml-1 mt-1">
+            <i className={`${icon} ${iconColor} text-[28px] group-hover:scale-110 transition-transform duration-300 drop-shadow-sm`}></i>
         </div>
-        <h3 className="font-semibold text-slate-700 dark:text-slate-300 text-[12px] leading-tight select-none">
-            {title}
-        </h3>
+        <div className="relative mt-auto w-full pr-6 text-left">
+            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-[11px] leading-tight select-none truncate">
+                {title}
+            </h3>
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-1 leading-[1.2] select-none line-clamp-2 pr-1">
+                {subtitle}
+            </p>
+        </div>
+        <div className={`absolute bottom-2 right-2 w-[22px] h-[22px] rounded-full flex items-center justify-center text-white ${arrowColor} group-hover:scale-110 transition-transform`}>
+            <i className="fa-solid fa-arrow-right text-[10px]"></i>
+        </div>
     </div>
 );
