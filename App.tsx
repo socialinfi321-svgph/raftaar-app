@@ -489,8 +489,77 @@ export default function App() {
   const showTopHeader = false; // Always false, Home screen will handle its own header
 
   return (
-    <div className="max-w-md mx-auto h-[100dvh] flex flex-col bg-slate-50 dark:bg-slate-950 font-sans relative shadow-2xl overflow-hidden text-slate-900 dark:text-white transition-colors duration-300">
+    <div className="w-full md:max-w-3xl lg:max-w-7xl mx-auto h-[100dvh] flex bg-slate-50 dark:bg-slate-950 font-sans relative shadow-2xl overflow-hidden text-slate-900 dark:text-white transition-colors duration-300">
         
+        {/* Fixed Desktop Sidebar (Hidden on Mobile/Tablet) */}
+        {session && (
+            <div className="hidden lg:flex flex-col w-64 h-full bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 z-50 shrink-0 py-6 px-4 shrink-0 transition-colors">
+                <div className="mb-10 pl-2 cursor-pointer" onClick={() => navigate('/')}>
+                    <RaftaarLogo />
+                </div>
+                <div className="flex-1 flex flex-col gap-2">
+                    <button onClick={() => navigate('/')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname === '/' ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
+                        <i className="fa-solid fa-house w-6 text-center text-lg"></i>
+                        <span>Home</span>
+                    </button>
+                    <button onClick={() => navigate('/practice')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname.startsWith('/practice') ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
+                        <i className="fa-solid fa-book-open w-6 text-center text-lg"></i>
+                        <span>Practice</span>
+                    </button>
+                    <button onClick={() => navigate('/exam')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname.startsWith('/exam') ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
+                        <i className="fa-solid fa-file-signature w-6 text-center text-lg"></i>
+                        <span>Exam</span>
+                    </button>
+                    <button onClick={() => navigate('/rewards')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname.startsWith('/rewards') ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
+                        <i className="fa-solid fa-trophy w-6 text-center text-lg"></i>
+                        <span>Rewards</span>
+                    </button>
+                    
+                    <div className="mt-8 mb-4 border-t border-slate-100 dark:border-slate-800 pt-6 px-4">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Quick Links</p>
+                        <button onClick={() => { setPyqInitialTab('objective'); setPYQOpen(true); }} className="flex items-center gap-4 py-2 w-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-medium">
+                            <i className="fa-solid fa-clock-rotate-left w-6 text-center"></i>
+                            <span>PYQs</span>
+                        </button>
+                        <button onClick={() => setSearchParams({ mode: 'infinity' }, { replace: true })} className="flex items-center gap-4 py-2 w-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-medium">
+                            <i className="fa-solid fa-infinity w-6 text-center"></i>
+                            <span>Infinity</span>
+                        </button>
+                        <button onClick={() => navigate('/shorts')} className="flex items-center gap-4 py-2 w-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-medium">
+                            <i className="fa-solid fa-bolt w-6 text-center"></i>
+                            <span>Shorts</span>
+                        </button>
+                        <button onClick={() => setDashboardOpen(true)} className="flex items-center gap-4 py-2 w-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-medium">
+                            <i className="fa-solid fa-chart-pie w-6 text-center"></i>
+                            <span>Dashboard</span>
+                        </button>
+                        <button onClick={() => setAchievementsOpen(true)} className="flex items-center gap-4 py-2 w-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-medium">
+                            <i className="fa-solid fa-medal w-6 text-center"></i>
+                            <span>Achievements</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="mt-auto border-t border-slate-100 dark:border-slate-800 pt-4 flex flex-col gap-2">
+                    <button onClick={toggleTheme} className="flex items-center gap-4 px-4 py-3 w-full text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white rounded-xl transition-colors font-medium">
+                        {theme === 'light' ? <Sun size={20} className="w-6 text-center" /> : <Moon size={20} className="w-6 text-center" />}
+                        <span>Toggle Theme</span>
+                    </button>
+                    <div onClick={() => setDashboardOpen(true)} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 rounded-xl cursor-pointer hover:shadow-md transition-shadow border border-slate-100 dark:border-slate-800">
+                        <img src={userProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.email}`} className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700" alt="User" />
+                        <div className="flex-1 min-w-0">
+                            <p className="font-bold text-slate-900 dark:text-white text-sm truncate">{userProfile?.full_name}</p>
+                            <div className="flex items-center gap-1 text-brand-500 dark:text-brand-400 text-xs">
+                                <i className="fa-solid fa-bolt"></i>
+                                <span className="font-bold">{userProfile?.weekly_xp || 0} XP</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        <div className="flex-1 flex flex-col relative w-full h-[100dvh]">
         {showTopHeader && (
             <div className="px-4 pb-3 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
                 <div className="flex items-center gap-2"><RaftaarLogo /></div>
@@ -700,8 +769,8 @@ export default function App() {
         </AnimatePresence>
 
         {showNav && (
-            <div className="fixed bottom-0 w-full max-w-md bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-around py-[7px] pb-safe z-40 shadow-lg transition-colors duration-300">
-                <div className="flex w-full justify-around pt-1">
+            <div className="lg:hidden absolute bottom-0 w-full bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-around pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] transition-colors duration-300">
+                <div className="flex w-full justify-around">
                     <NavIcon icon="fa-house" label="Home" target="/" />
                     <NavIcon icon="fa-book-open" label="Practice" target="/practice" />
                     <NavIcon icon="fa-file-signature" label="Exam" target="/exam" />
@@ -709,6 +778,7 @@ export default function App() {
                 </div>
             </div>
         )}
+        </div>
     </div>
   );
 }

@@ -42,7 +42,7 @@ html, body, #root {
    even if the browser reports 0px safe area.
 */
 .pt-safe-header {
-  padding-top: max(env(safe-area-inset-top), 35px);
+  padding-top: max(env(safe-area-inset-top), 1.5rem);
 }
 
 /* Header offset: Standard header height + Safe Area 
