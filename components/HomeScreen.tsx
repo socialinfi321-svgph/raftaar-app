@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { Profile } from '../types';
 
 interface HomeScreenProps {
@@ -30,7 +31,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [selectedBoard, setSelectedBoard] = useState('Board');
   const [activeSlide, setActiveSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleWindowScroll = () => {
+      setIsScrolled(window.scrollY > 20);
+    };
+    window.addEventListener('scroll', handleWindowScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleWindowScroll);
+  }, []);
 
   // Slide data
   const slides = [
@@ -90,7 +100,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
-  const nameParts = (profile?.full_name || 'Aman').split(' ');
+  const nameParts = (profile?.full_name || 'Developer').split(' ');
   const firstName = nameParts[0];
   const xp = profile?.weekly_xp || 0;
   const avatar = profile?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=dev';
@@ -99,39 +109,44 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     <div className="bg-slate-50 dark:bg-slate-950 pb-24 transition-colors duration-300 min-h-[100dvh]">
         
         {/* Fixed Top Nav (Sticky) */}
-        <div className="sticky top-0 z-50 bg-[#0f2133] px-5 sm:px-6 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+        <div className={`sticky top-0 z-50 px-5 sm:px-6 pt-[max(0.5rem,env(safe-area-inset-top))] pb-1 transition-colors duration-300 ease-in-out ${isScrolled ? 'bg-white dark:bg-slate-950 shadow-sm' : 'bg-[#0f2133]'}`}>
             {/* Top Row: Menu, Logo, Icons */}
-            <div className="flex justify-between items-center mt-2">
-                <div className="flex items-center gap-3 sm:gap-4">
-                    <button onClick={() => setDrawerOpen(true)} className="lg:hidden relative mr-1.5 flex-shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 rounded-full">
-                        <div className="w-[clamp(2.5rem,8vw,3rem)] h-[clamp(2.5rem,8vw,3rem)] rounded-full bg-[#00897b] flex items-center justify-center text-white text-[clamp(1.2rem,4vw,1.5rem)] font-normal uppercase shadow-sm ring-2 ring-white/10">
+            <div className={`flex justify-between items-center transition-colors duration-300 ease-in-out ${isScrolled ? 'text-slate-900 dark:text-white' : 'text-white'}`}>
+                <div className="flex items-center gap-2 sm:gap-3">
+                    <button onClick={() => setDrawerOpen(true)} className="lg:hidden relative py-1.5 flex-shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 rounded-full">
+                        <div className={`w-[clamp(2.5rem,8vw,3rem)] h-[clamp(2.5rem,8vw,3rem)] rounded-full flex items-center justify-center text-[clamp(1.2rem,4vw,1.5rem)] font-normal uppercase shadow-sm ring-2 transition-colors duration-300 ${isScrolled ? 'bg-brand-500 text-white ring-slate-100 dark:ring-slate-800' : 'bg-[#00897b] text-white ring-white/10'}`}>
                             {firstName.charAt(0)}
                         </div>
-                        <div className="absolute -bottom-1 -right-1 w-[clamp(1.2rem,4vw,1.5rem)] h-[clamp(1.2rem,4vw,1.5rem)] bg-white rounded-full shadow-md flex flex-col items-center justify-center gap-[0.15rem]">
-                            <div className="w-[40%] h-[1.5px] sm:h-[2px] bg-slate-900 rounded-full"></div>
-                            <div className="w-[40%] h-[1.5px] sm:h-[2px] bg-slate-900 rounded-full"></div>
-                            <div className="w-[40%] h-[1.5px] sm:h-[2px] bg-slate-900 rounded-full"></div>
+                        <div className={`absolute bottom-0.5 right-0 w-[clamp(1.1rem,3.5vw,1.3rem)] h-[clamp(1.1rem,3.5vw,1.3rem)] rounded-full shadow-md flex flex-col items-center justify-center gap-[0.15rem] border border-white/20 transition-colors duration-300 ${isScrolled ? 'bg-slate-100 dark:bg-slate-800 border-slate-200' : 'bg-white'}`}>
+                            <div className={`w-[40%] h-[1.5px] rounded-full transition-colors duration-300 ${isScrolled ? 'bg-slate-600 dark:bg-slate-400' : 'bg-slate-900'}`}></div>
+                            <div className={`w-[40%] h-[1.5px] rounded-full transition-colors duration-300 ${isScrolled ? 'bg-slate-600 dark:bg-slate-400' : 'bg-slate-900'}`}></div>
+                            <div className={`w-[40%] h-[1.5px] rounded-full transition-colors duration-300 ${isScrolled ? 'bg-slate-600 dark:bg-slate-400' : 'bg-slate-900'}`}></div>
                         </div>
                     </button>
                     
-                    <div className="flex items-center gap-1 sm:gap-1.5 select-none shrink-0">
+                    <div className="flex items-center gap-1 select-none shrink-0 ml-1">
                       <div className="relative flex items-center justify-center">
-                          <div className="italic font-black text-white text-[clamp(1.5rem,5vw,1.75rem)]" style={{ fontFamily: 'sans-serif' }}>R</div>
-                          <i className="fa-solid fa-bolt text-yellow-500 absolute -left-1 opacity-90 text-[clamp(1.2rem,4vw,1.4rem)] transform -rotate-12"></i>
+                          <div className="italic font-black text-[clamp(1.25rem,4vw,1.5rem)] tracking-tight">R</div>
+                          <i className="fa-solid fa-bolt text-yellow-500 absolute -left-1 opacity-90 text-[clamp(0.9rem,3vw,1.1rem)] transform -rotate-12 transition-transform duration-300"></i>
                       </div>
-                      <div className="font-bold text-[clamp(1.1rem,3.5vw,1.25rem)] tracking-wide shrink-0 text-white">
+                      <div className="font-bold text-[clamp(0.95rem,3vw,1.1rem)] tracking-wide shrink-0">
                           RAFTAAR
                       </div>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 sm:gap-4 text-white">
-                    <button onClick={onOpenAchievements} className="hover:text-blue-200 transition-colors relative p-1.5">
+                <div className="flex items-center gap-3 sm:gap-4">
+                    <button onClick={onOpenAchievements} className={`hover:text-brand-500 transition-colors duration-300 relative p-1 ${isScrolled ? 'text-slate-600 dark:text-slate-300' : 'text-white'}`}>
                         <i className="fa-regular fa-bell text-[clamp(1.1rem,3.5vw,1.25rem)]"></i>
-                        <span className="absolute top-0 right-0 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-red-500 rounded-full border border-[#0f2133]"></span>
+                        <span className={`absolute top-0 right-1 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-red-500 rounded-full border transition-colors duration-300 ${isScrolled ? 'border-white dark:border-slate-950' : 'border-[#0f2133]'}`}></span>
                     </button>
-                    <div className="w-[clamp(1.75rem,6vw,2.25rem)] h-[clamp(1.75rem,6vw,2.25rem)] rounded-full overflow-hidden border border-white/20">
-                        <img src={avatar} alt="Profile" className="w-full h-full object-cover" />
+                    
+                    <div onClick={onOpenAchievements} className={`cursor-pointer flex flex-col items-center justify-center px-2.5 py-1 rounded-xl sm:rounded-2xl border backdrop-blur-sm transition-colors duration-300 ${isScrolled ? 'border-brand-500/30 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400' : 'border-white/20 bg-white/10 text-white hover:bg-white/15'}`}>
+                        <div className="flex items-center gap-1 font-bold text-[clamp(0.85rem,2.5vw,1rem)] leading-none">
+                            <span className="text-yellow-400 drop-shadow-sm">🔥</span>
+                            <span>{xp.toLocaleString()}</span>
+                        </div>
+                        <span className={`text-[8px] sm:text-[9px] mt-0.5 leading-none font-medium uppercase tracking-wider transition-colors duration-300 ${isScrolled ? 'text-brand-600/80 dark:text-brand-400/80' : 'text-white/80'}`}>Day Streak</span>
                     </div>
                 </div>
             </div>
@@ -139,19 +154,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         {/* Scrollable Content starts here */}
         {/* Greeting with same background to create seamless look */}
-        <div className="bg-[#0f2133] px-5 sm:px-6 pb-6 pt-2 relative">
-            <div className="pb-3 sm:pb-4">
-                <h1 className="text-white text-[clamp(0.95rem,3vw,1.1rem)] font-medium tracking-wide">
-                    Namaste, <span className="text-yellow-500 font-bold">{firstName}!</span>
+        <div className="bg-[#0f2133] px-5 sm:px-6 relative overflow-hidden flex justify-start pb-4 pt-1">
+            <motion.div 
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="flex flex-col gap-0.5"
+            >
+                <h1 className="text-white text-[clamp(1rem,3.5vw,1.15rem)] font-bold tracking-wide">
+                    Hey, <span className="text-[#8e8dff]">{firstName}!</span> <span className="text-yellow-400">👋</span>
                 </h1>
-            </div>
+                <p className="text-slate-300 text-[clamp(0.75rem,2vw,0.85rem)] font-medium font-sans opacity-95">
+                    Let's ace your next test today.
+                </p>
+            </motion.div>
         </div>
 
         {/* Banners */}
         <div className="px-5 sm:px-6 mt-4 sm:mt-5 relative z-20">
             <div 
                 ref={sliderRef}
-                className="flex overflow-x-auto hide-scrollbar gap-0 snap-x snap-mandatory rounded-2xl sm:rounded-3xl shadow-sm"
+                className="flex overflow-x-auto hide-scrollbar gap-0 snap-x snap-mandatory rounded-2xl sm:rounded-3xl shadow-sm w-full"
                 onScroll={handleScroll}
                 onTouchStart={() => setIsPaused(true)}
                 onTouchEnd={() => setIsPaused(false)}
@@ -162,7 +185,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                             <div key={idx} className="snap-center min-w-full w-full aspect-[21/9] sm:aspect-[24/9] max-h-[220px] lg:max-h-72 xl:max-h-80 relative overflow-hidden flex-shrink-0 bg-[#041024]">
                                 <img 
                                     src="https://lmauqnfzcvhtxlznrwni.supabase.co/storage/v1/object/public/banner/banner%20no%201.png" 
-                                    className="absolute inset-0 w-full h-full object-cover object-center lg:object-fill" 
+                                    className="absolute inset-0 w-full h-full object-cover object-center transform scale-[1.08] sm:scale-100" 
                                     alt="First Banner" 
                                 />
                                 <div className="absolute inset-0 z-10 w-full h-full cursor-pointer" onClick={slide.action}></div>
@@ -175,23 +198,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                             <div key={idx} className="snap-center min-w-full w-full aspect-[21/9] sm:aspect-[24/9] max-h-[220px] lg:max-h-72 xl:max-h-80 relative overflow-hidden flex-shrink-0 bg-[#041024]">
                                 <img 
                                     src="https://lmauqnfzcvhtxlznrwni.supabase.co/storage/v1/object/public/banner/ChatGPT%20Image%20May%2012,%202026,%2003_36_40%20PM.png" 
-                                    className="absolute inset-0 w-full h-full object-cover object-[85%_center] transform scale-[1.3] lg:scale-[1.1]" 
+                                    className="absolute inset-0 w-full h-full object-cover object-[85%_center] transform scale-[1.05]" 
                                     alt="Second Banner" 
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-r from-[#041024] via-[#041024]/95 to-transparent w-[85%] lg:w-[60%] z-0"></div>
+                                <div className="absolute inset-0 bg-gradient-to-r from-[#041024] via-[#041024]/90 to-transparent w-full z-0 pointer-events-none"></div>
                                 
-                                <div className="relative z-10 p-4 sm:p-6 lg:p-10 h-full flex flex-col justify-center gap-2 sm:gap-3 w-[90%] sm:w-[80%] lg:w-[60%]">
+                                <div className="relative z-10 p-4 sm:p-6 lg:p-10 h-full flex flex-col justify-center gap-1 sm:gap-3 w-[90%] sm:w-[80%] lg:w-[60%]">
                                     <div className="flex-1 flex flex-col justify-center">
-                                        <h2 className="text-white font-extrabold text-[clamp(1.2rem,4.5vw,1.8rem)] lg:text-4xl xl:text-5xl leading-tight tracking-wide drop-shadow-md">
-                                            Accelerate with <br/><span className="text-[#82bdf9] font-black text-[clamp(1.4rem,5.5vw,2.2rem)] lg:text-5xl xl:text-6xl">Raftaar</span>
+                                        <h2 className="text-white font-extrabold text-[clamp(1.1rem,4vw,1.8rem)] lg:text-4xl xl:text-5xl leading-tight tracking-wide drop-shadow-md">
+                                            Accelerate with <br/><span className="text-[#82bdf9] font-black text-[clamp(1.3rem,4.5vw,2.2rem)] lg:text-5xl xl:text-6xl">Raftaar</span>
                                         </h2>
-                                        <p className="text-slate-300 mt-1.5 sm:mt-2 text-[clamp(0.65rem,2.2vw,0.85rem)] lg:text-lg font-medium leading-relaxed drop-shadow max-w-[85%]">
+                                        <p className="text-slate-300 mt-1 sm:mt-2 text-[clamp(0.65rem,2vw,0.85rem)] lg:text-lg font-medium leading-relaxed drop-shadow max-w-[85%] break-words">
                                             Master Your Exam with Daily Live Mocks & PYQs.
                                         </p>
                                     </div>
                                     
                                     <div className="flex items-end pb-1 sm:pb-2">
-                                        <button onClick={slide.action} className="bg-gradient-to-b from-[#8ebaf5] to-[#2480fb] text-[#020b14] font-extrabold text-[clamp(0.7rem,2.5vw,0.9rem)] lg:text-base px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5 lg:py-3 rounded-full shadow-[0_0_15px_rgba(36,128,251,0.5)] active:scale-95 transition-transform flex items-center justify-center gap-1.5 sm:gap-2 z-20 hover:scale-105">
+                                        <button onClick={slide.action} className="bg-gradient-to-b from-[#8ebaf5] to-[#2480fb] text-[#020b14] font-extrabold text-[clamp(0.6rem,2vw,0.9rem)] lg:text-base px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5 lg:py-3 rounded-full shadow-[0_0_15px_rgba(36,128,251,0.5)] active:scale-95 transition-transform flex items-center justify-center gap-1 sm:gap-2 z-20 hover:scale-105">
                                             Start Practicing Now <i className="fa-solid fa-arrow-right text-[0.8em]"></i>
                                         </button>
                                     </div>
@@ -216,21 +239,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     if (slide.customLayout === 'telegram') {
                          return (
                             <div key={idx} className="snap-center min-w-full w-full aspect-[21/9] sm:aspect-[24/9] max-h-[220px] lg:max-h-72 xl:max-h-80 relative overflow-hidden flex-shrink-0 border border-[#1e95d4] bg-[#0088cc]">
-                                <div className="absolute top-[-20%] right-[-10%] w-[50%] lg:w-[40%] h-[150%] aspect-square bg-white opacity-10 rounded-full blur-2xl"></div>
-                                <i className="fa-brands fa-telegram text-white/20 text-[clamp(7rem,25vw,12rem)] lg:text-[14rem] absolute -right-2 -bottom-4 transform -rotate-12"></i>
+                                <div className="absolute top-[-20%] right-[-10%] w-[50%] lg:w-[40%] h-[150%] aspect-square bg-white opacity-10 rounded-full blur-2xl pointer-events-none"></div>
+                                <i className="fa-brands fa-telegram text-white/20 text-[clamp(6rem,20vw,12rem)] lg:text-[14rem] absolute right-0 -bottom-2 transform -rotate-12 pointer-events-none"></i>
                                 
-                                <div className="relative z-10 p-4 sm:p-6 lg:p-10 h-full flex flex-col justify-center gap-2 sm:gap-3 lg:gap-4">
+                                <div className="relative z-10 p-4 sm:p-6 lg:p-10 h-full flex flex-col justify-center gap-1.5 sm:gap-3 lg:gap-4 w-[90%] sm:w-[80%]">
                                     <div className="flex-1 flex flex-col justify-center">
-                                        <h2 className="text-white font-black text-[clamp(1.2rem,4.5vw,1.8rem)] lg:text-4xl xl:text-5xl leading-tight tracking-wide drop-shadow-sm">
+                                        <h2 className="text-white font-black text-[clamp(1.1rem,4vw,1.8rem)] lg:text-4xl xl:text-5xl leading-tight tracking-wide drop-shadow-sm">
                                             Join our<br/>Telegram Channel
                                         </h2>
-                                        <p className="text-white/90 mt-1.5 sm:mt-2 text-[clamp(0.65rem,2.2vw,0.85rem)] lg:text-lg font-medium leading-relaxed max-w-[70%] lg:max-w-[50%]">
+                                        <p className="text-white/90 mt-1 text-[clamp(0.65rem,2vw,0.85rem)] lg:text-lg font-medium leading-relaxed max-w-[85%] lg:max-w-[50%] break-words">
                                             Get daily PDF notes & quiz updates free.
                                         </p>
                                     </div>
                                     
                                     <div className="flex items-end pb-1 sm:pb-2">
-                                        <button onClick={slide.action} className="bg-white text-[#0088cc] font-extrabold text-[clamp(0.7rem,2.5vw,0.9rem)] lg:text-base px-5 sm:px-6 lg:px-8 py-2 sm:py-2.5 lg:py-3 rounded-full shadow-md active:scale-95 transition-transform z-20 flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-slate-50 hover:scale-105">
+                                        <button onClick={slide.action} className="bg-white text-[#0088cc] font-extrabold text-[clamp(0.6rem,2vw,0.9rem)] lg:text-base px-5 sm:px-6 lg:px-8 py-2 sm:py-2.5 lg:py-3 rounded-full shadow-md active:scale-95 transition-transform z-20 flex items-center justify-center gap-1 sm:gap-2 hover:bg-slate-50 hover:scale-105">
                                             Join Telegram <i className="fa-solid fa-arrow-right text-[0.8em]"></i>
                                         </button>
                                     </div>
@@ -291,10 +314,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     onClick={() => setComingSoonTitle('My Batch')} 
                 />
                 <GradientIconBtn 
-                    icon="fa-solid fa-file-pdf" 
-                    label="PDF Notes" 
+                    icon="fa-solid fa-bolt" 
+                    label="Shorts" 
                     gradient="bg-gradient-to-br from-[#f6d365] to-[#fda085]"
-                    onClick={() => setComingSoonTitle('PDF Notes')} 
+                    onClick={() => navigate('/shorts')} 
                 />
             </div>
         </div>

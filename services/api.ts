@@ -122,37 +122,83 @@ export const api = {
   getSubjects: async (): Promise<string[]> => {
     try {
       const { data, error } = await supabase.from('questions').select('subject');
-      if (error || !data || data.length === 0) return FALLBACK_SUBJECTS;
+      if (error) {
+        console.error("Supabase error (getSubjects):", error);
+        return [];
+      }
+      if (!data) return [];
       const subjects: string[] = Array.from(new Set((data as any[]).map((d: any) => String(d.subject))));
-      return subjects.length > 0 ? subjects : FALLBACK_SUBJECTS;
-    } catch (e) { return FALLBACK_SUBJECTS; }
+      return subjects;
+    } catch (e) {
+      console.error("Exception in getSubjects:", e);
+      return []; 
+    }
   },
 
-  getChapters: async (subject: string): Promise<{en: string, hi: string}[]> => {
+  getChapters: async (subject: string): Promise<{en: string, hi: string, count: number}[]> => {
     try {
       const { data, error } = await supabase.from('questions').select('chapter_name_en, chapter_name_hi').eq('subject', subject);
-      if (error || !data) return [];
+      if (error) {
+        console.error("Supabase error (getChapters):", error);
+        return [];
+      }
+      if (!data) return [];
       const uniqueMap = new Map();
       data.forEach((item: any) => {
-        if (!uniqueMap.has(item.chapter_name_en)) uniqueMap.set(item.chapter_name_en, { en: item.chapter_name_en, hi: item.chapter_name_hi });
+        if (!uniqueMap.has(item.chapter_name_en)) {
+            uniqueMap.set(item.chapter_name_en, { en: item.chapter_name_en, hi: item.chapter_name_hi, count: 1 });
+        } else {
+            uniqueMap.get(item.chapter_name_en).count++;
+        }
       });
       return Array.from(uniqueMap.values());
-    } catch (e) { return []; }
+    } catch (e) {
+      console.error("Exception in getChapters:", e);
+      return []; 
+    }
   },
 
   getQuestionsByChapter: async (subject: string, chapterEn: string): Promise<Question[]> => {
     try {
-      const { data } = await supabase.from('questions').select('*').eq('subject', subject).eq('chapter_name_en', chapterEn);
-      return data && data.length > 0 ? data : FALLBACK_QUESTIONS.filter(q => q.subject === subject);
-    } catch (e) { return []; }
+      const { data, error } = await supabase.from('questions').select('*').eq('subject', subject).eq('chapter_name_en', chapterEn);
+      if (error) {
+        console.error("Supabase error (getQuestionsByChapter):", error);
+        return [];
+      }
+      return data || [];
+    } catch (e) {
+      console.error("Exception in getQuestionsByChapter:", e);
+      return []; 
+    }
+  },
+
+  getShortsQuestionPool: async (limit: number = 200): Promise<Question[]> => {
+    try {
+      const { data, error } = await supabase.from('questions').select('*').limit(limit);
+      if (error) {
+        console.error("Supabase error (getShortsQuestionPool):", error);
+        return [];
+      }
+      return data || [];
+    } catch(e) {
+      console.error("Exception in getShortsQuestionPool:", e);
+      return []; 
+    }
   },
 
   getRandomQuestion: async (): Promise<Question | null> => {
     try {
-       const { data } = await supabase.from('questions').select('*').limit(20); 
-       if(!data || data.length === 0) return FALLBACK_QUESTIONS[0];
+       const { data, error } = await supabase.from('questions').select('*').limit(20); 
+       if (error) {
+          console.error("Supabase error (getRandomQuestion):", error);
+          return null;
+       }
+       if (!data || data.length === 0) return null;
        return data[Math.floor(Math.random() * data.length)];
-    } catch(e) { return FALLBACK_QUESTIONS[0]; }
+    } catch(e) {
+       console.error("Exception in getRandomQuestion:", e);
+       return null; 
+    }
   },
 
   submitAnswer: async (userId: string, questionId: number, selectedOption: string, isCorrect: boolean, timeTaken: number) => {

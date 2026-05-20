@@ -287,10 +287,19 @@ const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => 
     );
 };
 
+// NavIcon Component
+const NavIcon = ({ icon, label, target, isActive, navigate }: { icon: string, label: string, target: string, isActive: boolean, navigate: any }) => (
+    <button onClick={() => navigate(target)} className={`flex flex-col items-center justify-center w-16 gap-0.5 transition-all ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}>
+        <i className={`fa-solid ${icon} text-lg mb-0.5`}></i>
+        <span className="text-[10px] font-bold tracking-wide leading-none">{label}</span>
+        <div className={`w-1 h-1 rounded-full mt-0.5 transition-opacity ${isActive ? 'bg-brand-600 dark:bg-brand-400 opacity-100' : 'opacity-0'}`}></div>
+    </button>
+);
+
 // --- Main App Component ---
 export default function App() {
-  const [session, setSession] = useState<any>({ user: { id: 'dev-user-id', email: 'dev@example.com' } });
-  const [isAppInitializing, setIsAppInitializing] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [isAppInitializing, setIsAppInitializing] = useState(true);
   const isOnline = useOnlineStatus(); // Track online status
   
   // Theme State - System Default
@@ -382,7 +391,24 @@ export default function App() {
   }, location.pathname === '/' && !isInfinityOpen && !isPYQOpen && !isDashboardOpen && !isAchievementsOpen);
 
   useEffect(() => {
-    // Auth disabled for development
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+         fetchProfile(session.user.id);
+      }
+      setIsAppInitializing(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session?.user) {
+         fetchProfile(session.user.id);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -473,17 +499,6 @@ export default function App() {
   }
 
   if (!session) return <LoginScreen onLoginSuccess={(s) => { setSession(s); navigate('/', { replace: true }); }} />;
-
-  const NavIcon = ({ icon, label, target }: { icon: string, label: string, target: string }) => {
-      const isActive = location.pathname === target || (target !== '/' && location.pathname.startsWith(target));
-      return (
-        <button onClick={() => navigate(target)} className={`flex flex-col items-center justify-center w-16 gap-0.5 transition-all ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}>
-            <i className={`fa-solid ${icon} text-lg mb-0.5`}></i>
-            <span className="text-[10px] font-bold tracking-wide leading-none">{label}</span>
-            <div className={`w-1 h-1 rounded-full mt-0.5 transition-opacity ${isActive ? 'bg-brand-600 dark:bg-brand-400 opacity-100' : 'opacity-0'}`}></div>
-        </button>
-      )
-  };
 
   const showNav = ['/', '/practice', '/rewards', '/profile', '/exam'].includes(location.pathname);
   const showTopHeader = false; // Always false, Home screen will handle its own header
@@ -771,10 +786,10 @@ export default function App() {
         {showNav && (
             <div className="lg:hidden absolute bottom-0 w-full bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-around pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] transition-colors duration-300">
                 <div className="flex w-full justify-around">
-                    <NavIcon icon="fa-house" label="Home" target="/" />
-                    <NavIcon icon="fa-book-open" label="Practice" target="/practice" />
-                    <NavIcon icon="fa-file-signature" label="Exam" target="/exam" />
-                    <NavIcon icon="fa-trophy" label="Rewards" target="/rewards" />
+                    <NavIcon icon="fa-house" label="Home" target="/" isActive={location.pathname === '/'} navigate={navigate} />
+                    <NavIcon icon="fa-book-open" label="Practice" target="/practice" isActive={location.pathname.startsWith('/practice')} navigate={navigate} />
+                    <NavIcon icon="fa-file-signature" label="Exam" target="/exam" isActive={location.pathname.startsWith('/exam')} navigate={navigate} />
+                    <NavIcon icon="fa-trophy" label="Rewards" target="/rewards" isActive={location.pathname.startsWith('/rewards')} navigate={navigate} />
                 </div>
             </div>
         )}
