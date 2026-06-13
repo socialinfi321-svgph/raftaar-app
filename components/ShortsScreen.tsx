@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Question } from '../types';
 import { api } from '../services/api';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { Heart, ThumbsDown, Share2, ArrowLeft, CheckCircle2, XCircle, MoreVertical } from 'lucide-react';
 
 interface ShortsScreenProps {
   profile: any;
@@ -16,10 +17,13 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [isAnswered, setIsAnswered] = useState(false);
+  const [answeredState, setAnsweredState] = useState<Record<number, { selected: string, isCorrect: boolean }>>({});
+  const [direction, setDirection] = useState(1);
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
-  const [stats, setStats] = useState({ correct: 0, wrong: 0, total: 0 });
+  const [interactions, setInteractions] = useState<Record<number, { liked: boolean, disliked: boolean }>>({});
+  
+  // Animation overlay trigger for correct/wrong
+  const [showFeedback, setShowFeedback] = useState<'correct' | 'wrong' | null>(null);
 
   useEffect(() => {
     loadPool();
@@ -27,214 +31,314 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
 
   const loadPool = async () => {
     setLoading(true);
-    // Algorithm: Fetch a bulk pool of questions from all subjects and shuffle them locally 
-    // using the Fisher-Yates algorithm. This guarantees O(1) random fetching without 
-    // requesting the DB for every question and totally avoids duplicates for the duration of the pool.
-    const pool = await api.getShortsQuestionPool(500); 
+    const pool = await api.getShortsQuestionPool(1000); 
     
-    // Fisher-Yates Shuffle
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
+    // Group and mix round-robin to ensure subjects are very randomized
+    const grouped: Record<string, Question[]> = {};
+    pool.forEach(q => {
+       const sub = q.subject || 'General';
+       if (!grouped[sub]) grouped[sub] = [];
+       grouped[sub].push(q);
+    });
+
+    const keys = Object.keys(grouped);
+    // Shuffle arrays inside to randomize
+    keys.forEach(k => {
+       grouped[k].sort(() => Math.random() - 0.5);
+    });
+
+    const mixedPool: Question[] = [];
+    let hasMore = true;
+    while(hasMore) {
+       hasMore = false;
+       for (const k of keys) {
+          if (grouped[k].length > 0) {
+             const q = grouped[k].shift();
+             if (q) mixedPool.push(q);
+             hasMore = true;
+          }
+       }
     }
     
-    setQuestionPool(pool);
+    setQuestionPool(mixedPool);
     setCurrentIndex(0);
     setLoading(false);
     setQuestionStartTime(Date.now());
-    setSelectedOption(null);
-    setIsAnswered(false);
   };
 
-  const handleNextQuestion = (liked: boolean = false, disliked: boolean = false) => {
+  const handleNextQuestion = useCallback(() => {
+    // Background submit current question if not yet answered but swiped
     const currentQ = questionPool[currentIndex];
-    if (currentQ) {
-      const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000);
-      const wasCorrect = selectedOption === currentQ.correct_option;
-      // Background submission
-      onInteractionSubmit(currentQ.id, wasCorrect, liked, timeSpent).catch(console.error);
+    const ans = answeredState[currentIndex];
+    const inter = interactions[currentIndex];
+    if (currentQ && !ans) {
+       const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000);
+       onInteractionSubmit(currentQ.id, false, inter?.liked || false, timeSpent).catch(console.error);
     }
 
     if (currentIndex >= questionPool.length - 1) {
       loadPool(); 
       return;
     }
-
-    setSelectedOption(null);
-    setIsAnswered(false);
+    setDirection(1);
     setCurrentIndex(prev => prev + 1);
     setQuestionStartTime(Date.now());
-  };
+  }, [currentIndex, questionPool, answeredState, interactions, questionStartTime, onInteractionSubmit]);
 
-  const handleSwipe = (e: any, info: PanInfo) => {
-    if (info.offset.y < -50) {
-      // Swiped UP - Next question
+  const handlePrevQuestion = useCallback(() => {
+    if (currentIndex > 0) {
+      setDirection(-1);
+      setCurrentIndex(prev => prev - 1);
+      setQuestionStartTime(Date.now());
+    }
+  }, [currentIndex]);
+
+  const handleDragEnd = (e: any, info: PanInfo) => {
+    const swipeThreshold = 50;
+    const velocityThreshold = 500;
+    
+    if (info.offset.y < -swipeThreshold || info.velocity.y < -velocityThreshold) {
       handleNextQuestion();
+    } else if (info.offset.y > swipeThreshold || info.velocity.y > velocityThreshold) {
+      handlePrevQuestion();
     }
   };
 
   const handleOptionSelect = (optionKey: string) => {
-    if (isAnswered) return;
-    const currentQ = questionPool[currentIndex];
-    if (!currentQ) return;
+    if (answeredState[currentIndex]) return;
     
-    setSelectedOption(optionKey);
-    setIsAnswered(true);
+    const question = questionPool[currentIndex];
+    const isCorrectAns = optionKey === question.correct_option;
     
-    const isCorrectAns = optionKey === currentQ.correct_option;
-    setStats(prev => ({
-      ...prev,
-      total: prev.total + 1,
-      correct: prev.correct + (isCorrectAns ? 1 : 0),
-      wrong: prev.wrong + (!isCorrectAns ? 1 : 0),
+    setAnsweredState(prev => ({
+       ...prev,
+       [currentIndex]: { selected: optionKey, isCorrect: isCorrectAns }
     }));
+    
+    // Feedback overlay flash
+    setShowFeedback(isCorrectAns ? 'correct' : 'wrong');
+    setTimeout(() => setShowFeedback(null), 1200);
+
+    const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000);
+    const hasLiked = interactions[currentIndex]?.liked || false;
+    onInteractionSubmit(question.id, isCorrectAns, hasLiked, timeSpent).catch(console.error);
+  };
+
+  const toggleInteraction = (type: 'like' | 'dislike') => {
+     setInteractions(prev => {
+        const current = prev[currentIndex] || { liked: false, disliked: false };
+        if (type === 'like') {
+           return { ...prev, [currentIndex]: { liked: !current.liked, disliked: false } };
+        } else {
+           return { ...prev, [currentIndex]: { liked: false, disliked: !current.disliked } };
+        }
+     });
+  };
+
+  const shareQuestion = () => {
+      // Dummy share for UX
+      if (navigator.share) {
+          navigator.share({
+             title: 'Check out this quiz question!',
+             text: questionPool[currentIndex]?.question_text_en
+          }).catch(console.error);
+      }
+  };
+
+  const variants = {
+    enter: (direction: number) => ({
+      y: direction > 0 ? '100%' : '-100%',
+      opacity: 1,
+      scale: 1,
+      zIndex: 1,
+    }),
+    center: {
+      y: 0,
+      opacity: 1,
+      scale: 1,
+      zIndex: 2,
+    },
+    exit: (direction: number) => ({
+      y: direction < 0 ? '100%' : '-100%',
+      opacity: 1,
+      scale: 1,
+      zIndex: 1,
+    }),
   };
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <div className="w-8 h-8 border-2 border-brand-500 rounded-full animate-spin border-t-transparent"></div>
+      <div className="h-[100dvh] flex items-center justify-center bg-slate-950">
+        <div className="w-10 h-10 border-4 border-brand-500 rounded-full animate-spin border-t-transparent"></div>
       </div>
     );
   }
 
   if (questionPool.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6 bg-slate-50 dark:bg-slate-950">
-        <p className="text-slate-500 dark:text-slate-400 text-center">No questions available</p>
-        <button 
-          onClick={() => navigate('/')} 
-          className="mt-4 bg-brand-600 text-white px-6 py-2 rounded-xl font-bold"
-        >
-          Go Home
-        </button>
+      <div className="h-[100dvh] flex flex-col items-center justify-center p-6 bg-slate-950 text-white">
+        <p className="text-slate-400 text-center mb-6">No questions available</p>
+        <button onClick={() => navigate('/')} className="bg-brand-600 text-white px-6 py-3 rounded-full font-bold">Go Home</button>
       </div>
     );
   }
 
-  const currentQuestion = questionPool[currentIndex];
+  const currentQ = questionPool[currentIndex];
+  const currentState = answeredState[currentIndex];
+  const isAnswered = !!currentState;
+  const currentInteractions = interactions[currentIndex] || { liked: false, disliked: false };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white overflow-hidden">
-      {/* Header */}
-      <div className="sticky top-0 z-30 px-5 py-3 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1 as any)} className="w-8 h-8 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors rounded-full">
-            <i className="fa-solid fa-arrow-left"></i>
-          </button>
-          <div className="flex flex-col">
-            <h2 className="text-lg font-black leading-tight text-slate-900 dark:text-white">Shorts</h2>
-            <div className="flex items-center gap-2 text-[10px] font-bold">
-               <span className="text-green-600 dark:text-green-400"><i className="fa-solid fa-check mr-0.5"></i>{stats.correct}</span>
-               <span className="text-red-500 dark:text-red-400"><i className="fa-solid fa-times mr-0.5"></i>{stats.wrong}</span>
-               <span className="text-slate-500 dark:text-slate-400 ml-1">Total: {stats.total}</span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-800 p-0.5 border border-slate-300 dark:border-slate-700 cursor-pointer shadow-sm" onClick={() => navigate('/profile')}>
-            <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.email || 'user'}`} className="w-full h-full rounded-full" alt="User" />
-          </div>
-        </div>
+    <div className="h-[100dvh] w-full bg-[#0a0a0a] text-white relative overflow-hidden flex flex-col select-none">
+      {/* Header Overlay */}
+      <div className="absolute top-0 w-full z-30 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-6 bg-gradient-to-b from-black/80 to-transparent flex justify-between items-center pointer-events-none">
+         <div className="flex items-center gap-4 pointer-events-auto">
+            <button onClick={() => navigate('/')} className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white active:scale-95 transition-transform border border-white/10 shadow-lg">
+                <ArrowLeft size={20} strokeWidth={2.5} />
+            </button>
+            <h1 className="text-xl font-bold tracking-tight text-white drop-shadow-md">Shorts</h1>
+         </div>
       </div>
 
       {/* Reel Area */}
-      <div className="flex-1 overflow-hidden relative">
-        <AnimatePresence mode="popLayout">
-            <motion.div 
-               key={currentQuestion.id}
-               drag="y"
-               dragConstraints={{ top: 0, bottom: 0 }}
-               onDragEnd={handleSwipe}
-               initial={{ opacity: 0, y: 50 }}
-               animate={{ opacity: 1, y: 0 }}
-               exit={{ opacity: 0, y: -50 }}
-               transition={{ type: 'spring', bounce: 0.3, duration: 0.5 }}
-               className="absolute inset-0 flex flex-col justify-center p-6 h-full w-full"
-            >
-              <div className="max-w-md mx-auto w-full flex-1 flex flex-col justify-center">
-                <div className="mb-4 text-center">
-                  <span className="text-xs text-brand-600 dark:text-brand-400 bg-brand-100 dark:bg-brand-900/30 px-3 py-1.5 rounded-full font-bold uppercase tracking-wider border border-brand-200 dark:border-brand-900/50">
-                    {currentQuestion.subject}
-                  </span>
-                </div>
-                
-                <h3 className="text-xl sm:text-2xl font-bold text-slate-800 dark:text-white mb-8 leading-relaxed text-center">
-                  {currentQuestion.question_text_en}
-                </h3>
-                
-                {/* Options Display */}
-                <div className="space-y-3 w-full mb-8">
-                   {['a', 'b', 'c', 'd'].map((opt) => {
-                      const optValue = (currentQuestion as any)[`option_${opt}_en`];
-                      if (!optValue) return null;
-                      
-                      const isSelected = selectedOption === opt;
-                      const isCorrectAnswer = currentQuestion.correct_option === opt;
-                      
-                      let btnClass = "p-4 border-2 rounded-xl text-sm sm:text-base font-semibold w-full text-left transition-all active:scale-[0.98] ";
-                      
-                      if (!isAnswered) {
-                         btnClass += "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-brand-300 dark:hover:border-slate-600";
-                      } else {
-                         if (isCorrectAnswer) {
-                            btnClass += "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300";
-                         } else if (isSelected && !isCorrectAnswer) {
-                            btnClass += "border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300";
-                         } else {
-                            btnClass += "border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 text-slate-400 dark:text-slate-500 opacity-50";
-                         }
-                      }
+      <div className="flex-1 relative w-full h-full overflow-hidden">
+        <AnimatePresence initial={false} custom={direction}>
+          <motion.div
+            key={currentIndex}
+            custom={direction}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={1}
+            onDragEnd={handleDragEnd}
+            className="absolute inset-0 w-full h-full flex flex-col justify-center px-5 sm:px-8 pb-10 sm:pb-16 pt-24"
+          >
+             {/* Question Card Content Container */}
+             <div className="w-full max-w-lg mx-auto flex flex-col h-full justify-center pr-14 relative z-10">
+                 
+                 {/* Subject Tag */}
+                 <div className="inline-flex self-start mb-6 pointer-events-none">
+                    <span className="bg-brand-600/90 backdrop-blur-sm text-white text-[11px] sm:text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-md shadow-md border border-brand-400/30">
+                        {currentQ.subject || 'General'}
+                    </span>
+                 </div>
 
-                      return (
-                         <button 
-                            key={opt}
-                            onClick={() => handleOptionSelect(opt)}
-                            disabled={isAnswered}
-                            className={btnClass}
-                         >
-                            <span className="uppercase mr-3 opacity-60 font-bold">{opt}.</span> {optValue}
-                         </button>
-                      );
-                   })}
-                </div>
-                
-                {/* Feedback & Actions */}
-                <div className="mt-auto pt-6 flex flex-col items-center gap-6">
-                   {isAnswered && (
-                      <motion.div 
-                         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                         className={`text-sm font-bold px-4 py-2 rounded-full ${selectedOption === currentQuestion.correct_option ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}
-                      >
-                         {selectedOption === currentQuestion.correct_option ? 'Awesome! Correct Answer 🎯' : 'Oops! Incorrect Answer 😅'}
-                      </motion.div>
-                   )}
-                   
-                   <div className="flex gap-4 items-center justify-center">
-                     <button
-                       onClick={() => handleNextQuestion(false, true)}
-                       className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 flex items-center justify-center transition-colors shadow-sm cursor-pointer"
-                       title="Dislike"
-                     >
-                       <i className="fa-solid fa-thumbs-down text-sm"></i>
-                     </button>
-                     
-                     <div className="text-xs text-slate-400 dark:text-slate-500 font-medium">Swipe Up for Next <i className="fa-solid fa-arrow-up ml-1 animate-bounce"></i></div>
-                     
-                     <button
-                       onClick={() => handleNextQuestion(true, false)}
-                       className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-green-500 dark:hover:text-green-400 flex items-center justify-center transition-colors shadow-sm cursor-pointer"
-                       title="Like"
-                     >
-                       <i className="fa-solid fa-thumbs-up text-sm"></i>
-                     </button>
-                   </div>
-                </div>
-              </div>
-            </motion.div>
+                 {/* Question Text */}
+                 <h2 className="text-[1.35rem] sm:text-2xl font-semibold leading-snug tracking-tight mb-8 drop-shadow-md text-white/95 pointer-events-none">
+                    {currentQ.question_text_en}
+                 </h2>
+
+                 {/* Options Stack */}
+                 <div className="flex flex-col gap-3.5 sm:gap-4 w-full">
+                    {['a', 'b', 'c', 'd'].map((opt) => {
+                       const optValue = (currentQ as any)[`option_${opt}_en`];
+                       if (!optValue) return null;
+                       
+                       const isCorrectOption = currentQ.correct_option === opt;
+                       const isSelectedOption = currentState?.selected === opt;
+                       
+                       let bgClass = "bg-white/10 backdrop-blur-md border border-white/20";
+                       let textClass = "text-white/90";
+                       let icon = null;
+
+                       if (isAnswered) {
+                           if (isCorrectOption) {
+                               bgClass = "bg-emerald-500/90 border border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)]";
+                               textClass = "text-white font-bold";
+                               icon = <CheckCircle2 size={20} className="text-white drop-shadow-sm shrink-0" />;
+                           } else if (isSelectedOption && !isCorrectOption) {
+                               bgClass = "bg-rose-500/90 border border-rose-400";
+                               textClass = "text-white font-bold";
+                               icon = <XCircle size={20} className="text-white drop-shadow-sm shrink-0" />;
+                           } else {
+                               bgClass = "bg-white/5 border border-white/10 opacity-60";
+                               textClass = "text-white/60";
+                           }
+                       }
+
+                       return (
+                          <button 
+                             key={opt}
+                             onClick={(e) => { e.stopPropagation(); handleOptionSelect(opt); }}
+                             disabled={isAnswered}
+                             className={`w-full text-left p-4 sm:p-5 rounded-2xl flex items-center justify-between gap-4 transition-all duration-300 ${bgClass}`}
+                          >
+                             <div className="flex items-start gap-4 flex-1">
+                                <span className={`uppercase font-bold text-sm mt-[2px] opacity-70 ${textClass}`}>{opt}</span>
+                                <span className={`text-[0.95rem] sm:text-base leading-relaxed ${textClass}`}>{optValue}</span>
+                             </div>
+                             {icon}
+                          </button>
+                       );
+                    })}
+                 </div>
+
+             </div>
+          </motion.div>
         </AnimatePresence>
+
+        {/* Floating Right Action Bar (Overlayed) */}
+        <div className="absolute right-3 sm:right-5 bottom-20 z-30 flex flex-col items-center gap-7 pointer-events-auto drop-shadow-lg">
+            
+            <div className="w-11 h-11 rounded-full bg-white p-[2px] shadow-lg mb-2 cursor-pointer active:scale-95 transition-transform" onClick={() => navigate('/profile')}>
+                <div className="w-full h-full rounded-full bg-slate-200 overflow-hidden">
+                    <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.email || 'user'}`} className="w-full h-full object-cover" alt="User" />
+                </div>
+            </div>
+
+            <button onClick={() => toggleInteraction('like')} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-1 bg-black/30 backdrop-blur-md border border-white/10 group-hover:bg-black/50 transition-colors ${currentInteractions.liked ? 'bg-pink-500/20' : ''}`}>
+                    <Heart size={26} className={`transition-colors drop-shadow-md ${currentInteractions.liked ? 'fill-pink-500 text-pink-500' : 'text-white'}`} />
+                </div>
+            </button>
+
+            <button onClick={() => toggleInteraction('dislike')} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-1 bg-black/30 backdrop-blur-md border border-white/10 group-hover:bg-black/50 transition-colors ${currentInteractions.disliked ? 'bg-indigo-500/20' : ''}`}>
+                    <ThumbsDown size={24} className={`transition-colors drop-shadow-md ${currentInteractions.disliked ? 'fill-indigo-500 text-indigo-500' : 'text-white'}`} />
+                </div>
+            </button>
+
+            <button onClick={shareQuestion} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group mt-1">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-1 bg-black/30 backdrop-blur-md border border-white/10 group-hover:bg-black/50 transition-colors">
+                    <Share2 size={24} className="text-white drop-shadow-md" />
+                </div>
+            </button>
+
+            <button className="flex flex-col items-center gap-1 active:scale-90 transition-transform group mt-4 opacity-80">
+                <MoreVertical size={24} className="text-white drop-shadow-md" />
+            </button>
+        </div>
+
+        {/* Global Feedback Animation Overlay (Correct / Wrong Burst) */}
+        <AnimatePresence>
+            {showFeedback && (
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.5, y: '-50%', x: '-50%' }}
+                    animate={{ opacity: 1, scale: 1, y: '-50%', x: '-50%' }}
+                    exit={{ opacity: 0, scale: 1.5 }}
+                    transition={{ type: 'spring', damping: 15 }}
+                    className="absolute top-1/2 left-1/2 z-50 pointer-events-none drop-shadow-[0_0_30px_rgba(0,0,0,0.5)]"
+                >
+                    {showFeedback === 'correct' ? (
+                        <div className="bg-emerald-500 rounded-full p-6 text-white shadow-2xl border-4 border-white/20">
+                            <CheckCircle2 size={80} strokeWidth={3} />
+                        </div>
+                    ) : (
+                        <div className="bg-rose-500 rounded-full p-6 text-white shadow-2xl border-4 border-white/20">
+                            <XCircle size={80} strokeWidth={3} />
+                        </div>
+                    )}
+                </motion.div>
+            )}
+        </AnimatePresence>
+
       </div>
     </div>
   );
 };
+
 

@@ -787,6 +787,7 @@ export default function App() {
             <div className="lg:hidden absolute bottom-0 w-full bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-around pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] transition-colors duration-300">
                 <div className="flex w-full justify-around">
                     <NavIcon icon="fa-house" label="Home" target="/" isActive={location.pathname === '/'} navigate={navigate} />
+                    <NavIcon icon="fa-bolt" label="Shorts" target="/shorts" isActive={location.pathname.startsWith('/shorts')} navigate={navigate} />
                     <NavIcon icon="fa-book-open" label="Practice" target="/practice" isActive={location.pathname.startsWith('/practice')} navigate={navigate} />
                     <NavIcon icon="fa-file-signature" label="Exam" target="/exam" isActive={location.pathname.startsWith('/exam')} navigate={navigate} />
                     <NavIcon icon="fa-trophy" label="Rewards" target="/rewards" isActive={location.pathname.startsWith('/rewards')} navigate={navigate} />

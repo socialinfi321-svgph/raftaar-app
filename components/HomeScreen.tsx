@@ -113,7 +113,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {/* Top Row: Menu, Logo, Icons */}
             <div className={`flex justify-between items-center transition-colors duration-300 ease-in-out ${isScrolled ? 'text-slate-900 dark:text-white' : 'text-white'}`}>
                 <div className="flex items-center gap-2 sm:gap-3">
-                    <button onClick={() => setDrawerOpen(true)} className="lg:hidden relative py-1.5 flex-shrink-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500 rounded-full">
+                    <button onClick={() => setDrawerOpen(true)} className="lg:hidden relative py-1 flex-shrink-0 cursor-pointer focus:outline-none rounded-full">
                         <div className={`w-[clamp(2.5rem,8vw,3rem)] h-[clamp(2.5rem,8vw,3rem)] rounded-full flex items-center justify-center text-[clamp(1.2rem,4vw,1.5rem)] font-normal uppercase shadow-sm ring-2 transition-colors duration-300 ${isScrolled ? 'bg-brand-500 text-white ring-slate-100 dark:ring-slate-800' : 'bg-[#00897b] text-white ring-white/10'}`}>
                             {firstName.charAt(0)}
                         </div>
@@ -141,12 +141,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         <span className={`absolute top-0 right-1 w-2 h-2 sm:w-2.5 sm:h-2.5 bg-red-500 rounded-full border transition-colors duration-300 ${isScrolled ? 'border-white dark:border-slate-950' : 'border-[#0f2133]'}`}></span>
                     </button>
                     
-                    <div onClick={onOpenAchievements} className={`cursor-pointer flex flex-col items-center justify-center px-2.5 py-1 rounded-xl sm:rounded-2xl border backdrop-blur-sm transition-colors duration-300 ${isScrolled ? 'border-brand-500/30 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400' : 'border-white/20 bg-white/10 text-white hover:bg-white/15'}`}>
-                        <div className="flex items-center gap-1 font-bold text-[clamp(0.85rem,2.5vw,1rem)] leading-none">
-                            <span className="text-yellow-400 drop-shadow-sm">🔥</span>
+                    <div onClick={() => navigate('/rewards')} className={`cursor-pointer flex flex-col items-center justify-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg border backdrop-blur-sm transition-colors duration-300 ${isScrolled ? 'border-brand-500/30 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400' : 'border-white/20 bg-white/10 text-white hover:bg-white/15'}`}>
+                        <div className="flex items-center gap-1 font-bold text-xs sm:text-sm leading-none">
+                            <span className="text-yellow-400 drop-shadow-sm pb-[1px] text-[10px] sm:text-[12px]">🔥</span>
                             <span>{xp.toLocaleString()}</span>
                         </div>
-                        <span className={`text-[8px] sm:text-[9px] mt-0.5 leading-none font-medium uppercase tracking-wider transition-colors duration-300 ${isScrolled ? 'text-brand-600/80 dark:text-brand-400/80' : 'text-white/80'}`}>Day Streak</span>
+                        <span className={`text-[6px] sm:text-[7px] mt-0.5 leading-none font-medium uppercase tracking-wider transition-colors duration-300 ${isScrolled ? 'text-brand-600/80 dark:text-brand-400/80' : 'text-white/80'}`}>Weekly XP</span>
                     </div>
                 </div>
             </div>
@@ -290,16 +290,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {/* Quick Icons Container */}
             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm grid grid-cols-5 gap-2 sm:gap-4 justify-items-center w-full">
                 <GradientIconBtn 
-                    icon="fa-solid fa-stopwatch" 
-                    label="All Tests" 
-                    gradient="bg-gradient-to-br from-[#ff4d79] to-[#ff004d]"
-                    onClick={() => setComingSoonTitle('All Tests')} 
-                />
-                <GradientIconBtn 
                     icon="fa-solid fa-play" 
                     label="All Classes" 
                     gradient="bg-gradient-to-br from-[#4facfe] to-[#00f2fe]"
                     onClick={() => setComingSoonTitle('All Classes')} 
+                />
+                <GradientIconBtn 
+                    icon="fa-solid fa-stopwatch" 
+                    label="All Tests" 
+                    gradient="bg-gradient-to-br from-[#ff4d79] to-[#ff004d]"
+                    onClick={() => setComingSoonTitle('All Tests')} 
                 />
                 <GradientIconBtn 
                     icon="fa-solid fa-brain" 
@@ -308,16 +308,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     onClick={() => navigate('/practice')} 
                 />
                 <GradientIconBtn 
-                    icon="fa-solid fa-users" 
-                    label="My Batch" 
-                    gradient="bg-gradient-to-br from-[#a18cd1] to-[#fbc2eb]"
-                    onClick={() => setComingSoonTitle('My Batch')} 
+                    icon="fa-solid fa-gem" 
+                    label="Khazana" 
+                    gradient="bg-gradient-to-br from-[#f6d365] to-[#fda085]"
+                    onClick={() => setComingSoonTitle('Khazana')} 
                 />
                 <GradientIconBtn 
-                    icon="fa-solid fa-bolt" 
-                    label="Shorts" 
-                    gradient="bg-gradient-to-br from-[#f6d365] to-[#fda085]"
-                    onClick={() => navigate('/shorts')} 
+                    icon="fa-solid fa-file-pdf" 
+                    label="PDF" 
+                    gradient="bg-gradient-to-br from-[#a18cd1] to-[#fbc2eb]"
+                    onClick={() => setComingSoonTitle('PDF')} 
                 />
             </div>
         </div>
