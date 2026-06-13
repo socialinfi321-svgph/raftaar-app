@@ -280,7 +280,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ profile, onBac
         </div>
 
         {/* 4. Recent History */}
-        <div className="pb-32">
+        <div className="pb-[calc(8rem+env(safe-area-inset-bottom))]">
           <div className="flex items-center gap-2 mb-4 px-1">
             <History size={18} className="text-brand-600" />
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Recent Sessions</h3>

@@ -106,10 +106,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const avatar = profile?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=dev';
 
   return (
-    <div className="bg-slate-50 dark:bg-slate-950 pb-24 transition-colors duration-300 min-h-[100dvh]">
+    <div className="bg-slate-50 dark:bg-slate-950 pb-[calc(5rem+env(safe-area-inset-bottom))] transition-colors duration-300 min-h-[100dvh]">
         
         {/* Fixed Top Nav (Sticky) */}
-        <div className={`sticky top-0 z-50 px-5 sm:px-6 pt-[max(0.5rem,env(safe-area-inset-top))] pb-1 transition-colors duration-300 ease-in-out ${isScrolled ? 'bg-white dark:bg-slate-950 shadow-sm' : 'bg-[#0f2133]'}`}>
+        <div className={`sticky top-0 z-50 px-5 sm:px-6 pt-safe-header pb-2 transition-colors duration-300 ease-in-out ${isScrolled ? 'bg-white dark:bg-slate-950 shadow-sm' : 'bg-[#0f2133]'}`}>
             {/* Top Row: Menu, Logo, Icons */}
             <div className={`flex justify-between items-center transition-colors duration-300 ease-in-out ${isScrolled ? 'text-slate-900 dark:text-white' : 'text-white'}`}>
                 <div className="flex items-center gap-2 sm:gap-3">

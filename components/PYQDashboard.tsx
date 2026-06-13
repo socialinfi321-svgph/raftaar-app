@@ -94,7 +94,7 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
                         <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Practice PYQs</h2>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-5 pb-24 z-10 hide-scrollbar pb-safe bg-white dark:bg-slate-950 transition-colors">
+                    <div className="flex-1 overflow-y-auto p-5 pb-[calc(6rem+env(safe-area-inset-bottom))] z-10 hide-scrollbar bg-white dark:bg-slate-950 transition-colors">
                         
                         {/* Tabs */}
                         <div className="flex bg-slate-100 dark:bg-slate-900 p-1.5 rounded-2xl mb-8 border border-slate-200 dark:border-slate-800 shadow-sm isolate">

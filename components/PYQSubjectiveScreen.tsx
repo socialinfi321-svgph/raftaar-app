@@ -268,7 +268,7 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
       {/* Content Area - Scrollable */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950 transition-colors pb-32 hide-scrollbar scroll-smooth"
+        className="flex-1 overflow-y-auto w-full bg-slate-50 dark:bg-slate-950 transition-colors pb-[calc(8rem+env(safe-area-inset-bottom))] hide-scrollbar scroll-smooth"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         <div className="max-w-2xl mx-auto p-5">

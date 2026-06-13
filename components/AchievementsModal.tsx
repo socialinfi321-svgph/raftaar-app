@@ -154,7 +154,7 @@ export const AchievementsModal: React.FC<AchievementsModalProps> = ({ isOpen, pr
                 </div>
 
                 {/* Vertical List */}
-                <div className="px-6 pb-24 -mt-4 relative z-20">
+                <div className="px-6 pb-[calc(5rem+env(safe-area-inset-bottom))] -mt-4 relative z-20">
                   <div className="space-y-6">
                     {achievements.map((item, index) => {
                       const isUnlocked = totalXP >= item.requiredXP;

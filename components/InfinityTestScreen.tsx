@@ -290,7 +290,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
                   </div>
               </div>
 
-              <div className="p-6 pb-24 space-y-6">
+              <div className="p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] space-y-6">
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">Test Summary</h3>
                   <div className="bg-gray-50 dark:bg-slate-900 rounded-2xl p-5 border border-gray-100 dark:border-slate-800 shadow-sm space-y-4">
                       <div className="bg-white dark:bg-slate-950 p-4 rounded-xl flex justify-between items-center shadow-sm border border-gray-100 dark:border-slate-800">
@@ -429,7 +429,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
       {/* 3. Question Area - Scrollable */}
       <div 
         ref={mainContentRef}
-        className="flex-1 overflow-y-auto p-5 pb-32 bg-white dark:bg-slate-950 w-full transition-colors hide-scrollbar scroll-smooth"
+        className="flex-1 overflow-y-auto p-5 pb-[calc(8rem+env(safe-area-inset-bottom))] bg-white dark:bg-slate-950 w-full transition-colors hide-scrollbar scroll-smooth"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
           

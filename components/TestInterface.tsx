@@ -257,7 +257,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
 
         {/* --- QUESTION AREA (Scrollable) --- */}
         <div 
-            className="flex-1 overflow-y-auto p-5 pb-32 hide-scrollbar w-full bg-white dark:bg-slate-950 transition-colors"
+            className="flex-1 overflow-y-auto p-5 pb-[calc(8rem+env(safe-area-inset-bottom))] hide-scrollbar w-full bg-white dark:bg-slate-950 transition-colors"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
             <div className="flex justify-between items-start mb-4">

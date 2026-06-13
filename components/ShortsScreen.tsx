@@ -215,7 +215,7 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={1}
             onDragEnd={handleDragEnd}
-            className="absolute inset-0 w-full h-full flex flex-col justify-center px-5 sm:px-8 pb-10 sm:pb-16 pt-24"
+            className="absolute inset-0 w-full h-full flex flex-col justify-center px-5 sm:px-8 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-[calc(5rem+env(safe-area-inset-top))]"
           >
              {/* Question Card Content Container */}
              <div className="w-full max-w-lg mx-auto flex flex-col h-full justify-center pr-14 relative z-10">
@@ -282,7 +282,7 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
         </AnimatePresence>
 
         {/* Floating Right Action Bar (Overlayed) */}
-        <div className="absolute right-3 sm:right-5 bottom-20 z-30 flex flex-col items-center gap-7 pointer-events-auto drop-shadow-lg">
+        <div className="absolute right-3 sm:right-5 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-30 flex flex-col items-center gap-7 pointer-events-auto drop-shadow-lg">
             
             <div className="w-11 h-11 rounded-full bg-white p-[2px] shadow-lg mb-2 cursor-pointer active:scale-95 transition-transform" onClick={() => navigate('/profile')}>
                 <div className="w-full h-full rounded-full bg-slate-200 overflow-hidden">

@@ -77,7 +77,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
                 </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto hide-scrollbar p-4 sm:p-5 pb-safe">
+            <div className="flex-1 overflow-y-auto hide-scrollbar p-4 sm:p-5 pb-[calc(5rem+env(safe-area-inset-bottom))]">
                  {/* Container also needs bottom safe padding via pb-safe in class above or spacer below */}
                  
                  {/* CURRENT LEVEL CARD */}
@@ -139,7 +139,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
                      </button>
                  </div>
 
-                 <div className="space-y-2.5 sm:space-y-3 pb-24">
+                 <div className="space-y-2.5 sm:space-y-3">
                      {loading && leaderboard.length === 0 ? (
                          <div className="text-center py-10 text-slate-400 dark:text-slate-500 font-medium text-sm">Loading ranks...</div>
                      ) : (

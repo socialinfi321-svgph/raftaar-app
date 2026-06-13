@@ -124,7 +124,7 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
                     </div>
                 </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-5 pb-24 animate-slide-up">
+            <div className="flex-1 overflow-y-auto p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] animate-slide-up">
                 <div onClick={showCS} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border-l-4 border-l-purple-500 cursor-pointer shadow-sm hover:shadow-md dark:shadow-none hover:bg-slate-50 dark:hover:bg-slate-800 transition relative overflow-hidden mb-4 border border-slate-200 dark:border-slate-800 group">
                     <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                         <i className="fa-solid fa-clock text-6xl text-purple-400"></i>
@@ -221,7 +221,7 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto hide-scrollbar p-5 pb-24 animate-fade-in bg-slate-50 dark:bg-slate-950 transition-colors">
+            <div className="flex-1 overflow-y-auto hide-scrollbar p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] animate-fade-in bg-slate-50 dark:bg-slate-950 transition-colors">
                 {!selectedSubject ? (
                     <>
                         <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-6">Select <span className="text-brand-500">Subject</span></h2>
@@ -265,7 +265,7 @@ const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => 
     if(!stats) return <div className="h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-400">Loading Result...</div>;
     const score = stats.correct * 1; 
     return (
-        <div className="h-[100dvh] overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6 animate-slide-up pb-20 flex flex-col items-center justify-center text-center transition-colors duration-300">
+        <div className="h-[100dvh] overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6 animate-slide-up pb-[calc(5rem+env(safe-area-inset-bottom))] flex flex-col items-center justify-center text-center transition-colors duration-300">
             <div className="w-20 h-20 bg-brand-50 dark:bg-brand-500/10 rounded-full flex items-center justify-center mb-6 border border-brand-100 dark:border-brand-500/20">
                 <i className="fa-solid fa-trophy text-4xl text-brand-600 dark:text-brand-500"></i>
             </div>

@@ -62,7 +62,7 @@ export const AchievementsScreen: React.FC<AchievementsScreenProps> = ({ profile,
         <h2 className="text-xl font-black text-gray-900">Achievements</h2>
       </div>
 
-      <div className="p-6 pb-24 space-y-6">
+      <div className="p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] space-y-6">
         {/* Header Stats */}
         <div className="bg-gray-900 rounded-3xl p-6 text-white relative overflow-hidden shadow-xl">
             <div className="absolute top-0 right-0 w-32 h-32 bg-brand-500 rounded-full blur-3xl opacity-20 -mr-10 -mt-10"></div>

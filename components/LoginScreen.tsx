@@ -248,7 +248,7 @@ export const LoginScreen = ({ onLoginSuccess }: { onLoginSuccess: (session: any)
                 </div>
             )}
 
-            <div className="flex items-center gap-4 mt-auto z-30 pb-4">
+            <div className="flex items-center gap-4 mt-auto z-30 pb-[calc(1rem+env(safe-area-inset-bottom))]">
                  {step > 1 && (
                     <button 
                         onClick={handleAppBack}

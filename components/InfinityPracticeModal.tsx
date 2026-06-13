@@ -188,7 +188,7 @@ export const InfinityPracticeModal: React.FC<InfinityPracticeModalProps> = ({
                     initial={{ opacity: 0, x: 20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    className="p-6 pb-24 flex flex-col min-h-full"
+                    className="p-6 pb-[calc(6rem+env(safe-area-inset-bottom))] flex flex-col min-h-full"
                 >
                   {selectedChapters.length < 2 && (
                       <div className="mb-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shrink-0">

@@ -255,7 +255,7 @@ export const DashboardModal: React.FC<DashboardModalProps> = ({ isOpen, profile,
                         </div>
 
                         {/* History Section */}
-                        <div className="pb-24">
+                        <div className="pb-[calc(5rem+env(safe-area-inset-bottom))]">
                            <div className="flex items-center gap-2 mb-3 px-1">
                                 <History size={16} className="text-brand-600" />
                                 <h3 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">Recent Activity</h3>
