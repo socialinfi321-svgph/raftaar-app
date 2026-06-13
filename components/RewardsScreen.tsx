@@ -59,22 +59,11 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
     return (
         <div className="h-[100dvh] flex flex-col bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-white transition-colors duration-300">
             {/* Header with Safe Area (pt-safe-header) */}
-            <div className="sticky top-0 z-50 px-4 sm:px-5 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white/80 dark:bg-slate-950/80 backdrop-blur-md flex justify-between items-center border-b border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
-                <div className="flex items-center gap-2 sm:gap-3">
-                    <button onClick={() => navigate(-1)} className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm transition-colors p-1 sm:p-1.5 rounded-xl active:bg-slate-50 dark:active:bg-slate-800">
-                        <ChevronLeft size={18} className="stroke-[3] sm:w-5 sm:h-5" />
-                    </button>
-                    <h2 className="text-[1.15rem] sm:text-[1.3rem] font-bold text-slate-900 dark:text-white tracking-tight">Leaderboard</h2>
-                </div>
-                <div className="flex items-center">
-                    <div className="flex flex-col items-center justify-center px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg border bg-brand-50 dark:bg-brand-900/20 border-brand-500/30 text-brand-700 dark:text-brand-400 transition-colors duration-300 shadow-sm">
-                        <div className="flex items-center gap-1 font-bold text-xs sm:text-sm leading-none">
-                            <span className="text-yellow-400 drop-shadow-sm pb-[1px] text-[10px] sm:text-[12px]">🔥</span>
-                            <span>{profile?.weekly_xp?.toLocaleString() || 0}</span>
-                        </div>
-                        <span className="text-[6px] sm:text-[7px] mt-0.5 leading-none font-medium uppercase tracking-wider text-brand-600/80 dark:text-brand-400/80 transition-colors duration-300">Weekly XP</span>
-                    </div>
-                </div>
+            <div className="sticky top-0 z-50 px-4 sm:px-5 pb-3 pt-safe-header bg-white/80 dark:bg-slate-950/80 backdrop-blur-md flex items-center gap-2 sm:gap-3 border-b border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
+                <button onClick={() => navigate(-1)} className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm transition-colors p-1 sm:p-1.5 rounded-xl active:bg-slate-50 dark:active:bg-slate-800">
+                    <ChevronLeft size={18} className="stroke-[3] sm:w-5 sm:h-5" />
+                </button>
+                <h2 className="text-[1.15rem] sm:text-[1.3rem] font-bold text-slate-900 dark:text-white tracking-tight">Leaderboard</h2>
             </div>
             
             <div className="flex-1 overflow-y-auto hide-scrollbar p-4 sm:p-5 pb-[calc(5rem+env(safe-area-inset-bottom))]">
