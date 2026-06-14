@@ -59,7 +59,7 @@ export const RewardsScreen: React.FC<RewardsScreenProps> = ({ profile, session, 
     return (
         <div className="h-[100dvh] flex flex-col bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-white transition-colors duration-300">
             {/* Header with Safe Area (pt-safe-header) */}
-            <div className="sticky top-0 z-50 px-4 sm:px-5 pb-3 pt-safe-header bg-white/80 dark:bg-slate-950/80 backdrop-blur-md flex items-center gap-2 sm:gap-3 border-b border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
+            <div className="sticky top-0 z-50 px-4 sm:px-5 pb-3 pt-[calc(max(env(safe-area-inset-top),1.5rem)+0.5rem)] bg-white/80 dark:bg-slate-950/80 backdrop-blur-md flex items-center gap-2 sm:gap-3 border-b border-slate-100 dark:border-slate-800 shadow-sm transition-colors duration-300">
                 <button onClick={() => navigate(-1)} className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm transition-colors p-1 sm:p-1.5 rounded-xl active:bg-slate-50 dark:active:bg-slate-800">
                     <ChevronLeft size={18} className="stroke-[3] sm:w-5 sm:h-5" />
                 </button>

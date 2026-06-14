@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Question } from '../types';
 import { api } from '../services/api';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { Heart, ThumbsDown, Share2, ArrowLeft, CheckCircle2, XCircle, MoreVertical } from 'lucide-react';
+import { Heart, ThumbsUp, ThumbsDown, Share, ArrowLeft, CheckCircle2, XCircle, Zap, BadgeCheck, Bookmark, Plus } from 'lucide-react';
 
 interface ShortsScreenProps {
   profile: any;
@@ -21,9 +21,20 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
   const [direction, setDirection] = useState(1);
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const [interactions, setInteractions] = useState<Record<number, { liked: boolean, disliked: boolean }>>({});
+  const [offset, setOffset] = useState(0);
+  const loadingMoreRef = React.useRef(false);
+  const [language, setLanguage] = useState<'en' | 'hi'>('en');
+  const [seenIds, setSeenIds] = useState<number[]>([]);
+
+  const currentQ = questionPool[currentIndex];
   
-  // Animation overlay trigger for correct/wrong
-  const [showFeedback, setShowFeedback] = useState<'correct' | 'wrong' | null>(null);
+  const randomCounts = React.useMemo(() => {
+    if (!currentQ) return { likes: '12.4K', shares: '1.2K' };
+    const hash = String(currentQ.id).split('').reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a }, 0);
+    const likeCount = (Math.abs(hash % 900) + 10) / 10;
+    const shareCount = (Math.abs(hash % 200) + 5) / 10;
+    return { likes: likeCount.toFixed(1) + 'K', shares: shareCount.toFixed(1) + 'K' };
+  }, [currentIndex, currentQ]);
 
   useEffect(() => {
     loadPool();
@@ -31,39 +42,21 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
 
   const loadPool = async () => {
     setLoading(true);
-    const pool = await api.getShortsQuestionPool(1000); 
-    
-    // Group and mix round-robin to ensure subjects are very randomized
-    const grouped: Record<string, Question[]> = {};
-    pool.forEach(q => {
-       const sub = q.subject || 'General';
-       if (!grouped[sub]) grouped[sub] = [];
-       grouped[sub].push(q);
-    });
-
-    const keys = Object.keys(grouped);
-    // Shuffle arrays inside to randomize
-    keys.forEach(k => {
-       grouped[k].sort(() => Math.random() - 0.5);
-    });
-
-    const mixedPool: Question[] = [];
-    let hasMore = true;
-    while(hasMore) {
-       hasMore = false;
-       for (const k of keys) {
-          if (grouped[k].length > 0) {
-             const q = grouped[k].shift();
-             if (q) mixedPool.push(q);
-             hasMore = true;
-          }
-       }
+    let initialSeenIds: number[] = [];
+    if (session?.user?.id) {
+       initialSeenIds = await api.getSeenQuestionIds(session.user.id);
+       setSeenIds(initialSeenIds);
     }
+
+    const pool = await api.getShortsQuestionPool(0, 5, initialSeenIds); 
     
-    setQuestionPool(mixedPool);
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    
+    setQuestionPool(shuffled);
     setCurrentIndex(0);
     setLoading(false);
     setQuestionStartTime(Date.now());
+    setOffset(5);
   };
 
   const handleNextQuestion = useCallback(() => {
@@ -75,15 +68,36 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
        const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000);
        onInteractionSubmit(currentQ.id, false, inter?.liked || false, timeSpent).catch(console.error);
     }
+    
+    if (currentQ) {
+       setSeenIds(prev => Array.from(new Set([...prev, currentQ.id])));
+    }
+
+    if (currentIndex === questionPool.length - 3 && !loadingMoreRef.current) {
+       loadingMoreRef.current = true;
+       api.getShortsQuestionPool(offset, 5, seenIds).then(newQuestions => {
+          if (newQuestions.length > 0) {
+             const shuffled = [...newQuestions].sort(() => Math.random() - 0.5);
+             setQuestionPool(prev => [...prev, ...shuffled]);
+             setOffset(prev => prev + 5);
+          }
+          loadingMoreRef.current = false;
+       }).catch(() => {
+          loadingMoreRef.current = false;
+       });
+    }
 
     if (currentIndex >= questionPool.length - 1) {
-      loadPool(); 
+      if (!loadingMoreRef.current) {
+        // Fallback if we completely run out
+        loadPool(); 
+      }
       return;
     }
     setDirection(1);
     setCurrentIndex(prev => prev + 1);
     setQuestionStartTime(Date.now());
-  }, [currentIndex, questionPool, answeredState, interactions, questionStartTime, onInteractionSubmit]);
+  }, [currentIndex, questionPool, answeredState, interactions, questionStartTime, onInteractionSubmit, offset, seenIds, session?.user?.id]);
 
   const handlePrevQuestion = useCallback(() => {
     if (currentIndex > 0) {
@@ -108,17 +122,16 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
     if (answeredState[currentIndex]) return;
     
     const question = questionPool[currentIndex];
-    const isCorrectAns = optionKey === question.correct_option;
+    // Case-insensitive comparison
+    const isCorrectAns = String(optionKey).toUpperCase() === String(question.correct_option).toUpperCase();
     
     setAnsweredState(prev => ({
        ...prev,
        [currentIndex]: { selected: optionKey, isCorrect: isCorrectAns }
     }));
     
-    // Feedback overlay flash
-    setShowFeedback(isCorrectAns ? 'correct' : 'wrong');
-    setTimeout(() => setShowFeedback(null), 1200);
-
+    setSeenIds(prev => Array.from(new Set([...prev, question.id])));
+    
     const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000);
     const hasLiked = interactions[currentIndex]?.liked || false;
     onInteractionSubmit(question.id, isCorrectAns, hasLiked, timeSpent).catch(console.error);
@@ -183,25 +196,26 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
     );
   }
 
-  const currentQ = questionPool[currentIndex];
   const currentState = answeredState[currentIndex];
   const isAnswered = !!currentState;
   const currentInteractions = interactions[currentIndex] || { liked: false, disliked: false };
 
   return (
-    <div className="h-[100dvh] w-full bg-[#0a0a0a] text-white relative overflow-hidden flex flex-col select-none">
-      {/* Header Overlay */}
-      <div className="absolute top-0 w-full z-30 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-6 bg-gradient-to-b from-black/80 to-transparent flex justify-between items-center pointer-events-none">
-         <div className="flex items-center gap-4 pointer-events-auto">
-            <button onClick={() => navigate('/')} className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white active:scale-95 transition-transform border border-white/10 shadow-lg">
-                <ArrowLeft size={20} strokeWidth={2.5} />
+    <div className="h-[100dvh] w-full bg-slate-50 dark:bg-[#070b19] font-sans text-slate-900 dark:text-white relative overflow-hidden flex flex-col select-none transition-colors duration-300">
+      {/* Top Navigation - Fixed Global */}
+      <div className="absolute top-0 w-full z-40 px-4 pt-safe-header pb-2 bg-white/0 dark:bg-black/0 flex justify-between items-center pointer-events-none transition-colors duration-300">
+         <div className="flex items-center gap-3 pointer-events-auto">
+            <button onClick={() => navigate('/')} className="p-2 -ml-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 rounded-full transition-colors active:scale-95 z-50">
+                <ArrowLeft size={20} />
             </button>
-            <h1 className="text-xl font-bold tracking-tight text-white drop-shadow-md">Shorts</h1>
+            <div className="flex gap-4">
+                <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white drop-shadow-sm pb-1 mt-1 border-b-2 border-brand-600">For You</span>
+            </div>
          </div>
       </div>
 
       {/* Reel Area */}
-      <div className="flex-1 relative w-full h-full overflow-hidden">
+      <div className="flex-1 relative w-full h-full overflow-hidden bg-slate-50 dark:bg-[#070b19] transition-colors duration-300">
         <AnimatePresence initial={false} custom={direction}>
           <motion.div
             key={currentIndex}
@@ -210,53 +224,106 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 1 }}
+            transition={{ type: 'tween', duration: 0.3, ease: 'easeOut' }}
             drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={1}
             onDragEnd={handleDragEnd}
-            className="absolute inset-0 w-full h-full flex flex-col justify-center px-5 sm:px-8 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-[calc(5rem+env(safe-area-inset-top))]"
+            style={{ touchAction: 'none' }}
+            className="absolute inset-0 w-full h-full flex flex-col pt-[calc(max(env(safe-area-inset-top),3.5rem)+1.5rem)] pb-[calc(5rem+env(safe-area-inset-bottom))] bg-slate-50 dark:bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] dark:from-[#111a3a] dark:via-[#070b19] dark:to-[#070b19]"
           >
+             {/* Sub-Header Area Inside Reel */}
+             <div className="flex justify-between items-center px-4 sm:px-6 w-full mb-6">
+                <div className="flex gap-2">
+                    <div className="flex items-center bg-[rgba(240,240,245,0.8)] dark:bg-[#1a1f35]/80 backdrop-blur-md text-[#505080] dark:text-blue-100 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm">
+                        {currentQ.subject || 'Physics'}
+                    </div>
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); setLanguage(l => l === 'en' ? 'hi' : 'en'); }} 
+                        className="bg-slate-200/80 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm transition-colors cursor-pointer flex items-center justify-center min-w-[40px]"
+                    >
+                        {language === 'en' ? 'EN' : 'हि'}
+                    </button>
+                </div>
+             </div>
+
              {/* Question Card Content Container */}
-             <div className="w-full max-w-lg mx-auto flex flex-col h-full justify-center pr-14 relative z-10">
-                 
-                 {/* Subject Tag */}
-                 <div className="inline-flex self-start mb-6 pointer-events-none">
-                    <span className="bg-brand-600/90 backdrop-blur-sm text-white text-[11px] sm:text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-md shadow-md border border-brand-400/30">
-                        {currentQ.subject || 'General'}
-                    </span>
+             <div className="flex flex-col flex-1 w-full max-w-lg mx-auto pr-16 sm:pr-20 pl-4 sm:pl-6 relative z-10 hide-scrollbar overflow-hidden">
+                 {/* Question Text */}
+                 <div className="flex-1 flex flex-col justify-center mb-4 min-h-0 relative">
+                     <div className="overflow-y-auto hide-scrollbar max-h-full">
+                         <h2 className="text-[clamp(1.1rem,4dvh,1.5rem)] md:text-[clamp(1.2rem,4dvh,1.7rem)] font-semibold leading-snug tracking-tight drop-shadow-sm text-slate-900 dark:text-white/95 pb-2 py-4">
+                            {language === 'hi' && currentQ.question_text_hi ? currentQ.question_text_hi : currentQ.question_text_en}
+                         </h2>
+                     </div>
                  </div>
 
-                 {/* Question Text */}
-                 <h2 className="text-[1.35rem] sm:text-2xl font-semibold leading-snug tracking-tight mb-8 drop-shadow-md text-white/95 pointer-events-none">
-                    {currentQ.question_text_en}
-                 </h2>
-
                  {/* Options Stack */}
-                 <div className="flex flex-col gap-3.5 sm:gap-4 w-full">
+                 <div className="flex flex-col gap-3 sm:gap-3.5 w-full pb-20 sm:pb-24 relative shrink-0">
+                    {/* Action Buttons - Absolute positioned relative to options stack */}
+                    <div className="absolute -right-14 sm:-right-16 -top-[100px] z-30 flex flex-col items-center gap-5 pointer-events-auto drop-shadow-lg">
+                        <button className="flex flex-col items-center gap-1 active:scale-90 transition-transform group mb-2">
+                            <div className="w-[46px] h-[46px] rounded-full bg-slate-900 border border-slate-200 dark:border-slate-800 p-0 shadow-lg relative flex items-center justify-center font-serif mb-0.5">
+                                <span className="text-white font-extrabold text-[18px] tracking-tighter">PW</span>
+                                <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-[22px] h-[22px] bg-indigo-600 rounded-full flex items-center justify-center border-2 border-slate-50 dark:border-[#070b19]">
+                                    <Plus size={14} className="text-white stroke-[4]" />
+                                </div>
+                            </div>
+                        </button>
+
+                        <button onClick={() => toggleInteraction('like')} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center">
+                                <Heart size={32} className={`transition-colors drop-shadow-md ${currentInteractions.liked ? 'fill-indigo-600 text-indigo-600' : 'text-indigo-600 dark:text-indigo-500 fill-indigo-600 dark:fill-indigo-500'}`} />
+                            </div>
+                            <span className="text-[12px] font-bold text-slate-800 dark:text-white/90 font-sans tracking-wide">{randomCounts.likes}</span>
+                        </button>
+
+                        <button onClick={() => toggleInteraction('dislike')} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center">
+                                <ThumbsDown size={32} className={`transition-colors drop-shadow-md ${currentInteractions.disliked ? 'fill-indigo-600 text-indigo-600' : 'text-slate-800 dark:text-white/90 group-hover:text-indigo-600'}`} />
+                            </div>
+                            <span className="text-[12px] font-bold text-slate-800 dark:text-white/90 font-sans tracking-wide">Dislike</span>
+                        </button>
+
+                        <button onClick={shareQuestion} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center">
+                                <Share size={30} className="text-slate-800 dark:text-white/90 drop-shadow-md group-hover:text-blue-500 transition-colors" />
+                            </div>
+                            <span className="text-[12px] font-bold text-slate-800 dark:text-white/90 font-sans tracking-wide">{randomCounts.shares}</span>
+                        </button>
+
+                        <button className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center">
+                                <Bookmark size={30} className="text-slate-800 dark:text-white/90 drop-shadow-md group-hover:text-yellow-500 transition-colors" />
+                            </div>
+                            <span className="text-[12px] font-bold text-slate-800 dark:text-white/90 font-sans tracking-wide">Save</span>
+                        </button>
+
+                        <div className="flex flex-col items-center gap-1 mt-1 opacity-80 cursor-pointer hover:opacity-100">
+                           <span className="text-2xl tracking-widest text-slate-800 dark:text-white/90 w-10 text-center font-bold px-1 pb-2">...</span>
+                        </div>
+                    </div>
+
                     {['a', 'b', 'c', 'd'].map((opt) => {
-                       const optValue = (currentQ as any)[`option_${opt}_en`];
+                       const optValue = language === 'hi' && (currentQ as any)[`option_${opt}_hi`] ? (currentQ as any)[`option_${opt}_hi`] : (currentQ as any)[`option_${opt}_en`];
                        if (!optValue) return null;
                        
-                       const isCorrectOption = currentQ.correct_option === opt;
-                       const isSelectedOption = currentState?.selected === opt;
+                       const isCorrectOption = String(currentQ.correct_option).toUpperCase() === String(opt).toUpperCase();
+                       const isSelectedOption = String(currentState?.selected).toUpperCase() === String(opt).toUpperCase();
                        
-                       let bgClass = "bg-white/10 backdrop-blur-md border border-white/20";
-                       let textClass = "text-white/90";
-                       let icon = null;
+                       let bgClass = "bg-white dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800/50 shadow-sm";
+                       let textClass = "text-slate-800 dark:text-white/90";
 
                        if (isAnswered) {
                            if (isCorrectOption) {
-                               bgClass = "bg-emerald-500/90 border border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.3)]";
-                               textClass = "text-white font-bold";
-                               icon = <CheckCircle2 size={20} className="text-white drop-shadow-sm shrink-0" />;
+                               bgClass = "bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/50";
+                               textClass = "text-emerald-700 dark:text-emerald-400 font-bold";
                            } else if (isSelectedOption && !isCorrectOption) {
-                               bgClass = "bg-rose-500/90 border border-rose-400";
-                               textClass = "text-white font-bold";
-                               icon = <XCircle size={20} className="text-white drop-shadow-sm shrink-0" />;
+                               bgClass = "bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-900/50";
+                               textClass = "text-rose-700 dark:text-rose-400 font-bold";
                            } else {
-                               bgClass = "bg-white/5 border border-white/10 opacity-60";
-                               textClass = "text-white/60";
+                               bgClass = "bg-slate-50 dark:bg-slate-900/10 border border-slate-200 dark:border-slate-800/30 opacity-60";
+                               textClass = "text-slate-500 dark:text-white/60";
                            }
                        }
 
@@ -265,77 +332,47 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                              key={opt}
                              onClick={(e) => { e.stopPropagation(); handleOptionSelect(opt); }}
                              disabled={isAnswered}
-                             className={`w-full text-left p-4 sm:p-5 rounded-2xl flex items-center justify-between gap-4 transition-all duration-300 ${bgClass}`}
+                             className={`w-full text-left p-3.5 sm:p-4 rounded-xl flex items-center justify-between gap-4 transition-all duration-300 ${bgClass}`}
                           >
-                             <div className="flex items-start gap-4 flex-1">
-                                <span className={`uppercase font-bold text-sm mt-[2px] opacity-70 ${textClass}`}>{opt}</span>
-                                <span className={`text-[0.95rem] sm:text-base leading-relaxed ${textClass}`}>{optValue}</span>
+                             <div className="flex items-center gap-3.5 flex-1 w-full overflow-hidden">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border text-sm transition-colors ${
+                                    isAnswered ? 'border-white/30 text-white bg-white/20' : 'border-slate-300 dark:border-white/20 text-slate-500 dark:text-white/70 bg-slate-100 dark:bg-white/5'
+                                } font-bold`}>
+                                     {opt.toUpperCase()}
+                                </div>
+                                <span className={`text-[0.95rem] sm:text-base leading-relaxed break-words break-all ${textClass}`}>{optValue}</span>
                              </div>
-                             {icon}
                           </button>
                        );
                     })}
-                 </div>
 
+                 </div>
              </div>
+
+             {/* Absolute Bottom Elements inside Motion Container */}
+             <div className="absolute left-4 sm:left-6 bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-16 z-30 flex flex-col gap-1.5 pointer-events-none">
+                 <div className="flex items-center gap-2 mb-1">
+                     <div className="w-10 h-10 rounded-full bg-slate-900 dark:bg-white flex items-center justify-center text-white dark:text-slate-900 shadow-sm shrink-0">
+                         <Zap size={22} className="text-yellow-400 fill-yellow-400 dark:text-indigo-600 dark:fill-indigo-600" />
+                     </div>
+                     <span className="font-bold text-slate-900 dark:text-white text-base font-sans tracking-wide">Raftaar</span>
+                     <BadgeCheck size={18} className="text-blue-500 fill-blue-500/20 shrink-0" />
+                     <button className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-4 py-1.5 rounded ml-1 transition-colors shrink-0 pointer-events-auto">
+                         Follow
+                     </button>
+                 </div>
+                 
+                 <div className="text-[13px] text-slate-600 dark:text-slate-300 font-medium mt-1 drop-shadow-sm">
+                     Class 12 • {currentQ.chapter_name_en || "General"}
+                 </div>
+                 
+                 <div className="text-[13px] font-bold text-slate-800 dark:text-white leading-relaxed line-clamp-2 pr-4 drop-shadow-sm break-words font-sans">
+                     #{currentQ.subject?.replace(/\s+/g, '') || 'Physics'} #{currentQ.chapter_name_en?.replace(/\s+/g, '') || 'Speed'} #Question {language === 'hi' ? '#Hindi' : ''}
+                 </div>
+             </div>
+
           </motion.div>
         </AnimatePresence>
-
-        {/* Floating Right Action Bar (Overlayed) */}
-        <div className="absolute right-3 sm:right-5 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-30 flex flex-col items-center gap-7 pointer-events-auto drop-shadow-lg">
-            
-            <div className="w-11 h-11 rounded-full bg-white p-[2px] shadow-lg mb-2 cursor-pointer active:scale-95 transition-transform" onClick={() => navigate('/profile')}>
-                <div className="w-full h-full rounded-full bg-slate-200 overflow-hidden">
-                    <img src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.email || 'user'}`} className="w-full h-full object-cover" alt="User" />
-                </div>
-            </div>
-
-            <button onClick={() => toggleInteraction('like')} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-1 bg-black/30 backdrop-blur-md border border-white/10 group-hover:bg-black/50 transition-colors ${currentInteractions.liked ? 'bg-pink-500/20' : ''}`}>
-                    <Heart size={26} className={`transition-colors drop-shadow-md ${currentInteractions.liked ? 'fill-pink-500 text-pink-500' : 'text-white'}`} />
-                </div>
-            </button>
-
-            <button onClick={() => toggleInteraction('dislike')} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-1 bg-black/30 backdrop-blur-md border border-white/10 group-hover:bg-black/50 transition-colors ${currentInteractions.disliked ? 'bg-indigo-500/20' : ''}`}>
-                    <ThumbsDown size={24} className={`transition-colors drop-shadow-md ${currentInteractions.disliked ? 'fill-indigo-500 text-indigo-500' : 'text-white'}`} />
-                </div>
-            </button>
-
-            <button onClick={shareQuestion} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group mt-1">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-1 bg-black/30 backdrop-blur-md border border-white/10 group-hover:bg-black/50 transition-colors">
-                    <Share2 size={24} className="text-white drop-shadow-md" />
-                </div>
-            </button>
-
-            <button className="flex flex-col items-center gap-1 active:scale-90 transition-transform group mt-4 opacity-80">
-                <MoreVertical size={24} className="text-white drop-shadow-md" />
-            </button>
-        </div>
-
-        {/* Global Feedback Animation Overlay (Correct / Wrong Burst) */}
-        <AnimatePresence>
-            {showFeedback && (
-                <motion.div 
-                    initial={{ opacity: 0, scale: 0.5, y: '-50%', x: '-50%' }}
-                    animate={{ opacity: 1, scale: 1, y: '-50%', x: '-50%' }}
-                    exit={{ opacity: 0, scale: 1.5 }}
-                    transition={{ type: 'spring', damping: 15 }}
-                    className="absolute top-1/2 left-1/2 z-50 pointer-events-none drop-shadow-[0_0_30px_rgba(0,0,0,0.5)]"
-                >
-                    {showFeedback === 'correct' ? (
-                        <div className="bg-emerald-500 rounded-full p-6 text-white shadow-2xl border-4 border-white/20">
-                            <CheckCircle2 size={80} strokeWidth={3} />
-                        </div>
-                    ) : (
-                        <div className="bg-rose-500 rounded-full p-6 text-white shadow-2xl border-4 border-white/20">
-                            <XCircle size={80} strokeWidth={3} />
-                        </div>
-                    )}
-                </motion.div>
-            )}
-        </AnimatePresence>
-
       </div>
     </div>
   );

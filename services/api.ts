@@ -172,17 +172,44 @@ export const api = {
     }
   },
 
-  getShortsQuestionPool: async (limit: number = 200): Promise<Question[]> => {
+  getShortsQuestionPool: async (offset: number, perSubjectLimit: number, seenIds: number[]): Promise<Question[]> => {
     try {
-      const { data, error } = await supabase.from('questions').select('*').limit(limit);
-      if (error) {
-        console.error("Supabase error (getShortsQuestionPool):", error);
-        return [];
-      }
-      return data || [];
+      const subjects = await api.getSubjects();
+      if (!subjects.length) return [];
+      
+      const promises = subjects.map(async (subject) => {
+          let query = supabase.from('questions').select('*').eq('subject', subject);
+          if (seenIds.length > 0) {
+              query = query.not('id', 'in', `(${seenIds.join(',')})`);
+          }
+          const { data } = await query.range(offset, offset + perSubjectLimit - 1);
+          return data || [];
+      });
+      const results = await Promise.all(promises);
+      const all = results.flat();
+      for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+      return all;
     } catch(e) {
       console.error("Exception in getShortsQuestionPool:", e);
       return []; 
+    }
+  },
+
+  getSeenQuestionIds: async (userId: string): Promise<number[]> => {
+    if (!userId || userId === 'demo-user') return [];
+    try {
+      const { data, error } = await supabase
+        .from('user_interactions')
+        .select('question_id')
+        .eq('user_id', userId);
+      if (error) {
+        console.error("Supabase error (getSeenQuestionIds):", error);
+        return [];
+      }
+      return data ? data.map((d: any) => d.question_id) : [];
+    } catch(e) {
+      console.error("Exception in getSeenQuestionIds:", e);
+      return [];
     }
   },
 
