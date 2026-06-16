@@ -98,49 +98,45 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
             loadingMoreRef.current = false;
          });
       }
-      
-      if (index >= questionPool.length - 1 && !loadingMoreRef.current) {
-          loadPool();
-      }
     }
   }, [currentIndex, questionPool, answeredState, interactions, questionStartTime, onInteractionSubmit, offset, seenIds, session?.user?.id]);
 
-  const handleOptionSelect = (optionKey: string) => {
-    if (answeredState[currentIndex]) return;
+  const handleOptionSelect = (optionKey: string, idx: number) => {
+    if (answeredState[idx]) return;
     
-    const question = questionPool[currentIndex];
+    const question = questionPool[idx];
     // Case-insensitive comparison
     const isCorrectAns = String(optionKey).toUpperCase() === String(question.correct_option).toUpperCase();
     
     setAnsweredState(prev => ({
        ...prev,
-       [currentIndex]: { selected: optionKey, isCorrect: isCorrectAns }
+       [idx]: { selected: optionKey, isCorrect: isCorrectAns }
     }));
     
     setSeenIds(prev => Array.from(new Set([...prev, question.id])));
     
-    const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000);
-    const hasLiked = interactions[currentIndex]?.liked || false;
+    const timeSpent = idx === currentIndex ? Math.floor((Date.now() - questionStartTime) / 1000) : 5;
+    const hasLiked = interactions[idx]?.liked || false;
     onInteractionSubmit(question.id, isCorrectAns, hasLiked, timeSpent).catch(console.error);
   };
 
-  const toggleInteraction = (type: 'like' | 'dislike') => {
+  const toggleInteraction = (type: 'like' | 'dislike', idx: number) => {
      setInteractions(prev => {
-        const current = prev[currentIndex] || { liked: false, disliked: false };
+        const current = prev[idx] || { liked: false, disliked: false };
         if (type === 'like') {
-           return { ...prev, [currentIndex]: { liked: !current.liked, disliked: false } };
+           return { ...prev, [idx]: { liked: !current.liked, disliked: false } };
         } else {
-           return { ...prev, [currentIndex]: { liked: false, disliked: !current.disliked } };
+           return { ...prev, [idx]: { liked: false, disliked: !current.disliked } };
         }
      });
   };
 
-  const shareQuestion = () => {
+  const shareQuestion = (idx: number) => {
       // Dummy share for UX
       if (navigator.share) {
           navigator.share({
              title: 'Check out this quiz question!',
-             text: questionPool[currentIndex]?.question_text_en
+             text: questionPool[idx]?.question_text_en
           }).catch(console.error);
       }
   };
@@ -252,36 +248,36 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                  </div>
 
                  {/* Question Card Content Container */}
-                 <div className="flex flex-col flex-1 w-full max-w-lg mx-auto pr-12 sm:pr-14 relative z-10 hide-scrollbar overflow-hidden">
+                 <div className="flex flex-col flex-1 w-full max-w-lg mx-auto pr-12 sm:pr-14 relative z-10 hide-scrollbar">
                      {/* Question Text */}
-                     <div className="flex flex-col justify-start mb-2 relative pt-0 px-4 sm:px-6">
-                         <div className="overflow-y-auto hide-scrollbar max-h-[40vh]">
-                             <h2 className={`font-bold leading-relaxed tracking-tight text-slate-900 dark:text-white pb-2 py-1 ${textSizeClass}`}>
+                     <div className="flex-1 flex flex-col justify-end mb-4 relative pt-0 px-4 sm:px-6 overflow-hidden">
+                         <div className="overflow-y-auto hide-scrollbar snap-y snap-mandatory select-text relative">
+                             <h2 className={`font-bold leading-relaxed tracking-tight text-slate-900 dark:text-white py-1 ${textSizeClass}`}>
                                 {questionText}
                              </h2>
                          </div>
                      </div>
 
                      {/* Options Stack */}
-                     <div className="flex flex-col gap-3 sm:gap-3.5 w-full pb-4 relative shrink-0">
+                     <div className="flex flex-col gap-3 sm:gap-3.5 w-full pb-10 sm:pb-12 relative shrink-0">
                         {/* Action Buttons - Absolute positioned relative to options stack */}
-                        <div className="absolute -right-10 sm:-right-12 -top-2 z-30 flex flex-col items-center gap-5 pointer-events-auto drop-shadow-sm">
+                        <div className="absolute -right-10 sm:-right-12 bottom-4 z-30 flex flex-col items-center gap-5 pointer-events-auto drop-shadow-sm">
 
-                            <button onClick={() => isCurrent && toggleInteraction('like')} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
+                            <button onClick={() => toggleInteraction('like', idx)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
                                 <div className="w-8 h-8 flex items-center justify-center">
                                     <Heart size={24} className={`transition-colors drop-shadow-sm ${currentInteractions.liked ? 'fill-indigo-500 text-indigo-500' : 'text-slate-700 dark:text-slate-300'}`} />
                                 </div>
                                 <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 font-sans">{randomCounts.likes}</span>
                             </button>
 
-                            <button onClick={() => isCurrent && toggleInteraction('dislike')} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
+                            <button onClick={() => toggleInteraction('dislike', idx)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
                                 <div className="w-8 h-8 flex items-center justify-center">
                                     <ThumbsDown size={24} className={`transition-colors drop-shadow-sm ${currentInteractions.disliked ? 'fill-indigo-500 text-indigo-500' : 'text-slate-700 dark:text-slate-300 group-hover:text-indigo-500'}`} />
                                 </div>
                                 <span className="text-[11px] font-medium text-slate-600 dark:text-slate-400 font-sans">Dislike</span>
                             </button>
 
-                            <button onClick={() => isCurrent && shareQuestion()} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
+                            <button onClick={() => shareQuestion(idx)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
                                 <div className="w-8 h-8 flex items-center justify-center">
                                     <Share size={24} className="text-slate-700 dark:text-slate-300 drop-shadow-sm group-hover:text-blue-500 transition-colors" />
                                 </div>
@@ -330,16 +326,20 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                            return (
                               <button 
                                  key={opt}
-                                 onClick={(e) => { e.stopPropagation(); if(isCurrent) handleOptionSelect(opt); }}
-                                 disabled={isAnswered || !isCurrent}
-                                 className={`w-[calc(100%-1rem)] sm:w-[calc(100%-1.5rem)] text-left py-3 sm:py-3.5 pr-2 flex items-center justify-between gap-4 transition-all duration-300 ${bgClass}`}
-                                 style={{ WebkitMaskImage: 'linear-gradient(to right, black 85%, transparent 100%)', maskImage: 'linear-gradient(to right, black 85%, transparent 100%)' }}
+                                 onClick={(e) => { e.stopPropagation(); handleOptionSelect(opt, idx); }}
+                                 disabled={isAnswered}
+                                 className={`w-[calc(100%-0.5rem)] sm:w-[calc(100%-1rem)] text-left py-3 sm:py-3.5 pr-2 flex items-center justify-between gap-4 transition-all duration-300 overflow-hidden ${bgClass}`}
+                                 style={{ 
+                                     WebkitMaskImage: 'linear-gradient(to right, black 80%, transparent 100%)', 
+                                     maskImage: 'linear-gradient(to right, black 80%, transparent 100%)',
+                                     borderRight: 'none'
+                                 }}
                               >
                                  <div className="flex items-center gap-3.5 flex-1 w-full overflow-hidden">
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[13px] font-bold transition-colors ${labelClass}`}>
                                          {opt.toUpperCase()}
                                     </div>
-                                    <span className={`text-[0.95rem] leading-relaxed break-words break-all ${textClass}`}>{optValue}</span>
+                                    <span className={`text-[0.95rem] leading-relaxed break-words break-all truncate whitespace-normal line-clamp-3 ${textClass}`}>{optValue}</span>
                                  </div>
                               </button>
                            );
@@ -351,22 +351,22 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                  {/* Absolute Bottom Elements inside Motion Container */}
                  <div className="absolute left-4 sm:left-6 bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] z-30 flex flex-col gap-1.5 pointer-events-none">
                      <div className="flex items-center gap-3 mb-1">
-                         <div className="w-10 h-10 rounded-full bg-slate-900 dark:bg-white flex items-center justify-center shadow-sm shrink-0">
-                             <span className="font-sans font-bold text-white dark:text-slate-900">R</span>
+                         <div className="w-9 h-9 rounded-full bg-slate-900 dark:bg-white flex items-center justify-center shadow-sm shrink-0">
+                             <span className="font-sans font-bold text-white dark:text-slate-900 text-sm">R</span>
                          </div>
                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-900 dark:text-white text-base">Raftaar</span>
+                            <span className="font-bold text-slate-900 dark:text-white text-[15px]">Raftaar</span>
                          </div>
-                         <button className="bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-bold px-4 py-1.5 rounded-full ml-1 transition-colors shrink-0 pointer-events-auto">
+                         <button onClick={(e) => { e.stopPropagation(); alert('Follow feature incoming!'); }} className="bg-indigo-500 hover:bg-indigo-600 text-white text-[13px] font-bold px-3.5 py-1 rounded-full ml-1 transition-transform active:scale-95 shrink-0 pointer-events-auto shadow-sm">
                              Follow
                          </button>
                      </div>
                      
-                     <div className="text-[14px] text-slate-700 dark:text-slate-300 font-medium">
+                     <div className="text-[13.5px] text-slate-700 dark:text-slate-300 font-medium">
                          Class 12 • {q.chapter_name_en || "General"}
                      </div>
                      
-                     <div className="text-[13px] text-slate-400/80 dark:text-slate-500/80 font-medium">
+                     <div className="text-[12.5px] text-slate-400/80 dark:text-slate-500/80 font-medium pb-1">
                          #Question #{q.subject?.replace(/\s+/g, '') || 'Physics'}
                      </div>
                  </div>

@@ -543,8 +543,8 @@ export default function App() {
                         </button>
                         <button onClick={() => navigate('/shorts')} className="flex items-center gap-4 py-2 w-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-medium">
                             <span className="w-6 flex items-center justify-center">
-                                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-[1.125rem] h-[1.125rem]" xmlns="http://www.w3.org/2000/svg">
-                                     <path d="M17.433 8.358l-3.328-1.571-0.291-0.128 0.283-0.15c0.75-0.395 1.254-1.077 1.455-1.921s0.038-1.745-0.457-2.455c-0.669-0.96-1.706-1.467-2.822-1.467-0.463 0-0.932 0.089-1.385 0.278l-7.294 3.012c-1.554 0.643-2.593 2.128-2.593 3.824 0 1.242 0.589 2.459 1.571 3.235l3.298 1.498 0.291 0.128-0.283 0.15c-0.75 0.395-1.254 1.077-1.455 1.921-0.201 0.844-0.038 1.745 0.457 2.455 0.669 0.96 1.706 1.467 2.822 1.467 0.463 0 0.932-0.089 1.385-0.278l7.294-3.013c1.554-0.643 2.593-2.128 2.593-3.824 0-1.242-0.589-2.459-1.571-3.235zM9 16.5v-9l6 4.5l-6 4.5z"/>
+                                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-[1.6rem] h-[1.6rem]" xmlns="http://www.w3.org/2000/svg">
+                                     <path d="M17.77 10.32l-1.2-.5L18 7.74c1.5-.76 2.1-2.58 1.34-4.09A3.018 3.018 0 0 0 15.22 2.3l-10.46 5.43c-1.54.8-2.15 2.69-1.35 4.24a3.024 3.024 0 0 0 1.35 1.29l1.2.5L4 16.26c-1.5.76-2.1 2.58-1.34 4.09a3.018 3.018 0 0 0 4.12 1.35l10.46-5.43c1.54-.8 2.15-2.69 1.35-4.24A3.024 3.024 0 0 0 17.77 10.32ZM10 14.25v-4.5L14 12Z"/>
                                  </svg>
                             </span>
                             <span>Shorts</span>
@@ -793,8 +793,8 @@ export default function App() {
                 <div className="flex w-full justify-around">
                     <NavIcon icon="fa-house" label="Home" target="/" isActive={location.pathname === '/'} navigate={navigate} />
                     <NavIcon icon="fa-bolt" label="Shorts" target="/shorts" isActive={location.pathname.startsWith('/shorts')} navigate={navigate} svgIcon={
-                         <svg viewBox="0 0 24 24" fill="currentColor" className="w-[1.25rem] h-[1.25rem] mb-0.5 mt-0.5" xmlns="http://www.w3.org/2000/svg">
-                             <path d="M17.433 8.358l-3.328-1.571-0.291-0.128 0.283-0.15c0.75-0.395 1.254-1.077 1.455-1.921s0.038-1.745-0.457-2.455c-0.669-0.96-1.706-1.467-2.822-1.467-0.463 0-0.932 0.089-1.385 0.278l-7.294 3.012c-1.554 0.643-2.593 2.128-2.593 3.824 0 1.242 0.589 2.459 1.571 3.235l3.298 1.498 0.291 0.128-0.283 0.15c-0.75 0.395-1.254 1.077-1.455 1.921-0.201 0.844-0.038 1.745 0.457 2.455 0.669 0.96 1.706 1.467 2.822 1.467 0.463 0 0.932-0.089 1.385-0.278l7.294-3.013c1.554-0.643 2.593-2.128 2.593-3.824 0-1.242-0.589-2.459-1.571-3.235zM9 16.5v-9l6 4.5l-6 4.5z"/>
+                         <svg viewBox="0 0 24 24" fill="currentColor" className={`w-[1.7rem] h-[1.7rem] mb-[0.125rem] transition-all ${location.pathname.startsWith('/shorts') ? 'drop-shadow-md' : ''}`} xmlns="http://www.w3.org/2000/svg">
+                             <path d="M17.77 10.32l-1.2-.5L18 7.74c1.5-.76 2.1-2.58 1.34-4.09A3.018 3.018 0 0 0 15.22 2.3l-10.46 5.43c-1.54.8-2.15 2.69-1.35 4.24a3.024 3.024 0 0 0 1.35 1.29l1.2.5L4 16.26c-1.5.76-2.1 2.58-1.34 4.09a3.018 3.018 0 0 0 4.12 1.35l10.46-5.43c1.54-.8 2.15-2.69 1.35-4.24A3.024 3.024 0 0 0 17.77 10.32ZM10 14.25v-4.5L14 12Z"/>
                          </svg>
                     } />
                     <NavIcon icon="fa-book-open" label="Practice" target="/practice" isActive={location.pathname.startsWith('/practice')} navigate={navigate} />
