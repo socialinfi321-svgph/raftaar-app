@@ -94,6 +94,14 @@ export const api = {
     } catch (e) { return null; }
   },
 
+  updateReelsFilter: async (userId: string, filterSubjects: string[]) => {
+    try {
+      await supabase.from('profiles').update({ reels_subject_filter: filterSubjects }).eq('id', userId);
+    } catch(e) {
+      console.error(e);
+    }
+  },
+
   createProfile: async (userId: string, fullName: string, avatarUrl: string): Promise<Profile | null> => {
     try {
         const newProfile = {
@@ -121,14 +129,8 @@ export const api = {
 
   getSubjects: async (): Promise<string[]> => {
     try {
-      const { data, error } = await supabase.from('questions').select('subject');
-      if (error) {
-        console.error("Supabase error (getSubjects):", error);
-        return [];
-      }
-      if (!data) return [];
-      const subjects: string[] = Array.from(new Set((data as any[]).map((d: any) => String(d.subject))));
-      return subjects;
+      const { getActiveSubjects } = await import('./reelsRecommendation');
+      return await getActiveSubjects();
     } catch (e) {
       console.error("Exception in getSubjects:", e);
       return []; 
@@ -172,23 +174,10 @@ export const api = {
     }
   },
 
-  getShortsQuestionPool: async (offset: number, perSubjectLimit: number, seenIds: number[]): Promise<Question[]> => {
+  getShortsQuestionPool: async (userId: string, filterSubjects: string[], limit: number = 8): Promise<Question[]> => {
     try {
-      const subjects = await api.getSubjects();
-      if (!subjects.length) return [];
-      
-      const promises = subjects.map(async (subject) => {
-          let query = supabase.from('questions').select('*').eq('subject', subject);
-          if (seenIds.length > 0) {
-              query = query.not('id', 'in', `(${seenIds.join(',')})`);
-          }
-          const { data } = await query.range(offset, offset + perSubjectLimit - 1);
-          return data || [];
-      });
-      const results = await Promise.all(promises);
-      const all = results.flat();
-      for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
-      return all;
+      const { fetchPersonalizedReelBatch } = await import('./reelsRecommendation');
+      return await fetchPersonalizedReelBatch(userId, filterSubjects, limit);
     } catch(e) {
       console.error("Exception in getShortsQuestionPool:", e);
       return []; 

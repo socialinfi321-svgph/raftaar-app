@@ -18,14 +18,18 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
   const [loading, setLoading] = useState(true);
   
   const [answeredState, setAnsweredState] = useState<Record<number, { selected: string, isCorrect: boolean }>>({});
-  const [direction, setDirection] = useState(1);
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const [interactions, setInteractions] = useState<Record<number, { liked: boolean, disliked: boolean }>>({});
-  const [offset, setOffset] = useState(0);
   const loadingMoreRef = React.useRef(false);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   const [language, setLanguage] = useState<'en' | 'hi'>('en');
-  const [seenIds, setSeenIds] = useState<number[]>([]);
+  
+  // New States for Features
+  const [filterSubjects, setFilterSubjects] = useState<string[]>(profile?.reels_subject_filter || []);
+  const [mode, setMode] = useState<'practice' | 'test'>('practice');
+  const [testFinished, setTestFinished] = useState(false);
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
 
   useBackHandler(() => {
     navigate('/');
@@ -41,26 +45,51 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
   };
 
   useEffect(() => {
+    api.getSubjects().then(setAvailableSubjects);
     loadPool();
-  }, []);
+  }, [filterSubjects]);
 
   const loadPool = async () => {
+    if (!session?.user?.id) return;
     setLoading(true);
-    let initialSeenIds: number[] = [];
-    if (session?.user?.id) {
-       initialSeenIds = await api.getSeenQuestionIds(session.user.id);
-       setSeenIds(initialSeenIds);
-    }
-
-    const pool = await api.getShortsQuestionPool(0, 5, initialSeenIds); 
     
-    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    // We fetch a batch size of 8
+    const pool = await api.getShortsQuestionPool(session.user.id, filterSubjects, 8); 
     
-    setQuestionPool(shuffled);
+    setQuestionPool(pool);
     setCurrentIndex(0);
     setLoading(false);
     setQuestionStartTime(Date.now());
-    setOffset(5);
+    
+    // Reset test state if we reload the pool
+    setAnsweredState({});
+    setTestFinished(false);
+  };
+
+  const loadMore = async () => {
+    if (!session?.user?.id || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    try {
+        const newQuestions = await api.getShortsQuestionPool(session.user.id, filterSubjects, 8);
+        if (newQuestions.length > 0) {
+            setQuestionPool(prev => {
+                // Remove older questions if memory grows too large (e.g. > 30 items behind)
+                const evictionLimit = 30;
+                let newPool = [...prev, ...newQuestions];
+                if (currentIndex > evictionLimit) {
+                    newPool = newPool.slice(currentIndex - evictionLimit);
+                    // Adjust currentIndex to match new slice if necessary, but this would jump the scroll. 
+                    // Better to just let React DOM virtualization handle rendering, and keep the array intact 
+                    // since plain JS arrays of a few hundred objects consume negligible memory.
+                }
+                return [...prev, ...newQuestions];
+            });
+        }
+    } catch(err) {
+        console.error(err);
+    } finally {
+        loadingMoreRef.current = false;
+    }
   };
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
@@ -68,44 +97,30 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
     const index = Math.round(container.scrollTop / container.clientHeight);
     
     if (index !== currentIndex && index >= 0 && index < questionPool.length) {
-      // Swiped down to next
       if (index > currentIndex) {
         const currentQ = questionPool[currentIndex];
         const ans = answeredState[currentIndex];
         const inter = interactions[currentIndex];
-        if (currentQ && !ans) {
+        // If they scrolled past without answering in practice mode, log it as a skip (wrong = false)
+        if (currentQ && !ans && mode === 'practice') {
            const timeSpent = Math.floor((Date.now() - questionStartTime) / 1000);
            onInteractionSubmit(currentQ.id, false, inter?.liked || false, timeSpent).catch(console.error);
-        }
-        if (currentQ) {
-           setSeenIds(prev => Array.from(new Set([...prev, currentQ.id])));
         }
       }
       
       setCurrentIndex(index);
       setQuestionStartTime(Date.now());
       
-      if (index >= questionPool.length - 3 && !loadingMoreRef.current) {
-         loadingMoreRef.current = true;
-         api.getShortsQuestionPool(offset, 5, seenIds).then(newQuestions => {
-            if (newQuestions.length > 0) {
-               const shuffled = [...newQuestions].sort(() => Math.random() - 0.5);
-               setQuestionPool(prev => [...prev, ...shuffled]);
-               setOffset(prev => prev + 5);
-            }
-            loadingMoreRef.current = false;
-         }).catch(() => {
-            loadingMoreRef.current = false;
-         });
+      if (index >= questionPool.length - 3) {
+         loadMore();
       }
     }
-  }, [currentIndex, questionPool, answeredState, interactions, questionStartTime, onInteractionSubmit, offset, seenIds, session?.user?.id]);
+  }, [currentIndex, questionPool, answeredState, interactions, questionStartTime, onInteractionSubmit, mode, filterSubjects, session?.user?.id]);
 
   const handleOptionSelect = (optionKey: string, idx: number) => {
-    if (answeredState[idx]) return;
+    if (answeredState[idx] || testFinished) return;
     
     const question = questionPool[idx];
-    // Case-insensitive comparison
     const isCorrectAns = String(optionKey).toUpperCase() === String(question.correct_option).toUpperCase();
     
     setAnsweredState(prev => ({
@@ -113,21 +128,34 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
        [idx]: { selected: optionKey, isCorrect: isCorrectAns }
     }));
     
-    setSeenIds(prev => Array.from(new Set([...prev, question.id])));
-    
     const timeSpent = idx === currentIndex ? Math.floor((Date.now() - questionStartTime) / 1000) : 5;
     const hasLiked = interactions[idx]?.liked || false;
-    onInteractionSubmit(question.id, isCorrectAns, hasLiked, timeSpent).catch(console.error);
+    
+    if (mode === 'practice') {
+        onInteractionSubmit(question.id, isCorrectAns, hasLiked, timeSpent).catch(console.error);
+    }
   };
 
   const toggleInteraction = (type: 'like' | 'dislike', idx: number) => {
      setInteractions(prev => {
         const current = prev[idx] || { liked: false, disliked: false };
+        let newLike = current.liked;
+        let newDislike = current.disliked;
+        
         if (type === 'like') {
-           return { ...prev, [idx]: { liked: !current.liked, disliked: false } };
+            newLike = !current.liked;
+            newDislike = false;
         } else {
-           return { ...prev, [idx]: { liked: false, disliked: !current.disliked } };
+            newLike = false;
+            newDislike = !current.disliked;
         }
+        
+        // Persist interaction immediately
+        if (session?.user?.id && questionPool[idx]) {
+             onInteractionSubmit(questionPool[idx].id, false, newLike, 0).catch(console.error);
+        }
+
+        return { ...prev, [idx]: { liked: newLike, disliked: newDislike } };
      });
   };
 
@@ -184,22 +212,160 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
     );
   }
 
+    const finishTest = async () => {
+        if (!session?.user?.id) return;
+        setTestFinished(true);
+        
+        let correct = 0;
+        let wrong = 0;
+        let skipped = 0;
+        
+        // Only count up to currentIndex or questions we've rendered/interacted with
+        for (let i = 0; i <= currentIndex; i++) {
+            const state = answeredState[i];
+            if (state) {
+                if (state.isCorrect) correct++;
+                else wrong++;
+            } else {
+                skipped++;
+            }
+        }
+        
+        const timeTaken = Math.floor((Date.now() - questionStartTime) / 1000); // Rough approximation
+        await api.submitTestResult({
+            userId: session.user.id,
+            subject: 'Mixed Shorts',
+            testType: 'Practice',
+            totalQuestions: currentIndex + 1,
+            correct,
+            wrong,
+            skipped,
+            timeTaken,
+            date: new Date().toISOString()
+        });
+    };
+
+    if (testFinished) {
+        let correct = 0;
+        let wrong = 0;
+        for (let i = 0; i <= currentIndex; i++) {
+            const state = answeredState[i];
+            if (state) {
+                if (state.isCorrect) correct++;
+                else wrong++;
+            }
+        }
+        return (
+            <div className="h-[100dvh] w-full bg-slate-50 dark:bg-black font-sans text-slate-900 dark:text-white flex flex-col items-center justify-center p-6">
+                <div className="bg-slate-100 dark:bg-slate-900 rounded-3xl p-8 max-w-sm w-full text-center shadow-sm">
+                    <BadgeCheck className="w-16 h-16 text-indigo-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold mb-2">Test Complete!</h2>
+                    <p className="text-slate-600 dark:text-slate-400 mb-6">Here's your quick summary.</p>
+                    <div className="grid grid-cols-2 gap-4 mb-8">
+                        <div className="bg-white dark:bg-black p-4 rounded-2xl">
+                            <div className="text-2xl font-bold text-green-500">{correct}</div>
+                            <div className="text-sm text-slate-500 font-medium">Correct</div>
+                        </div>
+                        <div className="bg-white dark:bg-black p-4 rounded-2xl">
+                            <div className="text-2xl font-bold text-red-500">{wrong}</div>
+                            <div className="text-sm text-slate-500 font-medium">Wrong</div>
+                        </div>
+                    </div>
+                    <button onClick={() => { setTestFinished(false); loadPool(); }} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-full active:scale-95 transition-transform">
+                        Start New Session
+                    </button>
+                    <button onClick={() => navigate('/')} className="w-full bg-transparent text-slate-500 font-bold py-3.5 mt-2 rounded-full active:scale-95 transition-transform">
+                        Go Home
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
   return (
     <div className="h-[100dvh] w-full bg-slate-50 dark:bg-black font-sans text-slate-900 dark:text-white relative overflow-hidden flex flex-col select-none transition-colors duration-300">
       {/* Top Navigation - Fixed Global */}
       <div className="absolute top-0 w-full z-40 px-5 pt-[max(env(safe-area-inset-top),1.5rem)] pb-2 bg-transparent flex justify-between items-center pointer-events-none transition-colors duration-300">
          <div className="flex items-center gap-5 pointer-events-auto w-full justify-between">
-            <div className="flex gap-5 flex-1 items-center">
-                <div className="flex flex-col items-center">
-                    <span className="text-[17px] font-bold text-slate-900 dark:text-white">For You</span>
-                    <div className="w-5 h-[3px] bg-indigo-600 rounded-full mt-1"></div>
+            <div className="flex gap-5 items-center">
+                <div 
+                    className="flex flex-col items-center cursor-pointer"
+                    onClick={() => setMode('practice')}
+                >
+                    <span className={`text-[15px] font-bold ${mode === 'practice' ? 'text-slate-900 dark:text-white' : 'text-slate-500'}`}>Practice</span>
+                    {mode === 'practice' && <div className="w-4 h-[3px] bg-indigo-600 rounded-full mt-1"></div>}
+                </div>
+                <div 
+                    className="flex flex-col items-center cursor-pointer"
+                    onClick={() => setMode('test')}
+                >
+                    <span className={`text-[15px] font-bold ${mode === 'test' ? 'text-slate-900 dark:text-white' : 'text-slate-500'}`}>Test</span>
+                    {mode === 'test' && <div className="w-4 h-[3px] bg-indigo-600 rounded-full mt-1"></div>}
                 </div>
             </div>
-            <button className="p-2 -mr-2 text-slate-900 dark:text-white active:scale-95 z-50">
-                <Search size={24} className="stroke-[2.5]" />
-            </button>
+            
+            <div className="flex items-center gap-4">
+               {mode === 'test' && (
+                 <button onClick={finishTest} className="bg-indigo-600 text-white text-[13px] font-bold px-4 py-1.5 rounded-full z-50 shadow-sm active:scale-95 transition-transform">
+                     End Test
+                 </button>
+               )}
+               <button onClick={() => setShowFilters(!showFilters)} className="p-2 -mr-2 text-slate-900 dark:text-white active:scale-95 z-50">
+                  <div className="relative">
+                      <Search size={22} className="stroke-[2.5]" />
+                      {filterSubjects.length > 0 && (
+                          <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full border-2 border-slate-50 dark:border-black"></div>
+                      )}
+                  </div>
+               </button>
+            </div>
          </div>
       </div>
+      
+      {/* Subject Filters Modal */}
+      {showFilters && (
+          <div className="absolute inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4">
+             <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-xl mb-safe animate-in slide-in-from-bottom-10 fade-in duration-200">
+                <div className="flex justify-between items-center mb-6">
+                   <h3 className="text-xl font-bold">Filter Subjects</h3>
+                   <button onClick={() => setShowFilters(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full active:scale-95 text-slate-500 dark:text-slate-400">
+                      <XCircle size={20} />
+                   </button>
+                </div>
+                
+                <div className="flex flex-wrap gap-2 mb-8">
+                   {availableSubjects.map((sub) => {
+                       const isSelected = filterSubjects.includes(sub);
+                       return (
+                           <button 
+                               key={sub}
+                               onClick={() => {
+                                   if (isSelected) setFilterSubjects(prev => prev.filter(s => s !== sub));
+                                   else setFilterSubjects(prev => [...prev, sub]);
+                               }}
+                               className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'}`}
+                           >
+                               {sub}
+                           </button>
+                       );
+                   })}
+                </div>
+                
+                <button 
+                    onClick={async () => {
+                        setShowFilters(false);
+                        // Persist to users profile
+                        if (session?.user?.id) {
+                            await api.updateReelsFilter(session.user.id, filterSubjects);
+                        }
+                    }} 
+                    className="w-full bg-slate-900 dark:bg-white text-white dark:text-black font-bold py-3.5 rounded-full active:scale-95 transition-transform"
+                >
+                    Apply Filters
+                </button>
+             </div>
+          </div>
+      )}
 
       {/* Reel Area */}
       <div 
@@ -208,6 +374,13 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
         className="flex-1 w-full h-full overflow-y-auto snap-y snap-mandatory hide-scrollbar bg-slate-50 dark:bg-black transition-colors duration-300 pb-[calc(4.5rem+env(safe-area-inset-bottom))]"
       >
         {questionPool.map((q, idx) => {
+           // Windowing: Only render fully if within ±2 cards of current index
+           if (Math.abs(idx - currentIndex) > 2) {
+               return (
+                  <div key={`${q.id}-${idx}`} className="w-full h-full snap-start snap-always flex-shrink-0 bg-slate-50 dark:bg-black"></div>
+               );
+           }
+           
            const isCurrent = idx === currentIndex;
            const currentState = answeredState[idx];
            const isAnswered = !!currentState;
@@ -307,7 +480,19 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                            let textClass = "text-slate-800 dark:text-white/90";
                            let labelClass = "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 shadow-sm";
 
-                           if (isAnswered) {
+                           // In Test mode, just highlight selected neutrally
+                           if (isAnswered && mode === 'test' && !testFinished) {
+                               if (isSelectedOption) {
+                                   bgClass = "bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl pl-4 sm:pl-6 ml-4 sm:ml-6";
+                                   textClass = "text-indigo-700 dark:text-indigo-400 font-bold";
+                                   labelClass = "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 shadow-sm";
+                               } else {
+                                   bgClass = "bg-slate-50/50 dark:bg-[#0a0a0a]/50 border border-slate-100 dark:border-[#1a1a1a] rounded-2xl pl-4 sm:pl-6 ml-4 sm:ml-6 opacity-60";
+                                   textClass = "text-slate-500 dark:text-white/50";
+                                   labelClass = "bg-slate-100 text-slate-400 dark:bg-[#222] dark:text-white/30 shadow-sm";
+                               }
+                           } else if (isAnswered) {
+                               // Practice mode feedback
                                if (isCorrectOption) {
                                    bgClass = "bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl pl-4 sm:pl-6 ml-4 sm:ml-6";
                                    textClass = "text-emerald-700 dark:text-emerald-400 font-bold";
