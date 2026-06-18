@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Question } from '../types';
 import { api } from '../services/api';
-import { Heart, ThumbsUp, ThumbsDown, Share, ArrowLeft, CheckCircle2, XCircle, Zap, BadgeCheck, Bookmark, Plus, Search } from 'lucide-react';
+import { Heart, ThumbsUp, ThumbsDown, Share, ArrowLeft, CheckCircle2, XCircle, Zap, BadgeCheck, Bookmark, Plus, SlidersHorizontal } from 'lucide-react';
 import { useBackHandler } from '../hooks/useBackHandler';
 
 interface ShortsScreenProps {
@@ -312,7 +312,7 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                )}
                <button onClick={() => setShowFilters(!showFilters)} className="p-2 -mr-2 text-slate-900 dark:text-white active:scale-95 z-50">
                   <div className="relative">
-                      <Search size={22} className="stroke-[2.5]" />
+                      <SlidersHorizontal size={22} className="stroke-[2.5]" />
                       {filterSubjects.length > 0 && (
                           <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full border-2 border-slate-50 dark:border-black"></div>
                       )}
@@ -322,49 +322,40 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
          </div>
       </div>
       
-      {/* Subject Filters Modal */}
+      {/* Subject Filters Dropdown */}
       {showFilters && (
-          <div className="absolute inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-4">
-             <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-[2rem] p-6 shadow-xl mb-safe animate-in slide-in-from-bottom-10 fade-in duration-200">
-                <div className="flex justify-between items-center mb-6">
-                   <h3 className="text-xl font-bold">Filter Subjects</h3>
-                   <button onClick={() => setShowFilters(false)} className="bg-slate-100 dark:bg-slate-800 p-2 rounded-full active:scale-95 text-slate-500 dark:text-slate-400">
-                      <XCircle size={20} />
-                   </button>
+          <>
+            <div className="absolute inset-0 z-40" onClick={() => setShowFilters(false)}></div>
+            <div className="absolute top-[4.5rem] right-4 z-50 bg-white dark:bg-slate-900 w-48 rounded-2xl p-3 shadow-lg border border-slate-100 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center mb-3 px-1">
+                   <h3 className="text-sm font-bold text-slate-800 dark:text-white">Subjects</h3>
                 </div>
                 
-                <div className="flex flex-wrap gap-2 mb-8">
+                <div className="flex flex-col gap-1 max-h-64 overflow-y-auto hide-scrollbar">
                    {availableSubjects.map((sub) => {
                        const isSelected = filterSubjects.includes(sub);
                        return (
                            <button 
                                key={sub}
                                onClick={() => {
-                                   if (isSelected) setFilterSubjects(prev => prev.filter(s => s !== sub));
-                                   else setFilterSubjects(prev => [...prev, sub]);
+                                   let newFilters;
+                                   if (isSelected) newFilters = filterSubjects.filter(s => s !== sub);
+                                   else newFilters = [...filterSubjects, sub];
+                                   setFilterSubjects(newFilters);
+                                   if (session?.user?.id) {
+                                       api.updateReelsFilter(session.user.id, newFilters);
+                                   }
                                }}
-                               className={`px-4 py-2 rounded-full text-sm font-bold border transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-transparent border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'}`}
+                               className={`w-full text-left px-3 py-2 rounded-xl text-[13px] font-bold transition-colors flex items-center justify-between ${isSelected ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300' : 'bg-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
                            >
                                {sub}
+                               {isSelected && <CheckCircle2 size={16} className={isSelected ? 'text-indigo-600 dark:text-indigo-400' : ''} />}
                            </button>
                        );
                    })}
                 </div>
-                
-                <button 
-                    onClick={async () => {
-                        setShowFilters(false);
-                        // Persist to users profile
-                        if (session?.user?.id) {
-                            await api.updateReelsFilter(session.user.id, filterSubjects);
-                        }
-                    }} 
-                    className="w-full bg-slate-900 dark:bg-white text-white dark:text-black font-bold py-3.5 rounded-full active:scale-95 transition-transform"
-                >
-                    Apply Filters
-                </button>
-             </div>
-          </div>
+            </div>
+          </>
       )}
 
       {/* Reel Area */}
@@ -374,13 +365,6 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
         className="flex-1 w-full h-full overflow-y-auto snap-y snap-mandatory hide-scrollbar bg-slate-50 dark:bg-black transition-colors duration-300 pb-[calc(4.5rem+env(safe-area-inset-bottom))]"
       >
         {questionPool.map((q, idx) => {
-           // Windowing: Only render fully if within ±2 cards of current index
-           if (Math.abs(idx - currentIndex) > 2) {
-               return (
-                  <div key={`${q.id}-${idx}`} className="w-full h-full snap-start snap-always flex-shrink-0 bg-slate-50 dark:bg-black"></div>
-               );
-           }
-           
            const isCurrent = idx === currentIndex;
            const currentState = answeredState[idx];
            const isAnswered = !!currentState;
