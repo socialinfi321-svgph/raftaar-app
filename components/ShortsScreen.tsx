@@ -414,9 +414,9 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                      </div>
 
                      {/* Options Stack */}
-                     <div className="flex flex-col gap-3 sm:gap-3.5 w-full mb-20 sm:mb-24 relative shrink-0 pr-14 sm:pr-16 mt-2">
+                     <div className="flex flex-col gap-3 sm:gap-3.5 w-full pb-16 sm:pb-20 relative shrink-0 pr-14 sm:pr-16 mt-2">
                         {/* Action Buttons - Absolute positioned relative to options stack */}
-                        <div className="absolute right-0 sm:-right-2 bottom-6 z-30 flex flex-col items-center gap-5 pointer-events-auto drop-shadow-sm pr-2 sm:pr-3">
+                        <div className="absolute right-0 sm:-right-2 bottom-12 z-30 flex flex-col items-center gap-5 pointer-events-auto drop-shadow-sm pr-2 sm:pr-3">
 
                             <button onClick={() => toggleInteraction('like', idx)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
                                 <div className="w-8 h-8 flex items-center justify-center">
@@ -527,7 +527,7 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                  </div>
 
                  {/* Absolute Bottom Elements inside Motion Container */}
-                 <div className="absolute left-4 sm:left-6 bottom-4 sm:bottom-6 z-30 flex flex-col gap-1.5 pointer-events-none mb-[env(safe-area-inset-bottom)]">
+                 <div className="absolute left-4 sm:left-6 bottom-[calc(env(safe-area-inset-bottom)-1.5rem)] z-30 flex flex-col gap-1.5 pointer-events-none">
                      <div className="flex items-center gap-3 mb-1">
                          <div className="w-9 h-9 rounded-full bg-slate-900 dark:bg-white flex items-center justify-center shadow-sm shrink-0">
                              <span className="font-sans font-bold text-white dark:text-slate-900 text-sm">R</span>
