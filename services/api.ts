@@ -2,6 +2,7 @@
 import { supabase } from './supabase';
 import { Question, Profile, PYQQuestion, DashboardStats, TestHistoryItem, TestSubmission } from '../types';
 import { updateUserXP } from './xpService'; 
+import { getActiveSubjects, fetchPersonalizedReelBatch } from './reelsRecommendation';
 
 const FALLBACK_SUBJECTS = ['Physics', 'Chemistry', 'Maths', 'Biology', 'Hindi', 'English'];
 const FALLBACK_QUESTIONS: Question[] = [
@@ -129,7 +130,6 @@ export const api = {
 
   getSubjects: async (): Promise<string[]> => {
     try {
-      const { getActiveSubjects } = await import('./reelsRecommendation');
       return await getActiveSubjects();
     } catch (e) {
       console.error("Exception in getSubjects:", e);
@@ -176,7 +176,6 @@ export const api = {
 
   getShortsQuestionPool: async (userId: string, filterSubjects: string[], limit: number = 8): Promise<Question[]> => {
     try {
-      const { fetchPersonalizedReelBatch } = await import('./reelsRecommendation');
       return await fetchPersonalizedReelBatch(userId, filterSubjects, limit);
     } catch(e) {
       console.error("Exception in getShortsQuestionPool:", e);
@@ -353,7 +352,12 @@ export const api = {
   },
 
   getPYQs: async (subject: string, year: number, type: string): Promise<PYQQuestion[]> => {
-    const { data } = await supabase.from('pyq_questions').select('*').eq('subject', subject).eq('exam_year', year).eq('question_type', type);
-    return data as PYQQuestion[] || [];
+    try {
+      const { data } = await supabase.from('pyq_questions').select('*').eq('subject', subject).eq('exam_year', year).eq('question_type', type);
+      return data as PYQQuestion[] || [];
+    } catch(e) {
+      console.error("PYQ fetch exception", e);
+      return [];
+    }
   }
 };
