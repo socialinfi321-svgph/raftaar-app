@@ -73,20 +73,18 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
         const newQuestions = await api.getShortsQuestionPool(session.user.id, filterSubjects, 8);
         if (newQuestions.length > 0) {
             setQuestionPool(prev => {
-                // Remove older questions if memory grows too large (e.g. > 30 items behind)
-                const evictionLimit = 30;
-                let newPool = [...prev, ...newQuestions];
-                if (currentIndex > evictionLimit) {
-                    newPool = newPool.slice(currentIndex - evictionLimit);
-                    // Adjust currentIndex to match new slice if necessary, but this would jump the scroll. 
-                    // Better to just let React DOM virtualization handle rendering, and keep the array intact 
-                    // since plain JS arrays of a few hundred objects consume negligible memory.
-                }
-                return [...prev, ...newQuestions];
+                // Filter out questions that are already in the *recent* tail of the pool to avoid immediate back-to-back dupes
+                const recentIds = new Set(prev.slice(-10).map(q => q.id));
+                const uniqueNew = newQuestions.filter(q => !recentIds.has(q.id));
+                
+                // If DB is very small and everything was in recent tail, just append them anyway to keep infinite scrolling alive
+                const questionsToAdd = uniqueNew.length > 0 ? uniqueNew : newQuestions;
+                
+                return [...prev, ...questionsToAdd];
             });
         }
     } catch(err) {
-        console.error(err);
+        console.error("Error loading more questions:", err);
     } finally {
         loadingMoreRef.current = false;
     }
@@ -405,10 +403,10 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                  </div>
 
                  {/* Question Card Content Container */}
-                 <div className="flex flex-col flex-1 w-full max-w-lg mx-auto pr-12 sm:pr-14 relative z-10 hide-scrollbar">
+                 <div className="flex flex-col flex-1 w-full max-w-lg mx-auto relative z-10 hide-scrollbar justify-between">
                      {/* Question Text */}
-                     <div className="flex-1 flex flex-col justify-end mb-4 relative pt-0 px-4 sm:px-6 overflow-hidden">
-                         <div className="overflow-y-auto hide-scrollbar snap-y snap-mandatory select-text relative">
+                     <div className="flex flex-col justify-start mt-2 mb-auto shrink-1 min-h-0 relative px-4 sm:px-6 overflow-hidden">
+                         <div className="overflow-y-auto hide-scrollbar select-text relative w-full">
                              <h2 className={`font-bold leading-relaxed tracking-tight text-slate-900 dark:text-white py-1 ${textSizeClass}`}>
                                 {questionText}
                              </h2>
@@ -416,9 +414,9 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                      </div>
 
                      {/* Options Stack */}
-                     <div className="flex flex-col gap-3 sm:gap-3.5 w-full pb-10 sm:pb-12 relative shrink-0">
+                     <div className="flex flex-col gap-3 sm:gap-3.5 w-full pb-10 sm:pb-12 relative shrink-0 pr-14 sm:pr-16 mt-4">
                         {/* Action Buttons - Absolute positioned relative to options stack */}
-                        <div className="absolute -right-10 sm:-right-12 bottom-4 z-30 flex flex-col items-center gap-5 pointer-events-auto drop-shadow-sm">
+                        <div className="absolute right-0 sm:-right-2 bottom-4 z-30 flex flex-col items-center gap-5 pointer-events-auto drop-shadow-sm pr-2 sm:pr-3">
 
                             <button onClick={() => toggleInteraction('like', idx)} className="flex flex-col items-center gap-1 active:scale-90 transition-transform group">
                                 <div className="w-8 h-8 flex items-center justify-center">
@@ -460,36 +458,51 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                            const isCorrectOption = String(q.correct_option).toUpperCase() === String(opt).toUpperCase();
                            const isSelectedOption = String(currentState?.selected).toUpperCase() === String(opt).toUpperCase();
                            
-                           let bgClass = "bg-white/90 dark:bg-[#111] border border-slate-100 dark:border-[#222] rounded-2xl pl-4 sm:pl-6 ml-4 sm:ml-6";
+                           let borderClass = "border-slate-100 dark:border-[#222]";
+                           let gradientBgClass = "bg-gradient-to-r from-white from-60% to-transparent dark:from-[#111] dark:to-transparent";
                            let textClass = "text-slate-800 dark:text-white/90";
-                           let labelClass = "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 shadow-sm";
+                           let labelClass = "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/40 shadow-sm";
 
                            // In Test mode, just highlight selected neutrally
                            if (isAnswered && mode === 'test' && !testFinished) {
                                if (isSelectedOption) {
-                                   bgClass = "bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-900/50 rounded-2xl pl-4 sm:pl-6 ml-4 sm:ml-6";
+                                   borderClass = "border-indigo-200 dark:border-indigo-900/50";
+                                   gradientBgClass = "bg-gradient-to-r from-indigo-50 from-60% to-transparent dark:from-indigo-950/50 dark:to-transparent opacity-90";
                                    textClass = "text-indigo-700 dark:text-indigo-400 font-bold";
                                    labelClass = "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300 shadow-sm";
                                } else {
-                                   bgClass = "bg-slate-50/50 dark:bg-[#0a0a0a]/50 border border-slate-100 dark:border-[#1a1a1a] rounded-2xl pl-4 sm:pl-6 ml-4 sm:ml-6 opacity-60";
+                                   borderClass = "border-slate-100 dark:border-[#1a1a1a]";
+                                   gradientBgClass = "bg-gradient-to-r from-slate-50/50 from-60% to-transparent dark:from-[#0a0a0a]/50 dark:to-transparent opacity-60";
                                    textClass = "text-slate-500 dark:text-white/50";
                                    labelClass = "bg-slate-100 text-slate-400 dark:bg-[#222] dark:text-white/30 shadow-sm";
                                }
                            } else if (isAnswered) {
                                // Practice mode feedback
                                if (isCorrectOption) {
-                                   bgClass = "bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl pl-4 sm:pl-6 ml-4 sm:ml-6";
+                                   borderClass = "border-emerald-200 dark:border-emerald-900/50";
+                                   gradientBgClass = "bg-gradient-to-r from-emerald-50 from-60% to-transparent dark:from-emerald-950/50 dark:to-transparent opacity-90";
                                    textClass = "text-emerald-700 dark:text-emerald-400 font-bold";
                                    labelClass = "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300 shadow-sm";
                                } else if (isSelectedOption && !isCorrectOption) {
-                                   bgClass = "bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/50 rounded-2xl pl-4 sm:pl-6 ml-4 sm:ml-6";
+                                   borderClass = "border-rose-200 dark:border-rose-900/50";
+                                   gradientBgClass = "bg-gradient-to-r from-rose-50 from-60% to-transparent dark:from-rose-950/50 dark:to-transparent opacity-90";
                                    textClass = "text-rose-700 dark:text-rose-400 font-bold";
                                    labelClass = "bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300 shadow-sm";
                                } else {
-                                   bgClass = "bg-slate-50/50 dark:bg-[#0a0a0a]/50 border border-slate-100 dark:border-[#1a1a1a] rounded-2xl pl-4 sm:pl-6 ml-4 sm:ml-6 opacity-60";
-                                   textClass = "text-slate-500 dark:text-white/50";
+                                   borderClass = "border-slate-100 dark:border-[#1a1a1a]";
+                                   gradientBgClass = "bg-gradient-to-r from-slate-50/50 from-60% to-transparent dark:from-[#0a0a0a]/50 dark:to-transparent opacity-60";
+                                   textClass = "text-slate-400 dark:text-white/40";
                                    labelClass = "bg-slate-100 text-slate-400 dark:bg-[#222] dark:text-white/30 shadow-sm";
                                }
+                           }
+
+                           // Dynamic option text scaling based on length
+                           const optLength = optValue.length;
+                           let optTextSizeClass = "text-[0.95rem]"; // standard medium
+                           if (optLength > 60) {
+                               optTextSizeClass = "text-[12px] sm:text-[13px] leading-snug";
+                           } else if (optLength < 25) {
+                               optTextSizeClass = "text-[15px] sm:text-[1rem]";
                            }
 
                            return (
@@ -497,18 +510,14 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
                                  key={opt}
                                  onClick={(e) => { e.stopPropagation(); handleOptionSelect(opt, idx); }}
                                  disabled={isAnswered}
-                                 className={`w-[calc(100%-0.5rem)] sm:w-[calc(100%-1rem)] text-left py-3 sm:py-3.5 pr-2 flex items-center justify-between gap-4 transition-all duration-300 overflow-hidden ${bgClass}`}
-                                 style={{ 
-                                     WebkitMaskImage: 'linear-gradient(to right, black 80%, transparent 100%)', 
-                                     maskImage: 'linear-gradient(to right, black 80%, transparent 100%)',
-                                     borderRight: 'none'
-                                 }}
+                                 className={`w-[calc(100%-0.5rem)] sm:w-[calc(100%-1rem)] text-left py-3 sm:py-3.5 pr-2 flex items-center justify-between gap-4 transition-all duration-300 relative border ${borderClass} rounded-2xl ml-4 sm:ml-6 mb-0 group`}
                               >
-                                 <div className="flex items-center gap-3.5 flex-1 w-full overflow-hidden">
+                                 <div className={`absolute inset-0 rounded-2xl ${gradientBgClass} pointer-events-none -z-10`} />
+                                 <div className="flex items-center gap-3.5 flex-1 w-full z-10 px-4 sm:px-6" style={{ paddingLeft: 0, paddingRight: 0, marginLeft: '1rem' }}>
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[13px] font-bold transition-colors ${labelClass}`}>
                                          {opt.toUpperCase()}
                                     </div>
-                                    <span className={`text-[0.95rem] leading-relaxed break-words break-all truncate whitespace-normal line-clamp-3 ${textClass}`}>{optValue}</span>
+                                    <span className={`break-words whitespace-normal line-clamp-3 w-full pr-2 ${textClass} ${optTextSizeClass}`}>{optValue}</span>
                                  </div>
                               </button>
                            );
