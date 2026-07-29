@@ -1,0 +1,11 @@
+.env
+.env.local
+.env.*.local
+migrated_prompt_history/
+*.prompt_history.json
+dist/
+build/
+node_modules/
+.DS_Store
+.vscode/
+*.log
