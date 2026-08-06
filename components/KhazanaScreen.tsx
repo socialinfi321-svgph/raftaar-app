@@ -15,7 +15,7 @@ export const KhazanaScreen: React.FC<KhazanaScreenProps> = ({ profile, navigate 
     <div className="h-full flex flex-col bg-[#FAFAFA] text-[#101828] overflow-hidden font-sans selection:bg-[#3A5643]/20 relative">
 
       {/* Top Header */}
-      <div className="relative z-50 px-4 pt-safe-header pb-2 flex justify-between items-center bg-transparent mt-2">
+      <div className="relative z-50 px-4 pt-safe-header pb-3 flex justify-between items-center bg-white border-b border-[#EAECF0] shadow-sm">
         <div className="flex items-center gap-3">
             <button onClick={() => navigate(-1)} className="p-1 -ml-1 active:scale-90 transition-transform">
                 <ArrowLeft size={24} className="text-[#101828]" />
@@ -33,16 +33,16 @@ export const KhazanaScreen: React.FC<KhazanaScreenProps> = ({ profile, navigate 
       <div className="flex-1 overflow-y-auto hide-scrollbar pb-[calc(6rem+env(safe-area-inset-bottom))] relative z-10">
         
         {/* Decorative Header Area */}
-        <div className="w-full relative">
+        <div className="w-full relative mt-2">
            <img 
               src="https://res.cloudinary.com/dtygcxcr1/image/upload/v1786012541/khazana_hero_section_ht6dpl.png" 
               alt="Khazana Header" 
-              className="w-full h-auto object-cover object-top -mt-[10px] pointer-events-none"
+              className="w-full h-auto object-cover object-top pointer-events-none"
               style={{ maskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to bottom, black 85%, transparent 100%)' }}
            />
         </div>
 
-        <div className="px-4 space-y-5 pb-6 max-w-lg mx-auto relative z-20 -mt-6">
+        <div className="px-4 space-y-5 pb-6 max-w-lg mx-auto relative z-20 -mt-2">
           {/* Search Bar */}
           <div className="relative group">
             <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
@@ -51,20 +51,20 @@ export const KhazanaScreen: React.FC<KhazanaScreenProps> = ({ profile, navigate 
             <input 
               type="text" 
               placeholder="Search for a teacher or concept" 
-              className="w-full bg-white border border-[#EAECF0] text-[#101828] placeholder-[#98A2B3] rounded-[16px] py-3.5 pl-11 pr-4 focus:outline-none focus:ring-1 focus:ring-[#3A5643] focus:border-[#3A5643] transition-all text-[15px] shadow-[0_1px_4px_rgba(16,24,40,0.04)]"
+              className="w-full bg-white border border-[#EAECF0] text-[#101828] placeholder-[#98A2B3] rounded-[16px] py-3.5 pl-11 pr-4 focus:outline-none focus:ring-1 focus:ring-[#3A5643] focus:border-[#3A5643] transition-all text-[14px] shadow-[0_1px_4px_rgba(16,24,40,0.04)]"
             />
           </div>
 
           {/* Filters */}
-          <div className="flex items-center gap-3 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-1">
-            <button className="flex-shrink-0 w-[38px] h-[38px] bg-white border border-[#EAECF0] rounded-[10px] flex items-center justify-center text-[#475467] active:scale-95 transition-transform shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
-               <SlidersHorizontal size={18} />
+          <div className="flex items-center gap-2.5 overflow-x-auto hide-scrollbar -mx-4 px-4 pb-1">
+            <button className="flex-shrink-0 w-[34px] h-[34px] bg-white border border-[#EAECF0] rounded-[10px] flex items-center justify-center text-[#475467] active:scale-95 transition-transform shadow-[0_1px_4px_rgba(16,24,40,0.04)]">
+               <SlidersHorizontal size={16} />
             </button>
             {filters.map(filter => (
               <button 
                 key={filter}
                 onClick={() => setActiveFilter(filter)}
-                className={`flex-shrink-0 px-4 h-[38px] rounded-[10px] text-[13px] font-semibold transition-all active:scale-95 shadow-[0_1px_4px_rgba(16,24,40,0.04)] ${
+                className={`flex-shrink-0 px-3.5 h-[34px] rounded-[10px] text-[12px] font-semibold transition-all active:scale-95 shadow-[0_1px_4px_rgba(16,24,40,0.04)] ${
                   activeFilter === filter 
                     ? 'bg-[#3A5643] text-white border border-[#3A5643]' 
                     : 'bg-white text-[#344054] border border-[#EAECF0] hover:bg-gray-50'
