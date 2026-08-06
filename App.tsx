@@ -14,6 +14,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { DashboardModal } from './components/DashboardModal';
 import { AchievementsModal } from './components/AchievementsModal';
 import { RewardsScreen } from './components/RewardsScreen';
+import { KhazanaScreen } from './components/KhazanaScreen';
 import { HomeScreen } from './components/HomeScreen';
 import { NoInternetScreen } from './components/NoInternetScreen'; // Import
 import { AnimatePresence, motion } from 'framer-motion';
@@ -626,6 +627,7 @@ export default function App() {
                         } 
                     />
                     <Route path="/practice" element={<PracticeScreen onSelectChapter={handleStartTest} navigate={navigate} profile={userProfile} />} />
+                    <Route path="/khazana" element={<KhazanaScreen profile={userProfile} navigate={navigate} />} />
                     <Route path="/exam" element={<ExamScreen showCS={() => { setComingSoonTitle('BSEB Physics Mega Mock'); navigate('/coming-soon'); }} profile={userProfile} navigate={navigate} />} />
                     <Route path="/rewards" element={<RewardsScreen profile={userProfile} session={session} navigate={navigate} />} />
                     

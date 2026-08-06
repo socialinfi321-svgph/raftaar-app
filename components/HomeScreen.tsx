@@ -311,7 +311,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     icon="fa-solid fa-gem" 
                     label="Khazana" 
                     gradient="bg-gradient-to-br from-[#f6d365] to-[#fda085]"
-                    onClick={() => setComingSoonTitle('Khazana')} 
+                    onClick={() => navigate('/khazana')} 
                 />
                 <GradientIconBtn 
                     icon="fa-solid fa-file-pdf" 
