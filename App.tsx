@@ -13,6 +13,7 @@ import { PYQSubjectiveScreen } from './components/PYQSubjectiveScreen';
 import { LoginScreen } from './components/LoginScreen';
 import { DashboardModal } from './components/DashboardModal';
 import { AchievementsModal } from './components/AchievementsModal';
+import { YouTubeHome } from './components/YouTubeHome';
 import { RewardsScreen } from './components/RewardsScreen';
 import { KhazanaScreen } from './components/KhazanaScreen';
 import { HomeScreen } from './components/HomeScreen';
@@ -144,76 +145,17 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
     );
 };
 
-// Practice Screen
+// Practice Screen (Now Study Screen)
 const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapter: (subject: string, chapter: string) => void, navigate: any, profile: Profile | null }) => {
-    const [subjects, setSubjects] = useState<string[]>([]);
-    const [searchParams, setSearchParams] = useSearchParams();
-    const selectedSubject = searchParams.get('subject');
-    
-    const [chapters, setChapters] = useState<{en: string, hi: string, count: number}[]>([]);
-    const [loading, setLoading] = useState(false);
-  
-    // 1. Caching Strategy for Subjects
-    useEffect(() => {
-      const cacheKey = 'subjects_cache';
-      const cached = localStorage.getItem(cacheKey);
-      
-      // Instant Load from Cache
-      if (cached) {
-          setSubjects(JSON.parse(cached));
-      }
-
-      // Background Fetch & Update
-      api.getSubjects().then(data => {
-          setSubjects(data);
-          localStorage.setItem(cacheKey, JSON.stringify(data));
-      });
-    }, []);
-  
-    // 2. Caching Strategy for Chapters (Strict Sorting handled in API)
-    useEffect(() => {
-      if (selectedSubject) {
-          setLoading(true);
-          const cacheKey = `chapters_cache_${selectedSubject}`;
-          const cached = localStorage.getItem(cacheKey);
-
-          // Instant Load from Cache
-          if (cached) {
-              setChapters(JSON.parse(cached));
-              setLoading(false); 
-          }
-
-          // Background Fetch & Update
-          api.getChapterStats(selectedSubject).then(data => {
-              setChapters(data);
-              localStorage.setItem(cacheKey, JSON.stringify(data));
-              setLoading(false);
-          });
-      }
-    }, [selectedSubject]);
-
-    // Stack Logic: Chapter List -> Subject List -> Home
-    const handleAppBack = () => {
-        if (selectedSubject) {
-            setSearchParams({}, { replace: true }); 
-            return true; 
-        } else {
-            navigate('/'); 
-            return true; 
-        }
-    };
-
-    useBackHandler(handleAppBack, true); 
-
     return (
         <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
             <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
                 <div className="flex items-center gap-3">
-                    <button onClick={handleAppBack} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors p-1 -ml-1 rounded-full active:bg-slate-100 dark:active:bg-slate-900">
+                    <button onClick={() => navigate('/')} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors p-1 -ml-1 rounded-full active:bg-slate-100 dark:active:bg-slate-900">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
                     </button>
                     <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                        {selectedSubject || 'Practice'}
+                        Study
                     </h2>
                 </div>
                 <div className="flex items-center gap-1 text-brand-500 dark:text-brand-400 font-black">
@@ -222,40 +164,12 @@ const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapte
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto hide-scrollbar p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] animate-fade-in bg-slate-50 dark:bg-slate-950 transition-colors">
-                {!selectedSubject ? (
-                    <>
-                        <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-6">Select <span className="text-brand-500">Subject</span></h2>
-                        <div className="grid grid-cols-2 gap-4">
-                            {subjects.map(sub => (
-                                <div key={sub} onClick={() => setSearchParams({ subject: sub }, { replace: true })} className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md dark:shadow-none flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition-transform hover:border-brand-500/50 group">
-                                    <SubjectIcon subject={sub} />
-                                    <span className="font-bold text-slate-600 dark:text-slate-300 text-sm group-hover:text-brand-600 dark:group-hover:text-white transition-colors">{sub}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </>
-                ) : (
-                    <div className="space-y-3">
-                        {loading && chapters.length === 0 ? (
-                            <div className="text-center p-10 text-slate-500 text-sm font-bold animate-pulse">Loading chapters...</div>
-                        ) : (
-                            chapters.map((chap, idx) => (
-                                <div key={idx} onClick={() => onSelectChapter(selectedSubject, chap.en)} className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm active:scale-[0.98] transition-transform flex items-center justify-between cursor-pointer hover:border-brand-500/30 group">
-                                    <div>
-                                        <h4 className="font-bold text-slate-700 dark:text-slate-200 text-sm group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
-                                            {idx + 1}. {chap.en}
-                                        </h4>
-                                        {chap.hi && <p className="text-xs text-slate-500 mt-1 font-medium">{chap.hi}</p>}
-                                    </div>
-                                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 group-hover:bg-brand-50 dark:group-hover:bg-brand-500/20 group-hover:text-brand-500 dark:group-hover:text-brand-400 transition-colors">
-                                        <i className="fa-solid fa-chevron-right text-xs"></i>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                )}
+            <div className="flex-1 overflow-y-auto hide-scrollbar p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] animate-fade-in bg-slate-50 dark:bg-slate-950 transition-colors flex items-center justify-center flex-col text-center">
+                <div className="w-24 h-24 bg-brand-50 dark:bg-brand-500/10 rounded-full flex items-center justify-center mb-6 border border-brand-100 dark:border-brand-500/20">
+                    <i className="fa-solid fa-book-open text-4xl text-brand-600 dark:text-brand-500"></i>
+                </div>
+                <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Study Materials</h2>
+                <p className="text-slate-500 dark:text-slate-400 font-medium">New study content and resources are coming soon.</p>
             </div>
         </div>
     );
@@ -515,13 +429,13 @@ export default function App() {
                     <RaftaarLogo />
                 </div>
                 <div className="flex-1 flex flex-col gap-2">
-                    <button onClick={() => navigate('/')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname === '/' ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
+                    <button onClick={() => navigate('/practice')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname.startsWith('/practice') ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
                         <i className="fa-solid fa-house w-6 text-center text-lg"></i>
                         <span>Home</span>
                     </button>
-                    <button onClick={() => navigate('/practice')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname.startsWith('/practice') ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
+                    <button onClick={() => navigate('/')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname === '/' ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
                         <i className="fa-solid fa-book-open w-6 text-center text-lg"></i>
-                        <span>Practice</span>
+                        <span>Study</span>
                     </button>
                     <button onClick={() => navigate('/exam')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname.startsWith('/exam') ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
                         <i className="fa-solid fa-file-signature w-6 text-center text-lg"></i>
@@ -626,7 +540,7 @@ export default function App() {
                             />
                         } 
                     />
-                    <Route path="/practice" element={<PracticeScreen onSelectChapter={handleStartTest} navigate={navigate} profile={userProfile} />} />
+                    <Route path="/practice" element={<YouTubeHome navigate={navigate} />} />
                     <Route path="/khazana" element={<KhazanaScreen profile={userProfile} navigate={navigate} />} />
                     <Route path="/exam" element={<ExamScreen showCS={() => { setComingSoonTitle('BSEB Physics Mega Mock'); navigate('/coming-soon'); }} profile={userProfile} navigate={navigate} />} />
                     <Route path="/rewards" element={<RewardsScreen profile={userProfile} session={session} navigate={navigate} />} />
@@ -793,13 +707,13 @@ export default function App() {
         {showNav && (
             <div className="lg:hidden absolute bottom-0 w-full bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-around pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] transition-colors duration-300">
                 <div className="flex w-full justify-around">
-                    <NavIcon icon="fa-house" label="Home" target="/" isActive={location.pathname === '/'} navigate={navigate} />
+                    <NavIcon icon="fa-house" label="Home" target="/practice" isActive={location.pathname.startsWith('/practice')} navigate={navigate} />
                     <NavIcon icon="fa-bolt" label="Shorts" target="/shorts" isActive={location.pathname.startsWith('/shorts')} navigate={navigate} svgIcon={
                          <svg viewBox="0 0 24 24" fill="currentColor" className={`w-[1.7rem] h-[1.7rem] mb-[0.125rem] transition-all ${location.pathname.startsWith('/shorts') ? 'drop-shadow-md' : ''}`} xmlns="http://www.w3.org/2000/svg">
                              <path d="M17.77 10.32l-1.2-.5L18 7.74c1.5-.76 2.1-2.58 1.34-4.09A3.018 3.018 0 0 0 15.22 2.3l-10.46 5.43c-1.54.8-2.15 2.69-1.35 4.24a3.024 3.024 0 0 0 1.35 1.29l1.2.5L4 16.26c-1.5.76-2.1 2.58-1.34 4.09a3.018 3.018 0 0 0 4.12 1.35l10.46-5.43c1.54-.8 2.15-2.69 1.35-4.24A3.024 3.024 0 0 0 17.77 10.32ZM10 14.25v-4.5L14 12Z"/>
                          </svg>
                     } />
-                    <NavIcon icon="fa-book-open" label="Practice" target="/practice" isActive={location.pathname.startsWith('/practice')} navigate={navigate} />
+                    <NavIcon icon="fa-book-open" label="Study" target="/" isActive={location.pathname === '/'} navigate={navigate} />
                     <NavIcon icon="fa-file-signature" label="Exam" target="/exam" isActive={location.pathname.startsWith('/exam')} navigate={navigate} />
                     <NavIcon icon="fa-trophy" label="Rewards" target="/rewards" isActive={location.pathname.startsWith('/rewards')} navigate={navigate} />
                 </div>

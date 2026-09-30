@@ -75,45 +75,6 @@ export const KhazanaScreen: React.FC<KhazanaScreenProps> = ({ profile, navigate 
             ))}
           </div>
 
-          {/* Cards Grid */}
-          <div className="grid grid-cols-2 gap-4">
-             {/* Upcoming Tests Card */}
-             <div className="bg-white border border-[#EAECF0] rounded-[16px] p-4 active:scale-95 transition-transform cursor-pointer shadow-[0_4px_12px_rgba(16,24,40,0.03)] flex flex-col relative h-[130px]">
-                <div className="w-9 h-9 bg-[#F0F4F1] rounded-[10px] flex items-center justify-center mb-2.5 text-[#3A5643]">
-                   {/* Custom Calendar SVG */}
-                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                      <line x1="16" y1="2" x2="16" y2="6"></line>
-                      <line x1="8" y1="2" x2="8" y2="6"></line>
-                      <line x1="3" y1="10" x2="21" y2="10"></line>
-                      <circle cx="9" cy="15" r="1.5" fill="currentColor" stroke="none"></circle>
-                      <circle cx="15" cy="15" r="1.5" fill="currentColor" stroke="none"></circle>
-                      <path d="M10 18c1 1 3 1 4 0"></path>
-                   </svg>
-                </div>
-                <h4 className="font-bold text-[14px] text-[#101828] leading-tight mb-1">Upcoming Tests</h4>
-                <p className="text-[12px] text-[#667085] leading-[1.4] pr-4">Stay updated with your schedule</p>
-                <div className="absolute bottom-4 right-4 w-7 h-7 bg-[#F0F4F1] rounded-full flex items-center justify-center">
-                    <ChevronRight size={16} className="text-[#3A5643]" />
-                </div>
-             </div>
-
-             {/* AI Quiz Card */}
-             <div className="bg-white border border-[#EAECF0] rounded-[16px] p-4 active:scale-95 transition-transform cursor-pointer shadow-[0_4px_12px_rgba(16,24,40,0.03)] flex flex-col relative h-[130px]">
-                <div className="w-9 h-9 bg-[#F0F4F1] rounded-[10px] flex items-center justify-center mb-2.5 text-[#3A5643]">
-                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                       <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
-                       <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
-                   </svg>
-                </div>
-                <h4 className="font-bold text-[14px] text-[#101828] leading-tight mb-1">AI Quiz</h4>
-                <p className="text-[12px] text-[#667085] leading-[1.4] pr-4">Practice Daily Quizzes!</p>
-                <div className="absolute bottom-4 right-4 w-7 h-7 bg-[#F0F4F1] rounded-full flex items-center justify-center">
-                    <ChevronRight size={16} className="text-[#3A5643]" />
-                </div>
-             </div>
-          </div>
-
           {/* Chalkboard Banner */}
           <div className="w-full h-[140px] rounded-[16px] overflow-hidden relative shadow-[0_4px_12px_rgba(16,24,40,0.05)] mt-2">
               {/* Fallback color matching chalkboard */}
