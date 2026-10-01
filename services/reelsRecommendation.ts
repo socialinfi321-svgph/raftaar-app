@@ -1,22 +1,30 @@
 import { supabase } from './supabase';
 import { Question } from '../types';
+import { COMPREHENSIVE_QUESTIONS } from './fallbackData';
+
+const DEFAULT_SUBJECTS = ['Physics', 'Chemistry', 'Maths', 'Biology', 'Hindi', 'English'];
 
 export const getActiveSubjects = async (): Promise<string[]> => {
     // We try to call an RPC if it exists, otherwise fallback to standard query
     try {
         const { data, error } = await supabase.rpc('get_active_subjects');
-        if (!error && data) {
+        if (!error && data && data.length > 0) {
             return data.map((d: any) => d.subject);
         }
     } catch (e) {}
 
     // Fallback if RPC doesn't exist
-    const { data: qData, error: qError } = await supabase
-        .from('questions')
-        .select('subject'); // Beware of 1000 row limit, but acceptable as fallback
-        
-    if (qError || !qData) return [];
-    return Array.from(new Set(qData.map((d: any) => String(d.subject))));
+    try {
+        const { data: qData, error: qError } = await supabase
+            .from('questions')
+            .select('subject');
+            
+        if (!qError && qData && qData.length > 0) {
+            return Array.from(new Set(qData.map((d: any) => String(d.subject))));
+        }
+    } catch (e) {}
+
+    return DEFAULT_SUBJECTS;
 };
 
 /**
@@ -124,6 +132,13 @@ export const fetchPersonalizedReelBatch = async (
         }
     }
     
+    if (results.length === 0) {
+        const pool = filterSubjects && filterSubjects.length > 0 
+          ? COMPREHENSIVE_QUESTIONS.filter(q => filterSubjects.includes(q.subject))
+          : COMPREHENSIVE_QUESTIONS;
+        return (pool.length > 0 ? pool : COMPREHENSIVE_QUESTIONS).slice(0, batchSize);
+    }
+
     // Final shuffle
     return results.sort(() => Math.random() - 0.5);
 };

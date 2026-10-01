@@ -14,6 +14,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { DashboardModal } from './components/DashboardModal';
 import { AchievementsModal } from './components/AchievementsModal';
 import { YouTubeHome } from './components/YouTubeHome';
+import { PracticeScreen } from './components/PracticeScreen';
 import { RewardsScreen } from './components/RewardsScreen';
 import { KhazanaScreen } from './components/KhazanaScreen';
 import { HomeScreen } from './components/HomeScreen';
@@ -140,36 +141,6 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
                         <button className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-950 px-4 py-2 rounded-xl text-xs font-bold shadow-md">Register Now</button>
                     </div>
                 </div>
-            </div>
-        </div>
-    );
-};
-
-// Practice Screen (Now Study Screen)
-const PracticeScreen = ({ onSelectChapter, navigate, profile }: { onSelectChapter: (subject: string, chapter: string) => void, navigate: any, profile: Profile | null }) => {
-    return (
-        <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-            <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
-                <div className="flex items-center gap-3">
-                    <button onClick={() => navigate('/')} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors p-1 -ml-1 rounded-full active:bg-slate-100 dark:active:bg-slate-900">
-                        <i className="fa-solid fa-chevron-left text-lg"></i>
-                    </button>
-                    <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                        Study
-                    </h2>
-                </div>
-                <div className="flex items-center gap-1 text-brand-500 dark:text-brand-400 font-black">
-                    <i className="fa-solid fa-bolt text-xs"></i>
-                    <span>{profile?.weekly_xp || 0}</span>
-                </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto hide-scrollbar p-5 pb-[calc(5rem+env(safe-area-inset-bottom))] animate-fade-in bg-slate-50 dark:bg-slate-950 transition-colors flex items-center justify-center flex-col text-center">
-                <div className="w-24 h-24 bg-brand-50 dark:bg-brand-500/10 rounded-full flex items-center justify-center mb-6 border border-brand-100 dark:border-brand-500/20">
-                    <i className="fa-solid fa-book-open text-4xl text-brand-600 dark:text-brand-500"></i>
-                </div>
-                <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2">Study Materials</h2>
-                <p className="text-slate-500 dark:text-slate-400 font-medium">New study content and resources are coming soon.</p>
             </div>
         </div>
     );
@@ -416,7 +387,7 @@ export default function App() {
 
   if (!session) return <LoginScreen onLoginSuccess={(s) => { setSession(s); navigate('/', { replace: true }); }} />;
 
-  const showNav = ['/', '/practice', '/rewards', '/profile', '/exam', '/shorts'].includes(location.pathname);
+  const showNav = ['/', '/home', '/classes', '/rewards', '/profile', '/exam', '/shorts'].includes(location.pathname);
   const showTopHeader = false; // Always false, Home screen will handle its own header
 
   return (
@@ -429,13 +400,17 @@ export default function App() {
                     <RaftaarLogo />
                 </div>
                 <div className="flex-1 flex flex-col gap-2">
-                    <button onClick={() => navigate('/practice')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname.startsWith('/practice') ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
+                    <button onClick={() => navigate('/home')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname === '/home' || location.pathname === '/classes' ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
                         <i className="fa-solid fa-house w-6 text-center text-lg"></i>
                         <span>Home</span>
                     </button>
                     <button onClick={() => navigate('/')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname === '/' ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
                         <i className="fa-solid fa-book-open w-6 text-center text-lg"></i>
                         <span>Study</span>
+                    </button>
+                    <button onClick={() => navigate('/practice')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname.startsWith('/practice') ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
+                        <i className="fa-solid fa-brain w-6 text-center text-lg"></i>
+                        <span>Practice</span>
                     </button>
                     <button onClick={() => navigate('/exam')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname.startsWith('/exam') ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
                         <i className="fa-solid fa-file-signature w-6 text-center text-lg"></i>
@@ -540,7 +515,9 @@ export default function App() {
                             />
                         } 
                     />
-                    <Route path="/practice" element={<YouTubeHome navigate={navigate} />} />
+                    <Route path="/home" element={<YouTubeHome navigate={navigate} />} />
+                    <Route path="/classes" element={<YouTubeHome navigate={navigate} />} />
+                    <Route path="/practice" element={<PracticeScreen onSelectChapter={handleStartTest} navigate={navigate} profile={userProfile} />} />
                     <Route path="/khazana" element={<KhazanaScreen profile={userProfile} navigate={navigate} />} />
                     <Route path="/exam" element={<ExamScreen showCS={() => { setComingSoonTitle('BSEB Physics Mega Mock'); navigate('/coming-soon'); }} profile={userProfile} navigate={navigate} />} />
                     <Route path="/rewards" element={<RewardsScreen profile={userProfile} session={session} navigate={navigate} />} />
@@ -707,7 +684,7 @@ export default function App() {
         {showNav && (
             <div className="lg:hidden absolute bottom-0 w-full bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-around pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] z-40 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] transition-colors duration-300">
                 <div className="flex w-full justify-around">
-                    <NavIcon icon="fa-house" label="Home" target="/practice" isActive={location.pathname.startsWith('/practice')} navigate={navigate} />
+                    <NavIcon icon="fa-house" label="Home" target="/home" isActive={location.pathname === '/home' || location.pathname === '/classes'} navigate={navigate} />
                     <NavIcon icon="fa-bolt" label="Shorts" target="/shorts" isActive={location.pathname.startsWith('/shorts')} navigate={navigate} svgIcon={
                          <svg viewBox="0 0 24 24" fill="currentColor" className={`w-[1.7rem] h-[1.7rem] mb-[0.125rem] transition-all ${location.pathname.startsWith('/shorts') ? 'drop-shadow-md' : ''}`} xmlns="http://www.w3.org/2000/svg">
                              <path d="M17.77 10.32l-1.2-.5L18 7.74c1.5-.76 2.1-2.58 1.34-4.09A3.018 3.018 0 0 0 15.22 2.3l-10.46 5.43c-1.54.8-2.15 2.69-1.35 4.24a3.024 3.024 0 0 0 1.35 1.29l1.2.5L4 16.26c-1.5.76-2.1 2.58-1.34 4.09a3.018 3.018 0 0 0 4.12 1.35l10.46-5.43c1.54-.8 2.15-2.69 1.35-4.24A3.024 3.024 0 0 0 17.77 10.32ZM10 14.25v-4.5L14 12Z"/>
