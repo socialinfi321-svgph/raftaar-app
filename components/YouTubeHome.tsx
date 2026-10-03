@@ -4,7 +4,7 @@ import {
   ArrowLeft, Search, X, ThumbsUp, ThumbsDown, Share2, 
   Bookmark, Bell, Check, MessageSquare, Send, Eye, Clock,
   Play, Sparkles, Filter, ChevronDown, ChevronUp, Copy, BookOpen, GraduationCap,
-  MoreVertical
+  MoreVertical, Compass
 } from 'lucide-react';
 import { CustomVideoPlayer } from './CustomVideoPlayer';
 import { SmartThumbnail } from './SmartThumbnail';
@@ -163,6 +163,12 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Smart scroll direction auto-hide
+  const lastScrollY = useRef(0);
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
 
   // Player Watch Screen State
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
@@ -322,13 +328,24 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     };
   }, [activeCategory, searchQuery]);
 
-  // Infinite Scroll Handler
+  // Smart Scroll & Infinite Scroll Handler
   const handleScroll = useCallback(() => {
-    if (!scrollContainerRef.current || loading || loadingMore || !nextPageToken) return;
+    if (!scrollContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
     
-    // Trigger when user is within 300px of bottom
-    if (scrollTop + clientHeight >= scrollHeight - 350) {
+    // Auto-hide Top Header & Bottom Navbar on Scroll Down, bring back on Scroll Up
+    const delta = scrollTop - lastScrollY.current;
+    if (delta > 8 && scrollTop > 50) {
+      setIsHeaderVisible(false);
+      window.dispatchEvent(new CustomEvent('app:nav-visible', { detail: { visible: false } }));
+    } else if (delta < -8 || scrollTop <= 15) {
+      setIsHeaderVisible(true);
+      window.dispatchEvent(new CustomEvent('app:nav-visible', { detail: { visible: true } }));
+    }
+    lastScrollY.current = scrollTop;
+
+    // Trigger when user is within 350px of bottom
+    if (scrollTop + clientHeight >= scrollHeight - 350 && !loading && !loadingMore && nextPageToken) {
       setLoadingMore(true);
       const q = buildSearchQuery(activeCategory, searchQuery);
       fetchVideosBatch(q, nextPageToken).then(({ items, nextToken }) => {
@@ -471,75 +488,172 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         </div>
       )}
 
-      {/* ================= TOP HEADER / SEARCH BAR ================= */}
-      <div className="sticky top-0 z-50 px-3 sm:px-5 py-2.5 pt-safe-header bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 sm:gap-4 shadow-xs">
-        
-        {/* Left: Back / Logo */}
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => {
-              if (selectedVideo) {
-                setSelectedVideo(null);
-              } else {
-                navigate('/');
-              }
-            }}
-            className="p-1.5 -ml-1 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900 active:scale-95 transition-all"
-            aria-label="Back"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => { setSelectedVideo(null); setSearchQuery(''); setActiveCategory('All'); }}>
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-xs">
-              <GraduationCap size={18} />
-            </div>
-            <div className="hidden xs:flex flex-col">
-              <span className="text-base font-black tracking-tight text-slate-900 dark:text-white leading-none">
-                Raftaar <span className="text-blue-600 dark:text-blue-400 font-extrabold">Classes</span>
-              </span>
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-                BSEB 12th Smart Player
-              </span>
-            </div>
-          </div>
-        </div>
+      {/* ================= TOP HEADER / SEARCH BAR (YouTube Mobile Style) ================= */}
+      <header className="sticky top-0 z-50 bg-white dark:bg-[#0f0f0f] border-b border-neutral-100 dark:border-neutral-800/60 shadow-xs">
+        {/* Status Bar Safe Area: Reserved space for phone battery, clock, Wi-Fi/network */}
+        <div 
+          className="w-full h-[max(28px,env(safe-area-inset-top,28px))] shrink-0 pointer-events-none select-none bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-sm"
+          aria-hidden="true"
+        />
 
-        {/* Center: Search Box */}
-        <form onSubmit={handleSearchSubmit} className="flex-1 max-w-xl flex items-center relative">
-          <div className="w-full flex items-center bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full pl-3 pr-2 py-1.5 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 transition-all">
-            <Search size={16} className="text-slate-400 shrink-0 mr-2" />
-            <input
-              type="text"
-              placeholder="Search Bihar Board Class 12 lectures..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full bg-transparent text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 outline-none"
-            />
-            {searchInput && (
-              <button
-                type="button"
-                onClick={handleClearSearch}
-                className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors mr-1"
-              >
-                <X size={15} />
-              </button>
+        {/* Top Logo / Search Row: Starts strictly BELOW the safe area, slides up and collapses out of screen on scroll down */}
+        <div
+          className={`transition-all duration-300 ease-in-out overflow-hidden ${
+            isHeaderVisible || isSearchExpanded
+              ? 'h-12 opacity-100 translate-y-0'
+              : 'h-0 opacity-0 -translate-y-full pointer-events-none'
+          }`}
+        >
+          <div className="h-12 px-3 flex items-center justify-between">
+            {isSearchExpanded ? (
+              /* Search Overlay Mode */
+              <form onSubmit={handleSearchSubmit} className="flex items-center w-full h-10 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSearchExpanded(false)}
+                  className="p-1.5 -ml-1 text-[#0f0f0f] dark:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                  aria-label="Back"
+                >
+                  <ArrowLeft className="w-6 h-6" />
+                </button>
+                <div className="flex-1 flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-full px-3 py-1.5 focus-within:ring-1 focus-within:ring-black dark:focus-within:ring-white">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Search Bihar Board lectures..."
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    className="w-full bg-transparent text-[15px] text-[#0f0f0f] dark:text-white placeholder-neutral-500 outline-none"
+                  />
+                  {searchInput && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchInput('');
+                        searchInputRef.current?.focus();
+                      }}
+                      className="p-1 text-neutral-500 hover:text-neutral-800 dark:hover:text-white"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  className="p-1.5 text-[#0f0f0f] dark:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                  aria-label="Search"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+              </form>
+            ) : (
+              /* Default YouTube Header Layout */
+              <>
+                {/* Left: App Logo icon + bold "Raftaar" brand text (clean, no back arrow on main Home screen) */}
+                <div
+                  className="flex items-center gap-1.5 cursor-pointer select-none"
+                  onClick={() => {
+                    if (selectedVideo) setSelectedVideo(null);
+                    setActiveCategory('All');
+                    setSearchQuery('');
+                  }}
+                >
+                  {selectedVideo && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedVideo(null);
+                      }}
+                      className="p-1 -ml-1 mr-1 rounded-full text-[#0f0f0f] dark:text-white hover:bg-black/5 dark:hover:bg-white/10"
+                    >
+                      <ArrowLeft className="w-6 h-6" />
+                    </button>
+                  )}
+                  {/* YouTube-style Red Play Icon Badge */}
+                  <div className="w-7 h-5 sm:w-8 sm:h-5.5 bg-[#FF0000] rounded-[6px] flex items-center justify-center shadow-xs">
+                    <Play size={11} className="fill-white text-white ml-0.5" />
+                  </div>
+                  <span className="text-[19px] font-bold tracking-tighter text-[#0f0f0f] dark:text-white font-sans">
+                    Raftaar
+                  </span>
+                </div>
+
+                {/* Right: Notification Bell (with red 9+ badge) + Search Icon (w-6 h-6) */}
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => showToast('9+ new board lectures uploaded today!')}
+                    className="relative text-[#0f0f0f] dark:text-white p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-full active:scale-95 transition-all"
+                    aria-label="Notifications"
+                  >
+                    <Bell className="w-6 h-6" />
+                    <span className="absolute -top-0.5 -right-0.5 bg-[#cc0000] text-white text-[10px] font-bold px-1 min-w-[17px] h-[17px] rounded-full flex items-center justify-center border-2 border-white dark:border-[#0f0f0f] leading-none">
+                      9+
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSearchExpanded(true);
+                      setTimeout(() => searchInputRef.current?.focus(), 80);
+                    }}
+                    className="text-[#0f0f0f] dark:text-white p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-full active:scale-95 transition-all"
+                    aria-label="Search"
+                  >
+                    <Search className="w-6 h-6" />
+                  </button>
+                </div>
+              </>
             )}
-            <button
-              type="submit"
-              className="bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1 rounded-full text-xs font-bold transition-colors shrink-0"
-            >
-              Search
-            </button>
           </div>
-        </form>
-
-        {/* Right: Quick Tag */}
-        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 text-xs font-bold shrink-0">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-          Live Feed
         </div>
-      </div>
+
+        {/* Category Filter Chips Row: Stays sticky at the very top when the logo row slides up */}
+        {!selectedVideo && (
+          <div className={`px-3 py-2 flex items-center gap-2 overflow-x-auto hide-scrollbar transition-all duration-300 ${
+            isHeaderVisible ? 'border-t border-neutral-100/60 dark:border-neutral-800/40' : ''
+          }`}>
+            {/* Explore Compass Chip */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveCategory('All');
+                setSearchQuery('');
+                setSearchInput('');
+              }}
+              className="px-2.5 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-neutral-200 shrink-0 hover:bg-neutral-200 dark:hover:bg-neutral-700 active:scale-95 transition-all"
+              title="Explore all"
+            >
+              <Compass size={18} />
+            </button>
+            <div className="w-[1px] h-5 bg-neutral-200 dark:bg-neutral-800 shrink-0"></div>
+
+            {CATEGORIES.map((cat) => {
+              const isActive = activeCategory === cat && !searchQuery;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    setActiveCategory(cat);
+                    setSearchQuery('');
+                    setSearchInput('');
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-[14px] font-medium shrink-0 transition-colors whitespace-nowrap active:scale-95 ${
+                    isActive
+                      ? 'bg-[#0f0f0f] text-white dark:bg-white dark:text-[#0f0f0f]'
+                      : 'bg-neutral-100 text-[#0f0f0f] dark:bg-neutral-800 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                  }`}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </header>
 
       {/* ================= MAIN CONTAINER ================= */}
       <div 
@@ -774,7 +888,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   {loadingRecommended ? (
                     Array.from({ length: 4 }).map((_, i) => (
                       <div key={i} className="flex gap-3 py-2 animate-pulse">
-                        <div className="w-36 aspect-video bg-[#e5e5e5] dark:bg-neutral-800 rounded-xl shrink-0"></div>
+                        <div className="w-36 aspect-video bg-[#e5e5e5] dark:bg-neutral-800 rounded-lg shrink-0"></div>
                         <div className="flex-1 space-y-2 py-1">
                           <div className="h-3.5 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-full"></div>
                           <div className="h-3 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-2/3"></div>
@@ -795,7 +909,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                             videoId={item.id}
                             title={item.title}
                             duration={item.duration}
-                            className="rounded-xl overflow-hidden shadow-xs"
+                            className="rounded-lg overflow-hidden"
                             badgeClassName="!bottom-1 !right-1 !text-[11px] !px-1.5 !py-0.5"
                           />
                         </div>
@@ -836,30 +950,6 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         ) : (
           /* ================= 2. MAIN YOUTUBE HOME FEED ================= */
           <div className="max-w-6xl mx-auto pb-20">
-            
-            {/* Category Chips Bar */}
-            <div className="sticky top-0 z-40 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md px-3 sm:px-5 py-2.5 flex items-center gap-2 overflow-x-auto hide-scrollbar border-b border-slate-200 dark:border-slate-800">
-              {CATEGORIES.map((cat) => {
-                const isActive = activeCategory === cat && !searchQuery;
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => {
-                      setActiveCategory(cat);
-                      setSearchQuery('');
-                      setSearchInput('');
-                    }}
-                    className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-xs font-black transition-all shrink-0 active:scale-95 ${
-                      isActive
-                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-950 shadow-sm'
-                        : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200/60 dark:border-slate-800'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                );
-              })}
-            </div>
 
             {/* Search active notice */}
             {searchQuery && (
@@ -877,14 +967,14 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
               </div>
             )}
 
-            {/* Video Cards Grid - Borderless YouTube Mobile Layout with Rounded Corners */}
-            <div className="w-full px-3.5 sm:px-4 py-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {/* Video Cards Grid - Borderless YouTube Mobile Layout */}
+            <div className="w-full sm:px-4 sm:py-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-0 sm:gap-4 sm:gap-y-6">
               {loading ? (
-                // YouTube Mobile Native Skeletons with rounded corners
+                // YouTube Mobile Native Skeletons
                 Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="flex flex-col w-full animate-pulse">
-                    <div className="w-full aspect-video bg-[#e5e5e5] dark:bg-neutral-800 rounded-xl sm:rounded-2xl"></div>
-                    <div className="flex items-start gap-3 pt-3 pb-6 px-1">
+                    <div className="w-full aspect-video bg-[#e5e5e5] dark:bg-neutral-800 sm:rounded-xl"></div>
+                    <div className="flex items-start gap-3 pt-3 pb-6 px-3 sm:px-1">
                       <div className="w-9 h-9 rounded-full bg-[#e5e5e5] dark:bg-neutral-800 flex-shrink-0 mt-0.5"></div>
                       <div className="flex-1 min-w-0 space-y-2 pt-0.5">
                         <div className="h-4 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-full"></div>
@@ -901,16 +991,16 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                     onClick={() => handleSelectVideo(vid)}
                     className="group cursor-pointer flex flex-col w-full active:opacity-95 transition-opacity"
                   >
-                    {/* Thumbnail: beautifully rounded corners on all screen sizes */}
+                    {/* Thumbnail: edge-to-edge on mobile, cleanly rounded on sm+ */}
                     <SmartThumbnail
                       videoId={vid.id}
                       title={vid.title}
                       duration={vid.duration}
-                      className="w-full aspect-video rounded-xl sm:rounded-2xl overflow-hidden shadow-xs"
+                      className="w-full aspect-video sm:rounded-xl overflow-hidden"
                     />
 
                     {/* Metadata Row Structure (Below Thumbnail) */}
-                    <div className="flex items-start gap-3 pt-3 pb-5 px-1">
+                    <div className="flex items-start gap-3 pt-3 pb-6 px-3 sm:px-1">
                       {/* Left: Channel Avatar */}
                       <img
                         src={vid.channelAvatar}
@@ -920,9 +1010,9 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
                       {/* Middle (Text Column) */}
                       <div className="flex-1 min-w-0">
-                        {/* Video Title: Dark charcoal/black, never red or blue, max 2 lines with ... */}
+                        {/* Video Title: Dark charcoal/black, semi-bold 16px, max 2 lines with ... */}
                         <h3
-                          className="text-[#0f0f0f] dark:text-[#f1f1f1] font-medium text-[15px] leading-[1.35] line-clamp-2 break-words"
+                          className="text-[#0f0f0f] dark:text-[#f1f1f1] font-semibold text-[16px] leading-[1.35] tracking-[-0.01em] line-clamp-2 break-words"
                           dangerouslySetInnerHTML={{ __html: vid.title }}
                         />
                         {/* Subtitle: Channel Name • Views • Upload Time in single muted line */}

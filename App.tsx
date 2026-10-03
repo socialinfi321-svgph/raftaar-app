@@ -175,9 +175,11 @@ const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => 
 
 // NavIcon Component
 const NavIcon = ({ icon, label, target, isActive, navigate, svgIcon }: { icon: string, label: string, target: string, isActive: boolean, navigate: any, svgIcon?: React.ReactNode }) => (
-    <button onClick={() => navigate(target)} className={`flex flex-col items-center justify-center w-16 gap-0.5 transition-all ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}>
-        {svgIcon ? svgIcon : <i className={`fa-solid ${icon} text-lg mb-0.5`}></i>}
-        <span className="text-[10px] font-bold tracking-wide leading-none">{label}</span>
+    <button onClick={() => navigate(target)} className={`flex flex-col items-center justify-center w-16 gap-0.5 transition-all select-none ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}>
+        <div className="h-5 flex items-center justify-center">
+            {svgIcon ? svgIcon : <i className={`fa-solid ${icon} text-[18px]`}></i>}
+        </div>
+        <span className="text-[10px] font-bold tracking-tight leading-none mt-0.5">{label}</span>
         <div className={`w-1 h-1 rounded-full mt-0.5 transition-opacity ${isActive ? 'bg-brand-600 dark:bg-brand-400 opacity-100' : 'opacity-0'}`}></div>
     </button>
 );
@@ -449,8 +451,17 @@ export default function App() {
                         </button>
                         <button onClick={() => navigate('/shorts')} className="flex items-center gap-4 py-2 w-full text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-medium">
                             <span className="w-6 flex items-center justify-center">
-                                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-[1.6rem] h-[1.6rem]" xmlns="http://www.w3.org/2000/svg">
-                                     <path d="M17.77 10.32l-1.2-.5L18 7.74c1.5-.76 2.1-2.58 1.34-4.09A3.018 3.018 0 0 0 15.22 2.3l-10.46 5.43c-1.54.8-2.15 2.69-1.35 4.24a3.024 3.024 0 0 0 1.35 1.29l1.2.5L4 16.26c-1.5.76-2.1 2.58-1.34 4.09a3.018 3.018 0 0 0 4.12 1.35l10.46-5.43c1.54-.8 2.15-2.69 1.35-4.24A3.024 3.024 0 0 0 17.77 10.32ZM10 14.25v-4.5L14 12Z"/>
+                                 <svg viewBox="0 0 24 24" className="w-[21.5px] h-[21.5px] text-inherit" xmlns="http://www.w3.org/2000/svg">
+                                     <defs>
+                                         <mask id="reels-solid-cutout-sidebar">
+                                             <rect x="0" y="0" width="24" height="24" fill="white" />
+                                             <rect x="1" y="7" width="22" height="1.8" fill="black" />
+                                             <line x1="7" y1="1" x2="10.5" y2="8" stroke="black" strokeWidth="1.8" strokeLinecap="round" />
+                                             <line x1="13.5" y1="1" x2="17" y2="8" stroke="black" strokeWidth="1.8" strokeLinecap="round" />
+                                             <polygon points="10 11.2 15.8 15 10 18.8" fill="black" />
+                                         </mask>
+                                     </defs>
+                                     <rect x="2" y="2" width="20" height="20" rx="5.5" ry="5.5" fill="currentColor" mask="url(#reels-solid-cutout-sidebar)" />
                                  </svg>
                             </span>
                             <span>Shorts</span>
@@ -698,92 +709,30 @@ export default function App() {
         </AnimatePresence>
 
         {showNav && (
-            <nav
-                aria-label="Bottom Navigation"
-                className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 h-[52px] pb-[env(safe-area-inset-bottom)] bg-white dark:bg-[#0f0f0f] border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-around transition-transform duration-300 ease-in-out ${
-                    isBottomNavVisible ? 'translate-y-0' : 'translate-y-full'
-                }`}
-            >
-                {/* 1. Home */}
-                <button
-                    onClick={() => navigate('/home')}
-                    className={`flex flex-col items-center justify-center flex-1 h-full select-none active:opacity-75 transition-colors ${
-                        location.pathname === '/home' || location.pathname === '/classes'
-                            ? 'text-[#0f0f0f] dark:text-white font-medium'
-                            : 'text-[#606060] dark:text-[#aaaaaa]'
-                    }`}
-                >
-                    <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill={location.pathname === '/home' || location.pathname === '/classes' ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={location.pathname === '/home' || location.pathname === '/classes' ? '0' : '1.8'}>
-                        <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill={location.pathname === '/home' || location.pathname === '/classes' ? 'currentColor' : 'none'} />
-                    </svg>
-                    <span className="text-[10px] mt-0.5 leading-none">Home</span>
-                </button>
-
-                {/* 2. Shorts */}
-                <button
-                    onClick={() => navigate('/shorts')}
-                    className={`flex flex-col items-center justify-center flex-1 h-full select-none active:opacity-75 transition-colors ${
-                        location.pathname.startsWith('/shorts')
-                            ? 'text-[#0f0f0f] dark:text-white font-medium'
-                            : 'text-[#606060] dark:text-[#aaaaaa]'
-                    }`}
-                >
-                    <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M17.77 10.32l-1.2-.5L18 7.74c1.5-.76 2.1-2.58 1.34-4.09A3.018 3.018 0 0 0 15.22 2.3l-10.46 5.43c-1.54.8-2.15 2.69-1.35 4.24a3.024 3.024 0 0 0 1.35 1.29l1.2.5L4 16.26c-1.5.76-2.1 2.58-1.34 4.09a3.018 3.018 0 0 0 4.12 1.35l10.46-5.43c1.54-.8 2.15-2.69 1.35-4.24A3.024 3.024 0 0 0 17.77 10.32ZM10 14.25v-4.5L14 12Z"/>
-                    </svg>
-                    <span className="text-[10px] mt-0.5 leading-none">Shorts</span>
-                </button>
-
-                {/* 3. Plus (+) Button */}
-                <button
-                    onClick={() => navigate('/practice')}
-                    className="flex items-center justify-center flex-1 h-full active:scale-90 transition-transform"
-                    aria-label="Practice & Tests"
-                >
-                    <div className="w-[34px] h-[34px] rounded-full border border-neutral-300 dark:border-neutral-700 flex items-center justify-center text-[#0f0f0f] dark:text-white">
-                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                    </div>
-                </button>
-
-                {/* 4. Subscriptions / Khazana */}
-                <button
-                    onClick={() => navigate('/khazana')}
-                    className={`flex flex-col items-center justify-center flex-1 h-full select-none active:opacity-75 transition-colors ${
-                        location.pathname === '/khazana'
-                            ? 'text-[#0f0f0f] dark:text-white font-medium'
-                            : 'text-[#606060] dark:text-[#aaaaaa]'
-                    }`}
-                >
-                    <svg className="w-[22px] h-[22px]" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20 7H4V5h16v2zm2 4H2V9h20v2zm-2 10H4c-1.1 0-2-.9-2-2V13c0-1.1.9-2 2-2h16c1.1 0 2 .9 2 2v6c0 1.1-.9 2-2 2zm-8-2.5l5-3-5-3v6z"/>
-                    </svg>
-                    <span className="text-[10px] mt-0.5 leading-none">Subscriptions</span>
-                </button>
-
-                {/* 5. You (Profile) Tab */}
-                <button
-                    onClick={() => setDashboardOpen(true)}
-                    className={`flex flex-col items-center justify-center flex-1 h-full select-none active:opacity-75 transition-colors ${
-                        isDashboardOpen
-                            ? 'text-[#0f0f0f] dark:text-white font-medium'
-                            : 'text-[#606060] dark:text-[#aaaaaa]'
-                    }`}
-                >
-                    <div className={`w-[22px] h-[22px] rounded-full overflow-hidden flex items-center justify-center text-white text-[11px] font-bold ${
-                        isDashboardOpen ? 'ring-2 ring-[#0f0f0f] dark:ring-white' : ''
-                    } ${userProfile?.avatar_url ? '' : 'bg-[#673AB7]'}`}>
-                        {userProfile?.avatar_url ? (
-                            <img src={userProfile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-                        ) : (
-                            <span>{(userProfile?.full_name || 'You').charAt(0).toUpperCase()}</span>
-                        )}
-                    </div>
-                    <span className="text-[10px] mt-0.5 leading-none">You</span>
-                </button>
-            </nav>
+            <div className={`lg:hidden fixed bottom-0 left-0 right-0 w-full bg-white dark:bg-slate-950 border-t border-slate-200/80 dark:border-slate-800/80 flex justify-around pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] z-40 shadow-[0_-3px_16px_rgba(0,0,0,0.04)] transition-transform duration-300 ease-in-out ${
+                isBottomNavVisible ? 'translate-y-0' : 'translate-y-full'
+            }`}>
+                <div className="flex w-full justify-around items-center">
+                    <NavIcon icon="fa-house" label="Home" target="/home" isActive={location.pathname === '/home' || location.pathname === '/classes'} navigate={navigate} />
+                    <NavIcon icon="fa-film" label="Shorts" target="/shorts" isActive={location.pathname.startsWith('/shorts')} navigate={navigate} svgIcon={
+                         <svg viewBox="0 0 24 24" className="w-[21.5px] h-[21.5px] transition-all text-inherit" xmlns="http://www.w3.org/2000/svg">
+                             <defs>
+                                 <mask id="reels-solid-cutout-nav">
+                                     <rect x="0" y="0" width="24" height="24" fill="white" />
+                                     <rect x="1" y="7" width="22" height="1.8" fill="black" />
+                                     <line x1="7" y1="1" x2="10.5" y2="8" stroke="black" strokeWidth="1.8" strokeLinecap="round" />
+                                     <line x1="13.5" y1="1" x2="17" y2="8" stroke="black" strokeWidth="1.8" strokeLinecap="round" />
+                                     <polygon points="10 11.2 15.8 15 10 18.8" fill="black" />
+                                 </mask>
+                             </defs>
+                             <rect x="2" y="2" width="20" height="20" rx="5.5" ry="5.5" fill="currentColor" mask="url(#reels-solid-cutout-nav)" />
+                         </svg>
+                    } />
+                    <NavIcon icon="fa-book-open" label="Study" target="/" isActive={location.pathname === '/'} navigate={navigate} />
+                    <NavIcon icon="fa-file-signature" label="Exam" target="/exam" isActive={location.pathname.startsWith('/exam')} navigate={navigate} />
+                    <NavIcon icon="fa-trophy" label="Rewards" target="/rewards" isActive={location.pathname.startsWith('/rewards')} navigate={navigate} />
+                </div>
+            </div>
         )}
         </div>
     </div>
