@@ -128,27 +128,37 @@ const parseDuration = (iso: string): string => {
 
 // Helper to format views (e.g. 1.2M views, 45K views)
 const formatViews = (views: number): string => {
-  if (views >= 1000000) {
-    return `${(views / 1000000).toFixed(1)}M views`;
+  const num = Number(views) || 0;
+  if (num >= 1000000) {
+    const val = (num / 1000000).toFixed(1).replace(/\.0$/, '');
+    return `${val}M views`;
   }
-  if (views >= 1000) {
-    return `${(views / 1000).toFixed(1)}K views`;
+  if (num >= 1000) {
+    const val = (num / 1000).toFixed(1).replace(/\.0$/, '');
+    return `${val}K views`;
   }
-  return `${views} views`;
+  return `${num} views`;
 };
 
-// Helper to format relative time
+// Helper to format relative time (e.g. 2 days ago, 3 months ago, 1 year ago)
 const timeAgo = (dateString: string): string => {
   try {
+    if (!dateString) return 'Recently';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Recently';
     const now = new Date();
-    const diff = Math.floor((now.getTime() - date.getTime()) / 1000);
+    const diff = Math.max(0, Math.floor((now.getTime() - date.getTime()) / 1000));
     if (diff < 60) return 'Just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
-    if (diff < 2592000) return `${Math.floor(diff / 86400)} days ago`;
-    if (diff < 31536000) return `${Math.floor(diff / 2592000)} months ago`;
-    return `${Math.floor(diff / 31536000)} years ago`;
+    const minutes = Math.floor(diff / 60);
+    if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+    const hours = Math.floor(diff / 3600);
+    if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+    const days = Math.floor(diff / 86400);
+    if (days < 30) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+    const months = Math.floor(days / 30);
+    if (months < 12) return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+    const years = Math.floor(days / 365);
+    return `${years} ${years === 1 ? 'year' : 'years'} ago`;
   } catch {
     return 'Recently';
   }
@@ -1010,15 +1020,21 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
                       {/* Middle (Text Column) */}
                       <div className="flex-1 min-w-0">
-                        {/* Video Title: Dark charcoal/black, semi-bold 16px, max 2 lines with ... */}
+                        {/* Video Title: Slightly smaller, clean & readable */}
                         <h3
-                          className="text-[#0f0f0f] dark:text-[#f1f1f1] font-semibold text-[16px] leading-[1.35] tracking-[-0.01em] line-clamp-2 break-words"
+                          className="text-[#0f0f0f] dark:text-[#f1f1f1] font-medium text-[14px] sm:text-[15px] leading-[1.35] tracking-[-0.01em] line-clamp-2 break-words"
                           dangerouslySetInnerHTML={{ __html: vid.title }}
                         />
-                        {/* Subtitle: Channel Name • Views • Upload Time in single muted line */}
-                        <p className="text-[#606060] dark:text-[#aaaaaa] text-[12px] font-normal mt-1 line-clamp-1">
-                          {vid.channelTitle} • {formatViews(vid.viewCount)} • {timeAgo(vid.publishedAt)}
-                        </p>
+                        {/* Subtitle: Channel Name • Views • Upload Time (days / months / years ago) */}
+                        <div className="text-[#606060] dark:text-[#aaaaaa] text-[12px] leading-[1.35] mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                          <span className="font-normal text-[#606060] dark:text-[#aaaaaa] hover:text-[#0f0f0f] dark:hover:text-white transition-colors">
+                            {vid.channelTitle}
+                          </span>
+                          <span className="text-[10px] text-neutral-400 dark:text-neutral-500">•</span>
+                          <span>{formatViews(vid.viewCount)}</span>
+                          <span className="text-[10px] text-neutral-400 dark:text-neutral-500">•</span>
+                          <span>{timeAgo(vid.publishedAt)}</span>
+                        </div>
                       </div>
 
                       {/* Right: Three-dots menu icon */}

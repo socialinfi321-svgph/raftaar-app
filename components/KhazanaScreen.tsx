@@ -29,16 +29,16 @@ export const KhazanaVideoCard: React.FC<{
       onClick={() => onClick(video)}
       className="group cursor-pointer flex flex-col w-full active:opacity-95 transition-opacity"
     >
-      {/* Thumbnail: rounded corners on all screens with zero border */}
+      {/* Thumbnail: edge-to-edge on mobile, cleanly rounded on sm+ with zero border */}
       <SmartThumbnail
         videoId={video.id}
         title={video.title}
         duration={video.duration}
-        className="w-full aspect-video rounded-xl sm:rounded-2xl overflow-hidden shadow-xs"
+        className="w-full aspect-video sm:rounded-xl overflow-hidden"
       />
 
       {/* Metadata Row Structure (Below Thumbnail) */}
-      <div className="flex items-start gap-3 pt-3 pb-5 px-1">
+      <div className="flex items-start gap-3 pt-3 pb-6 px-3 sm:px-1">
         {/* Left: Channel Avatar */}
         <img
           src={`https://api.dicebear.com/7.x/initials/svg?seed=${video.teacher}&backgroundColor=e5e5e5`}
@@ -48,14 +48,18 @@ export const KhazanaVideoCard: React.FC<{
 
         {/* Middle (Text Column) */}
         <div className="flex-1 min-w-0">
-          {/* Video Title: Dark charcoal/black, max 2 lines with ... */}
-          <h4 className="text-[#0f0f0f] dark:text-[#f1f1f1] font-medium text-[15px] leading-[1.35] line-clamp-2 break-words">
+          {/* Video Title: Dark charcoal/black, slightly smaller, clean & readable */}
+          <h4 className="text-[#0f0f0f] dark:text-[#f1f1f1] font-medium text-[14px] sm:text-[15px] leading-[1.35] tracking-[-0.01em] line-clamp-2 break-words">
             {video.title}
           </h4>
-          {/* Subtitle: Channel Name • Views • Subject in single muted line */}
-          <p className="text-[#606060] dark:text-[#aaaaaa] text-[12px] font-normal mt-1 line-clamp-1">
-            {video.teacher} • {video.views} views • {video.subject} ({video.board})
-          </p>
+          {/* Subtitle: Channel Name • Views • Subject/Board */}
+          <div className="text-[#606060] dark:text-[#aaaaaa] text-[12px] leading-[1.35] mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            <span className="font-normal">{video.teacher}</span>
+            <span className="text-[10px] text-neutral-400 dark:text-neutral-500">•</span>
+            <span>{video.views} views</span>
+            <span className="text-[10px] text-neutral-400 dark:text-neutral-500">•</span>
+            <span>{video.subject} ({video.board})</span>
+          </div>
         </div>
 
         {/* Right: Three-dots menu icon */}
@@ -242,7 +246,7 @@ export const KhazanaScreen: React.FC<KhazanaScreenProps> = ({ profile, navigate 
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 sm:gap-4 sm:gap-y-6">
               {filteredVideos.map((video) => (
                 <KhazanaVideoCard
                   key={video.id}
