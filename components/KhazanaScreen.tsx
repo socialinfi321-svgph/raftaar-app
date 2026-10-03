@@ -29,16 +29,16 @@ export const KhazanaVideoCard: React.FC<{
       onClick={() => onClick(video)}
       className="group cursor-pointer flex flex-col w-full active:opacity-95 transition-opacity"
     >
-      {/* Thumbnail: edge-to-edge on mobile, cleanly rounded on sm+ with zero border */}
+      {/* Thumbnail: rounded corners on all screens with zero border */}
       <SmartThumbnail
         videoId={video.id}
         title={video.title}
         duration={video.duration}
-        className="w-full aspect-video sm:rounded-xl overflow-hidden"
+        className="w-full aspect-video rounded-xl sm:rounded-2xl overflow-hidden shadow-xs"
       />
 
       {/* Metadata Row Structure (Below Thumbnail) */}
-      <div className="flex items-start gap-3 pt-3 pb-6 px-3 sm:px-1">
+      <div className="flex items-start gap-3 pt-3 pb-5 px-1">
         {/* Left: Channel Avatar */}
         <img
           src={`https://api.dicebear.com/7.x/initials/svg?seed=${video.teacher}&backgroundColor=e5e5e5`}
@@ -242,7 +242,7 @@ export const KhazanaScreen: React.FC<KhazanaScreenProps> = ({ profile, navigate 
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 sm:gap-4 sm:gap-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {filteredVideos.map((video) => (
                 <KhazanaVideoCard
                   key={video.id}

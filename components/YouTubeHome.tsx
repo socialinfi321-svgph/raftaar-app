@@ -774,7 +774,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   {loadingRecommended ? (
                     Array.from({ length: 4 }).map((_, i) => (
                       <div key={i} className="flex gap-3 py-2 animate-pulse">
-                        <div className="w-36 aspect-video bg-[#e5e5e5] dark:bg-neutral-800 rounded-lg shrink-0"></div>
+                        <div className="w-36 aspect-video bg-[#e5e5e5] dark:bg-neutral-800 rounded-xl shrink-0"></div>
                         <div className="flex-1 space-y-2 py-1">
                           <div className="h-3.5 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-full"></div>
                           <div className="h-3 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-2/3"></div>
@@ -795,7 +795,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                             videoId={item.id}
                             title={item.title}
                             duration={item.duration}
-                            className="rounded-lg overflow-hidden"
+                            className="rounded-xl overflow-hidden shadow-xs"
                             badgeClassName="!bottom-1 !right-1 !text-[11px] !px-1.5 !py-0.5"
                           />
                         </div>
@@ -877,14 +877,14 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
               </div>
             )}
 
-            {/* Video Cards Grid - Borderless YouTube Mobile Layout */}
-            <div className="w-full sm:px-4 sm:py-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-0 sm:gap-4 sm:gap-y-6">
+            {/* Video Cards Grid - Borderless YouTube Mobile Layout with Rounded Corners */}
+            <div className="w-full px-3.5 sm:px-4 py-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {loading ? (
-                // YouTube Mobile Native Skeletons
+                // YouTube Mobile Native Skeletons with rounded corners
                 Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="flex flex-col w-full animate-pulse">
-                    <div className="w-full aspect-video bg-[#e5e5e5] dark:bg-neutral-800 sm:rounded-xl"></div>
-                    <div className="flex items-start gap-3 pt-3 pb-6 px-3 sm:px-1">
+                    <div className="w-full aspect-video bg-[#e5e5e5] dark:bg-neutral-800 rounded-xl sm:rounded-2xl"></div>
+                    <div className="flex items-start gap-3 pt-3 pb-6 px-1">
                       <div className="w-9 h-9 rounded-full bg-[#e5e5e5] dark:bg-neutral-800 flex-shrink-0 mt-0.5"></div>
                       <div className="flex-1 min-w-0 space-y-2 pt-0.5">
                         <div className="h-4 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-full"></div>
@@ -901,16 +901,16 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                     onClick={() => handleSelectVideo(vid)}
                     className="group cursor-pointer flex flex-col w-full active:opacity-95 transition-opacity"
                   >
-                    {/* Thumbnail: edge-to-edge on mobile, cleanly rounded on sm+ */}
+                    {/* Thumbnail: beautifully rounded corners on all screen sizes */}
                     <SmartThumbnail
                       videoId={vid.id}
                       title={vid.title}
                       duration={vid.duration}
-                      className="w-full aspect-video sm:rounded-xl overflow-hidden"
+                      className="w-full aspect-video rounded-xl sm:rounded-2xl overflow-hidden shadow-xs"
                     />
 
                     {/* Metadata Row Structure (Below Thumbnail) */}
-                    <div className="flex items-start gap-3 pt-3 pb-6 px-3 sm:px-1">
+                    <div className="flex items-start gap-3 pt-3 pb-5 px-1">
                       {/* Left: Channel Avatar */}
                       <img
                         src={vid.channelAvatar}
