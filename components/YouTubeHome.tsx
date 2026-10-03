@@ -3,9 +3,12 @@ import { useBackHandler } from '../hooks/useBackHandler';
 import { 
   ArrowLeft, Search, X, ThumbsUp, ThumbsDown, Share2, 
   Bookmark, Bell, Check, MessageSquare, Send, Eye, Clock,
-  Play, Sparkles, Filter, ChevronDown, ChevronUp, Copy, BookOpen, GraduationCap
+  Play, Sparkles, Filter, ChevronDown, ChevronUp, Copy, BookOpen, GraduationCap,
+  MoreVertical
 } from 'lucide-react';
 import { CustomVideoPlayer } from './CustomVideoPlayer';
+import { SmartThumbnail } from './SmartThumbnail';
+import { api } from '../services/api';
 
 const HARDCODED_API_KEY = 'AIzaSyCS7J0dtUjJVMzaB0jbr-aDGqcTqGa3GPo';
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY || HARDCODED_API_KEY;
@@ -54,7 +57,7 @@ const FALLBACK_VIDEOS: VideoItem[] = [
     id: 'RefTQH9dMzk',
     title: 'Class 12 Biology के 500 VVI Objective | 12th Biology Objective Bihar Board 2026',
     description: 'In this high-yield session, complete 500 VVI Objective Questions for Class 12 Biology are covered for Bihar Board Exam.',
-    thumbnail: 'https://i.ytimg.com/vi/RefTQH9dMzk/hqdefault.jpg',
+    thumbnail: 'https://i.ytimg.com/vi/RefTQH9dMzk/maxresdefault.jpg',
     channelId: 'UCjlW2KXq_RFIpSnz5nFtoMQ',
     channelTitle: 'PW Bihar Board 11&12th',
     channelAvatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=PW',
@@ -68,7 +71,7 @@ const FALLBACK_VIDEOS: VideoItem[] = [
     id: 'Df2iSOK1xgg',
     title: 'Class 12 Hindi Important Objective Question || Bihar Board Class 12 Hindi VVI 2026',
     description: 'Complete Hindi गद्य एवं पद्य खण्ड Most Important Objective Questions for Bihar Board Class 12.',
-    thumbnail: 'https://i.ytimg.com/vi/Df2iSOK1xgg/hqdefault.jpg',
+    thumbnail: 'https://i.ytimg.com/vi/Df2iSOK1xgg/maxresdefault.jpg',
     channelId: 'UCLgzbnsZWyMgQI2dvkGBJzw',
     channelTitle: 'Ask Board Education',
     channelAvatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=Ask',
@@ -82,7 +85,7 @@ const FALLBACK_VIDEOS: VideoItem[] = [
     id: 'FveziLt-suo',
     title: 'Class 12th Story of English VVI Objective | Bihar Board Class 12th English Questions',
     description: 'Master Story of English in One Shot with previous year questions and easy explanations.',
-    thumbnail: 'https://i.ytimg.com/vi/FveziLt-suo/hqdefault.jpg',
+    thumbnail: 'https://i.ytimg.com/vi/FveziLt-suo/maxresdefault.jpg',
     channelId: 'UCOH0ke8-Oa3Ej5VYmEP72uw',
     channelTitle: 'PW Bihar Board English Medium',
     channelAvatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=EnglishPW',
@@ -96,7 +99,7 @@ const FALLBACK_VIDEOS: VideoItem[] = [
     id: 'DqGBKf5ogpo',
     title: 'Physics Class 12 Complete Electrostatics in 1 Shot | 12th Physics Revision Bihar Board',
     description: 'Electric Charges & Fields complete formula revision, derivations and top MCQs.',
-    thumbnail: 'https://i.ytimg.com/vi/DqGBKf5ogpo/hqdefault.jpg',
+    thumbnail: 'https://i.ytimg.com/vi/DqGBKf5ogpo/maxresdefault.jpg',
     channelId: 'UCQObkI1w-DEMc9XzD5fQRlA',
     channelTitle: 'Education Baba',
     channelAvatar: 'https://api.dicebear.com/7.x/identicon/svg?seed=EduBaba',
@@ -270,7 +273,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
           id: vidId,
           title: it.snippet?.title || 'Class 12 Educational Lecture',
           description: it.snippet?.description || '',
-          thumbnail: it.snippet?.thumbnails?.high?.url || it.snippet?.thumbnails?.medium?.url || '',
+          thumbnail: vidId ? `https://i.ytimg.com/vi/${vidId}/maxresdefault.jpg` : (it.snippet?.thumbnails?.high?.url || ''),
           channelId: it.snippet?.channelId || '',
           channelTitle: it.snippet?.channelTitle || 'Bihar Board Educator',
           channelAvatar: avatarMap[it.snippet?.channelId] || `https://api.dicebear.com/7.x/identicon/svg?seed=${it.snippet?.channelTitle}`,
@@ -612,7 +615,16 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
                 {/* Save to Playlist */}
                 <button
-                  onClick={() => { setIsSaved(!isSaved); showToast(isSaved ? 'Removed from Saved' : 'Saved to Library'); }}
+                  onClick={async () => {
+                    const nextSaved = !isSaved;
+                    setIsSaved(nextSaved);
+                    if (nextSaved && selectedVideo) {
+                      await api.saveCachedVideo(selectedVideo);
+                      showToast('Saved to Library in Full 1080p HD!');
+                    } else {
+                      showToast('Removed from Saved');
+                    }
+                  }}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-full border text-xs font-bold transition-all shrink-0 active:scale-95 ${
                     isSaved
                       ? 'bg-brand-50 dark:bg-brand-950/40 border-brand-200 dark:border-brand-900/50 text-brand-600 dark:text-brand-400'
@@ -758,15 +770,15 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   <span className="text-xs font-semibold text-slate-400">High View Count</span>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {loadingRecommended ? (
                     Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="flex gap-3 p-2 bg-white dark:bg-slate-900 rounded-2xl animate-pulse">
-                        <div className="w-36 aspect-video bg-slate-200 dark:bg-slate-800 rounded-xl shrink-0"></div>
+                      <div key={i} className="flex gap-3 py-2 animate-pulse">
+                        <div className="w-36 aspect-video bg-[#e5e5e5] dark:bg-neutral-800 rounded-lg shrink-0"></div>
                         <div className="flex-1 space-y-2 py-1">
-                          <div className="h-3.5 bg-slate-200 dark:bg-slate-800 rounded w-full"></div>
-                          <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-2/3"></div>
-                          <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded w-1/3"></div>
+                          <div className="h-3.5 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-full"></div>
+                          <div className="h-3 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-2/3"></div>
+                          <div className="h-2.5 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-1/3"></div>
                         </div>
                       </div>
                     ))
@@ -775,35 +787,44 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                       <div
                         key={item.id}
                         onClick={() => handleSelectVideo(item)}
-                        className="group cursor-pointer flex gap-3 p-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800/80 hover:border-brand-500/50 hover:shadow-md transition-all shadow-xs"
+                        className="group cursor-pointer flex items-start gap-3 py-2 px-1 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:opacity-90 transition-all"
                       >
-                        {/* Thumbnail */}
-                        <div className="w-36 sm:w-44 aspect-video rounded-xl overflow-hidden relative bg-slate-200 dark:bg-slate-800 shrink-0">
-                          <img
-                            src={item.thumbnail}
-                            alt={item.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            loading="lazy"
+                        {/* Crystal-Clear 1080p SmartThumbnail */}
+                        <div className="w-36 sm:w-40 shrink-0">
+                          <SmartThumbnail
+                            videoId={item.id}
+                            title={item.title}
+                            duration={item.duration}
+                            className="rounded-lg overflow-hidden"
+                            badgeClassName="!bottom-1 !right-1 !text-[11px] !px-1.5 !py-0.5"
                           />
-                          <span className="absolute bottom-1 right-1 bg-black/85 text-white font-black text-[10px] px-1.5 py-0.5 rounded backdrop-blur-xs">
-                            {item.duration}
-                          </span>
                         </div>
 
                         {/* Info */}
-                        <div className="flex-1 min-w-0 flex flex-col justify-center">
-                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
-                            {item.title}
-                          </h4>
-                          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1 truncate">
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <h4 
+                            className="text-[#0f0f0f] dark:text-[#f1f1f1] font-medium text-[13px] sm:text-[14px] leading-[1.3] line-clamp-2 break-words"
+                            dangerouslySetInnerHTML={{ __html: item.title }}
+                          />
+                          <p className="text-[#606060] dark:text-[#aaaaaa] text-[12px] font-normal mt-1 line-clamp-1">
                             {item.channelTitle}
                           </p>
-                          <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-0.5">
-                            <span>{formatViews(item.viewCount)}</span>
-                            <span>•</span>
-                            <span>{timeAgo(item.publishedAt)}</span>
-                          </div>
+                          <p className="text-[#606060] dark:text-[#aaaaaa] text-[11px] font-normal mt-0.5 line-clamp-1">
+                            {formatViews(item.viewCount)} • {timeAgo(item.publishedAt)}
+                          </p>
                         </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            showToast('Options: Share & Save');
+                          }}
+                          className="p-1 text-[#0f0f0f] dark:text-neutral-300 flex-shrink-0 mt-0.5 hover:bg-black/5 dark:hover:bg-white/10 rounded-full"
+                          aria-label="Options"
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
                       </div>
                     ))
                   )}
@@ -856,18 +877,19 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
               </div>
             )}
 
-            {/* Video Cards Grid */}
-            <div className="p-3 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {/* Video Cards Grid - Borderless YouTube Mobile Layout */}
+            <div className="w-full sm:px-4 sm:py-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-0 sm:gap-4 sm:gap-y-6">
               {loading ? (
-                // Skeletons
-                Array.from({ length: 9 }).map((_, i) => (
-                  <div key={i} className="flex flex-col gap-3 p-3 bg-white dark:bg-slate-900 rounded-2xl animate-pulse">
-                    <div className="w-full aspect-video bg-slate-200 dark:bg-slate-800 rounded-xl"></div>
-                    <div className="flex gap-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 shrink-0"></div>
-                      <div className="flex-1 space-y-2 py-1">
-                        <div className="h-3.5 bg-slate-200 dark:bg-slate-800 rounded w-full"></div>
-                        <div className="h-3 bg-slate-200 dark:bg-slate-800 rounded w-2/3"></div>
+                // YouTube Mobile Native Skeletons
+                Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex flex-col w-full animate-pulse">
+                    <div className="w-full aspect-video bg-[#e5e5e5] dark:bg-neutral-800 sm:rounded-xl"></div>
+                    <div className="flex items-start gap-3 pt-3 pb-6 px-3 sm:px-1">
+                      <div className="w-9 h-9 rounded-full bg-[#e5e5e5] dark:bg-neutral-800 flex-shrink-0 mt-0.5"></div>
+                      <div className="flex-1 min-w-0 space-y-2 pt-0.5">
+                        <div className="h-4 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-full"></div>
+                        <div className="h-4 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-3/4"></div>
+                        <div className="h-3 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-1/2 mt-1"></div>
                       </div>
                     </div>
                   </div>
@@ -877,41 +899,50 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   <div
                     key={vid.id}
                     onClick={() => handleSelectVideo(vid)}
-                    className="group cursor-pointer flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/70 dark:border-slate-800 overflow-hidden shadow-xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all active:scale-[0.99]"
+                    className="group cursor-pointer flex flex-col w-full active:opacity-95 transition-opacity"
                   >
-                    {/* Thumbnail with duration badge */}
-                    <div className="w-full aspect-video relative overflow-hidden bg-slate-200 dark:bg-slate-800">
-                      <img
-                        src={vid.thumbnail}
-                        alt={vid.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                      <span className="absolute bottom-2 right-2 bg-black/85 text-white font-black text-[11px] px-2 py-0.5 rounded-md backdrop-blur-xs shadow-xs">
-                        {vid.duration}
-                      </span>
-                    </div>
+                    {/* Thumbnail: edge-to-edge on mobile, cleanly rounded on sm+ */}
+                    <SmartThumbnail
+                      videoId={vid.id}
+                      title={vid.title}
+                      duration={vid.duration}
+                      className="w-full aspect-video sm:rounded-xl overflow-hidden"
+                    />
 
-                    {/* Meta info */}
-                    <div className="p-3.5 flex gap-3">
+                    {/* Metadata Row Structure (Below Thumbnail) */}
+                    <div className="flex items-start gap-3 pt-3 pb-6 px-3 sm:px-1">
+                      {/* Left: Channel Avatar */}
                       <img
                         src={vid.channelAvatar}
                         alt={vid.channelTitle}
-                        className="w-9 h-9 rounded-full object-cover bg-slate-100 dark:bg-slate-800 shrink-0 border border-slate-200 dark:border-slate-700"
+                        className="w-9 h-9 rounded-full object-cover flex-shrink-0 mt-0.5 bg-[#e5e5e5] dark:bg-neutral-800"
                       />
+
+                      {/* Middle (Text Column) */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
-                          {vid.title}
-                        </h3>
-                        <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-1 truncate">
-                          {vid.channelTitle}
+                        {/* Video Title: Dark charcoal/black, never red or blue, max 2 lines with ... */}
+                        <h3
+                          className="text-[#0f0f0f] dark:text-[#f1f1f1] font-medium text-[15px] leading-[1.35] line-clamp-2 break-words"
+                          dangerouslySetInnerHTML={{ __html: vid.title }}
+                        />
+                        {/* Subtitle: Channel Name • Views • Upload Time in single muted line */}
+                        <p className="text-[#606060] dark:text-[#aaaaaa] text-[12px] font-normal mt-1 line-clamp-1">
+                          {vid.channelTitle} • {formatViews(vid.viewCount)} • {timeAgo(vid.publishedAt)}
                         </p>
-                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-400 dark:text-slate-500 mt-0.5">
-                          <span className="font-bold text-slate-600 dark:text-slate-400">{formatViews(vid.viewCount)}</span>
-                          <span>•</span>
-                          <span>{timeAgo(vid.publishedAt)}</span>
-                        </div>
                       </div>
+
+                      {/* Right: Three-dots menu icon */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          showToast('Options: Share & Save');
+                        }}
+                        className="p-1 -mr-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all text-[#0f0f0f] dark:text-neutral-300 flex-shrink-0 mt-0.5"
+                        aria-label="More options"
+                      >
+                        <MoreVertical className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
                 ))

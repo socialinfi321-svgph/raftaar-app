@@ -391,5 +391,32 @@ export const api = {
       q.question_type === type
     );
     return matched.length > 0 ? matched : COMPREHENSIVE_PYQS.filter(q => q.question_type === type);
+  },
+
+  // Store only videoId or maxresdefault.jpg URL so cached videos load in full 1080p HD
+  saveCachedVideo: async (video: { id: string; title: string; duration?: string; channelTitle?: string }) => {
+    try {
+      const hdThumbnailUrl = `https://i.ytimg.com/vi/${video.id}/maxresdefault.jpg`;
+      const record = {
+        video_id: video.id,
+        title: video.title,
+        duration: video.duration || '',
+        channel_title: video.channelTitle || '',
+        thumbnail_url: hdThumbnailUrl,
+        updated_at: new Date().toISOString()
+      };
+      await supabase.from('cached_videos').upsert(record, { onConflict: 'video_id' });
+      return record;
+    } catch (e) {
+      const hdThumbnailUrl = `https://i.ytimg.com/vi/${video.id}/maxresdefault.jpg`;
+      const localData = {
+        videoId: video.id,
+        title: video.title,
+        thumbnailUrl: hdThumbnailUrl,
+        duration: video.duration
+      };
+      localStorage.setItem(`cached_video_${video.id}`, JSON.stringify(localData));
+      return localData;
+    }
   }
 };
