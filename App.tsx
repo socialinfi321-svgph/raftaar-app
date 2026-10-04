@@ -174,8 +174,8 @@ const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => 
 };
 
 // NavIcon Component
-const NavIcon = ({ icon, label, target, isActive, navigate, svgIcon }: { icon: string, label: string, target: string, isActive: boolean, navigate: any, svgIcon?: React.ReactNode }) => (
-    <button onClick={() => navigate(target)} className={`flex flex-col items-center justify-center w-16 gap-0.5 transition-all select-none ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}>
+const NavIcon = ({ icon, label, target, isActive, navigate, svgIcon, onCustomClick }: { icon: string, label: string, target: string, isActive: boolean, navigate: any, svgIcon?: React.ReactNode, onCustomClick?: () => void }) => (
+    <button onClick={onCustomClick || (() => navigate(target))} className={`flex flex-col items-center justify-center w-16 gap-0.5 transition-all select-none ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}>
         <div className="h-5 flex items-center justify-center">
             {svgIcon ? svgIcon : <i className={`fa-solid ${icon} text-[18px]`}></i>}
         </div>
@@ -418,7 +418,13 @@ export default function App() {
                     <RaftaarLogo />
                 </div>
                 <div className="flex-1 flex flex-col gap-2">
-                    <button onClick={() => navigate('/home')} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname === '/home' || location.pathname === '/classes' ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
+                    <button onClick={() => {
+                        if (location.pathname === '/home' || location.pathname === '/classes') {
+                            window.dispatchEvent(new CustomEvent('raftaar:home-refresh'));
+                        } else {
+                            navigate('/home');
+                        }
+                    }} className={`flex items-center gap-4 px-4 py-3 rounded-xl font-bold transition-all ${location.pathname === '/home' || location.pathname === '/classes' ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white'}`}>
                         <i className="fa-solid fa-house w-6 text-center text-lg"></i>
                         <span>Home</span>
                     </button>
@@ -713,7 +719,20 @@ export default function App() {
                 isBottomNavVisible ? 'translate-y-0' : 'translate-y-full'
             }`}>
                 <div className="flex w-full justify-around items-center">
-                    <NavIcon icon="fa-house" label="Home" target="/home" isActive={location.pathname === '/home' || location.pathname === '/classes'} navigate={navigate} />
+                    <NavIcon
+                        icon="fa-house"
+                        label="Home"
+                        target="/home"
+                        isActive={location.pathname === '/home' || location.pathname === '/classes'}
+                        navigate={navigate}
+                        onCustomClick={() => {
+                            if (location.pathname === '/home' || location.pathname === '/classes') {
+                                window.dispatchEvent(new CustomEvent('raftaar:home-refresh'));
+                            } else {
+                                navigate('/home');
+                            }
+                        }}
+                    />
                     <NavIcon icon="fa-film" label="Shorts" target="/shorts" isActive={location.pathname.startsWith('/shorts')} navigate={navigate} svgIcon={
                          <svg viewBox="0 0 24 24" className="w-[21.5px] h-[21.5px] transition-all text-inherit" xmlns="http://www.w3.org/2000/svg">
                              <defs>
