@@ -1506,15 +1506,15 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
             )}
 
             {/* Video Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4 sm:gap-4 sm:p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4.5 sm:gap-4 sm:p-4 pt-1.5">
               {loading && videos.length === 0 ? (
                 /* Only show skeleton if pool is truly empty (Section 4) */
                 Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="flex flex-col w-full animate-pulse">
-                    <div className="px-3 sm:px-0">
-                      <div className="w-full aspect-video bg-[#e5e5e5] dark:bg-neutral-800 rounded-xl sm:rounded-2xl"></div>
+                    <div className="px-3.5 sm:px-0">
+                      <div className="w-full aspect-video bg-[#e5e5e5] dark:bg-neutral-800 rounded-[18px] sm:rounded-[22px]"></div>
                     </div>
-                    <div className="flex items-start gap-3 pt-3 pb-6 px-3 sm:px-1">
+                    <div className="flex items-start gap-3 pt-2.5 pb-5 px-3.5 sm:px-1">
                       <div className="w-9 h-9 rounded-full bg-[#e5e5e5] dark:bg-neutral-800 flex-shrink-0 mt-0.5"></div>
                       <div className="flex-1 min-w-0 space-y-2 pt-0.5">
                         <div className="h-4 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-full"></div>
@@ -1531,17 +1531,19 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                     onClick={() => handleSelectVideo(vid)}
                     className="group cursor-pointer flex flex-col w-full active:opacity-95 transition-opacity"
                   >
-                    <div className="px-3 sm:px-0">
+                    {/* Balanced left and right gap (px-3.5) with rounded-[18px] rectangular container */}
+                    <div className="px-3.5 sm:px-0">
                       <SmartThumbnail
                         videoId={vid.id}
                         title={vid.title}
                         duration={vid.duration}
                         priority={idx < 3}
-                        className="w-full aspect-video rounded-xl sm:rounded-2xl overflow-hidden shadow-xs"
+                        className="w-full aspect-video !rounded-[18px] sm:!rounded-[22px] overflow-hidden shadow-xs"
+                        imgClassName="!rounded-[18px] sm:!rounded-[22px]"
                       />
                     </div>
 
-                    <div className="flex items-start gap-3 pt-3 pb-6 px-3 sm:px-1">
+                    <div className="flex items-start gap-3 pt-2.5 pb-5 px-3.5 sm:px-1">
                       <img
                         src={vid.channelAvatar}
                         alt={vid.channelTitle}
