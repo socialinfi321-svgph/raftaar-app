@@ -1332,7 +1332,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => showToast('Share, Save or Report')}
+                  onClick={() => showToast('Options: Save to Khazana or Report')}
                   className="p-1.5 text-slate-600 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/10 rounded-full shrink-0 mt-0.5"
                   aria-label="Options"
                 >
