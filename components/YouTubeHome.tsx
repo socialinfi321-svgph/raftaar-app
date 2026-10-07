@@ -8,6 +8,14 @@ import {
 } from 'lucide-react';
 import { CustomVideoPlayer } from './CustomVideoPlayer';
 import { SmartThumbnail } from './SmartThumbnail';
+import { 
+  searchVideos, 
+  fetchHomeVideos, 
+  fetchRecommendedVideos,
+  fetchYouTubeApiSearch,
+  isShortVideo as checkIsShortVideo,
+  VideoItem as ServiceVideoItem
+} from '../services/videoService';
 
 const HARDCODED_API_KEY = 'AIzaSyCS7J0dtUjJVMzaB0jbr-aDGqcTqGa3GPo';
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY || HARDCODED_API_KEY;
@@ -16,20 +24,7 @@ const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY || HARDCODED_API_KEY;
 export const AUDIENCE_HINT = '';
 export const getUserContext = () => null;
 
-export interface VideoItem {
-  id: string;
-  title: string;
-  description: string;
-  thumbnail: string;
-  channelId: string;
-  channelTitle: string;
-  channelAvatar: string;
-  publishedAt: string;
-  viewCount?: number;
-  likeCount?: number;
-  commentCount?: number;
-  duration?: string;
-}
+export type VideoItem = ServiceVideoItem;
 
 interface CommentItem {
   id: string;
@@ -700,7 +695,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         feedPoolRef.current = [];
       }
 
-      // 1. SEARCH MODE
+      // 1. SEARCH MODE: SMART SEARCH (Supabase First -> Fallback to YT API)
       if (searchQuery.trim()) {
         const query = searchQuery.trim();
         searchPagesFetchedRef.current = 1;
@@ -721,7 +716,8 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         }
 
         try {
-          const res = await fetchEnrichedYouTubeVideos(query, { isUserSearch: true });
+          // searchVideos queries Supabase first; if results > 0, YT API is NOT called
+          const res = await searchVideos(query);
           if (reqId !== activeRequestId.current) return;
 
           if (res.items.length > 0) {
@@ -746,7 +742,27 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         return;
       }
 
-      // 2. CATEGORY CHIP MODE (Non-All)
+      // 2. HOME RECOMMENDATIONS & CATEGORIES (Supabase-First)
+      // Check Supabase youtube_videos table directly
+      try {
+        const homeRes = await fetchHomeVideos(activeCategory);
+        if (reqId !== activeRequestId.current) return;
+
+        if (homeRes.source === 'supabase' && homeRes.items.length > 0) {
+          sessionSeenIds.current.clear();
+          homeRes.items.forEach(it => sessionSeenIds.current.add(it.id));
+          feedPoolRef.current = [...homeRes.items];
+          const initial = feedPoolRef.current.splice(0, 12);
+          setVideos(initial);
+          markIdsAsShown(initial.map(i => i.id));
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('Supabase home fetch warning, proceeding to fallback:', e);
+      }
+
+      // 3. CATEGORY CHIP MODE (Non-All Fallback if Supabase was empty)
       if (activeCategory !== 'All') {
         const catQ = `${activeCategory} lecture` + (AUDIENCE_HINT ? ` ${AUDIENCE_HINT}` : '');
         try {
@@ -978,27 +994,19 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
       }
     ]);
 
-    // Section 6: Up Next recommendations (Clean title first ~6 words, then channel videos)
+    // Section 6: Up Next recommendations (Supabase First -> Fallback to YouTube API)
     setLoadingRecommended(true);
-    const cleanedTitleQuery = cleanTitleForRecommendations(vid.title);
-
-    const q1 = cleanedTitleQuery;
-    const q2 = vid.channelTitle ? vid.channelTitle : '';
-
-    const recDedupe = new Set<string>([vid.id]);
-
-    Promise.all([
-      fetchEnrichedYouTubeVideos(q1),
-      q2 ? fetchEnrichedYouTubeVideos(q2) : Promise.resolve({ items: [] as VideoItem[], nextToken: null })
-    ]).then(([res1, res2]) => {
-      const merged = interleaveAndFormatPool([res1.items, res2.items], recDedupe).filter(it => !isShortVideo(it));
-      recPoolRef.current = merged;
-      const initialRecs = recPoolRef.current.splice(0, 10);
-      setRecommendedVideos(initialRecs);
-      setLoadingRecommended(false);
-    }).catch(() => {
-      setLoadingRecommended(false);
-    });
+    fetchRecommendedVideos(vid)
+      .then(res => {
+        const merged = res.items.filter(it => it.id !== vid.id && !isShortVideo(it));
+        recPoolRef.current = merged;
+        const initialRecs = recPoolRef.current.splice(0, 10);
+        setRecommendedVideos(initialRecs);
+        setLoadingRecommended(false);
+      })
+      .catch(() => {
+        setLoadingRecommended(false);
+      });
 
     setTimeout(() => {
       playerTopRef.current?.scrollIntoView({ behavior: 'smooth' });
