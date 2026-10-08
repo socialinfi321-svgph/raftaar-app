@@ -530,8 +530,8 @@ export default function App() {
         )}
 
         <div className="flex-1 overflow-y-auto hide-scrollbar relative z-10 bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-            <AnimatePresence>
-                <Routes location={location} key={location.pathname}>
+            <AnimatePresence mode="wait">
+                <Routes location={location}>
                     <Route 
                         path="/" 
                         element={
