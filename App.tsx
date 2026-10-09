@@ -548,8 +548,8 @@ export default function App() {
                             />
                         } 
                     />
-                    <Route path="/home" element={<YouTubeHome navigate={navigate} />} />
-                    <Route path="/classes" element={<YouTubeHome navigate={navigate} />} />
+                    <Route path="/home" element={<YouTubeHome navigate={navigate} profile={userProfile} />} />
+                    <Route path="/classes" element={<YouTubeHome navigate={navigate} profile={userProfile} />} />
                     <Route path="/practice" element={<PracticeScreen onSelectChapter={handleStartTest} navigate={navigate} profile={userProfile} />} />
                     <Route path="/khazana" element={<KhazanaScreen profile={userProfile} navigate={navigate} />} />
                     <Route path="/exam" element={<ExamScreen showCS={() => { setComingSoonTitle('BSEB Physics Mega Mock'); navigate('/coming-soon'); }} profile={userProfile} navigate={navigate} />} />

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { 
   ArrowLeft, Search, X, ThumbsUp, Share2, 
   Bookmark, Bell, MoreVertical, Compass, RotateCw, AlertTriangle, RefreshCw,
   FileText, Download, BookOpen, MessageSquare, Play, Check, ChevronRight,
-  Sparkles, ExternalLink, Users, ListVideo, Layers
+  Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Subtitles
 } from 'lucide-react';
 import { CustomVideoPlayer, CustomVideoPlayerRef } from './CustomVideoPlayer';
 import { SmartThumbnail } from './SmartThumbnail';
@@ -131,7 +131,7 @@ const parseTimestampSeconds = (str: string): number | null => {
   return null;
 };
 
-// Channel Avatar Badge: Real avatar if available, otherwise round badge with first letter of channel title
+// Channel Avatar Badge
 const ChannelAvatar: React.FC<{
   avatar?: string;
   title?: string;
@@ -143,7 +143,7 @@ const ChannelAvatar: React.FC<{
     sm: 'w-7 h-7 text-xs',
     md: 'w-9 h-9 text-sm',
     lg: 'w-10 h-10 text-base',
-    xl: 'w-16 h-16 sm:w-20 sm:h-20 text-2xl'
+    xl: 'w-16 h-16 sm:w-20 sm:h-20 text-xl font-bold'
   }[size];
 
   if (avatar) {
@@ -152,7 +152,7 @@ const ChannelAvatar: React.FC<{
         src={avatar}
         alt={title}
         onClick={onClick}
-        className={`${sizeClasses} rounded-full object-cover shrink-0 bg-slate-200 dark:bg-neutral-800 ${className} ${onClick ? 'cursor-pointer hover:opacity-90' : ''}`}
+        className={`${sizeClasses} rounded-full object-cover shrink-0 bg-neutral-200 dark:bg-neutral-800 ${className} ${onClick ? 'cursor-pointer hover:opacity-90' : ''}`}
       />
     );
   }
@@ -161,7 +161,7 @@ const ChannelAvatar: React.FC<{
   return (
     <div
       onClick={onClick}
-      className={`${sizeClasses} rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center shrink-0 uppercase shadow-xs ${className} ${onClick ? 'cursor-pointer hover:opacity-90' : ''}`}
+      className={`${sizeClasses} rounded-full bg-gradient-to-br from-indigo-600 to-purple-700 text-white font-bold flex items-center justify-center shrink-0 uppercase shadow-xs ${className} ${onClick ? 'cursor-pointer hover:opacity-90' : ''}`}
     >
       {initial}
     </div>
@@ -180,6 +180,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [isSearchingFallback, setIsSearchingFallback] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Paging and Pool references
@@ -221,7 +222,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   const [isFollowed, setIsFollowed] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Channel & Playlist Dedicated View States (Inspired by photos)
+  // Channel & Playlist Dedicated View States
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [channelDetails, setChannelDetails] = useState<ChannelDetails | null>(null);
   const [channelVideos, setChannelVideos] = useState<VideoItem[]>([]);
@@ -233,12 +234,31 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   const [activePlaylistId, setActivePlaylistId] = useState<string | null>(null);
   const [playlistTitle, setPlaylistTitle] = useState<string | null>(null);
   const [playlistVideosList, setPlaylistVideosList] = useState<VideoItem[]>([]);
-  const [loadingPlaylist, setLoadingPlaylist] = useState(false);
+
+  // Inline Autoplay on Home feed (idle scroll detection)
+  const [activePreviewVideoId, setActivePreviewVideoId] = useState<string | null>(null);
+  const [previewProgress, setPreviewProgress] = useState(0);
+  const [previewDuration, setPreviewDuration] = useState(60);
+  const [isPreviewMuted, setIsPreviewMuted] = useState(true);
+  const [isPreviewCC, setIsPreviewCC] = useState(false);
+  const idleScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const cardElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2500);
+    setTimeout(() => setToastMessage(null), 2800);
   };
+
+  // Listen for custom toast events (e.g. 429 live search limit)
+  useEffect(() => {
+    const handleToastEvent = (e: any) => {
+      if (e.detail?.message) {
+        showToast(e.detail.message);
+      }
+    };
+    window.addEventListener('raftaar:toast', handleToastEvent);
+    return () => window.removeEventListener('raftaar:toast', handleToastEvent);
+  }, []);
 
   // Android hardware back button integration
   useBackHandler(() => {
@@ -297,14 +317,13 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   const handleOpenPlaylist = useCallback(async (plId: string) => {
     if (!plId) return;
     setActivePlaylistId(plId);
-    setLoadingPlaylist(true);
 
     try {
       const res = await fetchPlaylistVideos(plId);
       setPlaylistTitle(res.playlistTitle || 'Playlist');
       setPlaylistVideosList(res.items);
-    } finally {
-      setLoadingPlaylist(false);
+    } catch {
+      setPlaylistVideosList([]);
     }
   }, []);
 
@@ -336,7 +355,10 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
           return;
         }
         const offset = parseInt(searchNextTokenRef.current, 10) || 0;
-        const res = await searchVideos(searchQuery.trim(), { offset });
+        const res = await searchVideos(searchQuery.trim(), { 
+          offset,
+          onFallbackState: setIsSearchingFallback
+        });
         searchNextTokenRef.current = res.nextToken;
         const newUnseen = res.items.filter(it => !sessionSeenIds.current.has(it.id));
         newUnseen.forEach(it => sessionSeenIds.current.add(it.id));
@@ -362,7 +384,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         return prev;
       });
     } catch {
-      // If Supabase has nothing left, stop quietly (no API call)
+      // Stop quietly
     } finally {
       isReplenishingRef.current = false;
     }
@@ -393,6 +415,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
       setLoading(true);
       setHasApiError(false);
       setApiErrorMsg(null);
+      setActivePreviewVideoId(null);
 
       if (isReload) {
         setVideos([]);
@@ -401,10 +424,13 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         searchNextTokenRef.current = null;
       }
 
-      // 1. SEARCH MODE (Supabase first, paginated)
+      // 1. SEARCH MODE
       if (searchQuery.trim()) {
         try {
-          const res = await searchVideos(searchQuery.trim(), { offset: 0 });
+          const res = await searchVideos(searchQuery.trim(), { 
+            offset: 0,
+            onFallbackState: setIsSearchingFallback
+          });
           if (reqId !== activeRequestId.current) return;
 
           if (res.error) {
@@ -435,7 +461,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         return;
       }
 
-      // 2. HOME FEED (Supabase only, different for every refresh)
+      // 2. HOME FEED
       try {
         const res = await fetchHomeVideos(activeCategory, {
           offset: 0,
@@ -477,7 +503,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     loadFeedData();
   }, [activeCategory, searchQuery]);
 
-  // IntersectionObserver sentinel for prefetching next bundle 1200px before end
+  // Sentinel for prefetching next bundle 1200px before end
   useEffect(() => {
     const sentinel = sentinelRef.current;
     if (!sentinel) return;
@@ -503,6 +529,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     if (selectedVideo) setSelectedVideo(null);
     if (activeChannelId) setActiveChannelId(null);
     if (activePlaylistId) setActivePlaylistId(null);
+    setActivePreviewVideoId(null);
     scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     loadFeedData(true);
   }, [loadFeedData, selectedVideo, activeChannelId, activePlaylistId]);
@@ -516,7 +543,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     return () => window.removeEventListener('raftaar:home-refresh', onHomeRefresh);
   }, [handleFullReload]);
 
-  // Smart Header hide/show on scroll
+  // Smart Header hide/show on scroll + Idle detection for inline autoplay
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
     const delta = scrollTop - lastScrollY.current;
@@ -529,6 +556,41 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
       window.dispatchEvent(new CustomEvent('app:nav-visible', { detail: { visible: true } }));
     }
     lastScrollY.current = scrollTop;
+
+    // Reset inline preview if scrolling
+    if (activePreviewVideoId) {
+      setActivePreviewVideoId(null);
+    }
+    if (idleScrollTimerRef.current) {
+      clearTimeout(idleScrollTimerRef.current);
+    }
+
+    // After 2.8 seconds of idle scroll, trigger inline preview on center card
+    if (!selectedVideo && !activeChannelId && !activePlaylistId) {
+      idleScrollTimerRef.current = setTimeout(() => {
+        const centerY = window.innerHeight / 2;
+        let closestId: string | null = null;
+        let closestDist = Infinity;
+
+        cardElementsRef.current.forEach((el, id) => {
+          if (!el) return;
+          const rect = el.getBoundingClientRect();
+          const cardCenter = rect.top + rect.height / 2;
+          const dist = Math.abs(cardCenter - centerY);
+          if (dist < closestDist && rect.top > 60 && rect.bottom < window.innerHeight) {
+            closestDist = dist;
+            closestId = id;
+          }
+        });
+
+        if (closestId) {
+          const targetVid = videos.find(v => v.id === closestId);
+          setActivePreviewVideoId(closestId);
+          setPreviewProgress(0);
+          setPreviewDuration(targetVid?.durationSeconds || 180);
+        }
+      }, 2800);
+    }
   };
 
   // Pull to refresh touch handlers
@@ -577,6 +639,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   // Handle Video Click -> Watch Screen & Unlimited Up Next
   const handleSelectVideo = (vid: VideoItem) => {
     setSelectedVideo(vid);
+    setActivePreviewVideoId(null);
     setLikeCount(vid.likeCount || 0);
     setIsLiked(false);
     setIsSaved(false);
@@ -608,7 +671,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     }, 50);
   };
 
-  // D) Unlimited Up Next replenishRecPool
+  // Unlimited Up Next replenishRecPool
   const replenishRecPool = useCallback(async () => {
     if (!selectedVideo || isReplenishingRecsRef.current) return;
     if (recCursorRef.current === null && recPoolRef.current.length === 0) return;
@@ -616,13 +679,11 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     isReplenishingRecsRef.current = true;
 
     try {
-      // If pool has items, release the next batch of 8 immediately
       if (recPoolRef.current.length > 0) {
         const nextBatch = recPoolRef.current.splice(0, 8);
         setRecommendedVideos(prev => [...prev, ...nextBatch]);
       }
 
-      // If pool is getting low and nextCursor is available, fetch more from Supabase
       if (recPoolRef.current.length < 10 && recCursorRef.current !== null) {
         const res = await fetchRecommendedVideos(selectedVideo, { cursor: recCursorRef.current });
         recCursorRef.current = res.nextCursor;
@@ -630,7 +691,6 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         fresh.forEach(it => recSeenRef.current.add(it.id));
         recPoolRef.current.push(...fresh);
 
-        // If recommendedVideos was empty, push initial items
         setRecommendedVideos(prev => {
           if (prev.length === 0 && recPoolRef.current.length > 0) {
             return recPoolRef.current.splice(0, 8);
@@ -700,7 +760,6 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     const lines = text.split('\n');
 
     return lines.map((line, idx) => {
-      // Match line starting with timestamp like "15:30 Intro", "1:05:20 Summary"
       const match = line.match(/^(\(?\d{1,2}:[0-5]\d(?::[0-5]\d)?\)?)\s*(.*)$/);
       if (match) {
         const rawTime = match[1].replace(/[()]/g, '');
@@ -719,7 +778,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                 <span className="bg-blue-50 dark:bg-blue-950/80 px-1.5 py-0.5 rounded text-blue-600 dark:text-blue-400">
                   {rawTime}
                 </span>
-                <span className="font-sans font-normal text-slate-800 dark:text-slate-200">
+                <span className="font-sans font-normal text-[#0f0f0f] dark:text-white">
                   {match[2]}
                 </span>
               </button>
@@ -737,19 +796,19 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 font-sans transition-colors duration-300 relative">
+    <div className="h-full flex flex-col bg-white dark:bg-[#0f0f0f] font-sans transition-colors duration-300 relative">
       
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[300] bg-slate-900/95 dark:bg-white/95 text-white dark:text-slate-950 px-4 py-2 rounded-full text-xs font-bold shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2 border border-slate-700 dark:border-slate-300 pointer-events-none">
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[300] bg-neutral-900/95 dark:bg-white/95 text-white dark:text-[#0f0f0f] px-4 py-2 rounded-full text-xs font-bold shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2 border border-neutral-700 dark:border-neutral-300 pointer-events-none">
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* ================= DEDICATED CHANNEL PAGE VIEW (Inspired by Screenshots) ================= */}
+      {/* ================= DEDICATED CHANNEL PAGE VIEW ================= */}
       {activeChannelId && (
         <div className="fixed inset-0 z-[150] bg-white dark:bg-[#0f0f0f] flex flex-col overflow-y-auto animate-fade-in">
-          {/* Channel Top Navigation Bar */}
+          {/* Top Bar */}
           <div className="sticky top-0 z-30 flex items-center justify-between px-3 h-12 bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-md border-b border-neutral-100 dark:border-neutral-800">
             <button
               onClick={() => setActiveChannelId(null)}
@@ -783,7 +842,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
           </div>
 
           {/* Channel Banner */}
-          <div className="w-full h-28 sm:h-36 bg-gradient-to-r from-purple-900 via-indigo-800 to-blue-900 relative overflow-hidden shrink-0">
+          <div className="w-full h-32 sm:h-44 bg-neutral-200 dark:bg-neutral-800 relative overflow-hidden shrink-0">
             {channelDetails?.channelBannerUrl ? (
               <img
                 src={channelDetails.channelBannerUrl}
@@ -791,58 +850,58 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-between px-6 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-700 via-purple-900 to-black">
+              <div className="w-full h-full flex items-center justify-between px-6 bg-gradient-to-r from-neutral-300 via-neutral-200 to-neutral-300 dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900">
                 <div>
-                  <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-md">
+                  <h3 className="text-xl sm:text-2xl font-bold text-[#0f0f0f] dark:text-white tracking-tight">
                     {channelDetails?.channelTitle || 'Official Faculty'}
                   </h3>
-                  <p className="text-xs text-indigo-200 mt-0.5">High Yield Educational Lecture Series</p>
+                  <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-0.5">High Yield Educational Lecture Series</p>
                 </div>
-                <Sparkles size={32} className="text-amber-400 opacity-80" />
+                <Sparkles size={28} className="text-amber-500 opacity-70" />
               </div>
             )}
           </div>
 
-          {/* Channel Header Profile Section (Exact layout from screenshots) */}
-          <div className="px-4 pt-3.5 pb-2">
+          {/* Channel Header Profile Section */}
+          <div className="px-4 pt-3 pb-2">
             <div className="flex items-start gap-3.5">
               <ChannelAvatar
                 avatar={channelDetails?.channelAvatar}
                 title={channelDetails?.channelTitle}
                 size="xl"
-                className="border-2 border-white dark:border-[#0f0f0f] shadow-md -mt-7 sm:-mt-9"
+                className="border-2 border-white dark:border-[#0f0f0f] shadow-md -mt-4 sm:-mt-6"
               />
               <div className="flex-1 min-w-0 pt-0.5">
-                <h1 className="text-[19px] sm:text-[22px] font-bold text-[#0f0f0f] dark:text-white flex items-center gap-1.5 leading-tight">
+                <h1 className="text-[18px] sm:text-[21px] font-bold text-[#0f0f0f] dark:text-white flex items-center gap-1.5 leading-tight">
                   <span className="truncate">{channelDetails?.channelTitle || 'Channel'}</span>
-                  <Check size={16} className="text-white bg-black dark:bg-white dark:text-black rounded-full p-0.5 shrink-0" />
+                  <Check size={15} className="text-white bg-black dark:bg-white dark:text-black rounded-full p-0.5 shrink-0" />
                 </h1>
                 {channelDetails?.channelHandle && (
-                  <p className="text-[13px] text-[#606060] dark:text-[#aaaaaa] font-medium">
+                  <p className="text-[12.5px] text-neutral-600 dark:text-neutral-400 font-medium">
                     {channelDetails.channelHandle}
                   </p>
                 )}
-                <p className="text-[12.5px] text-[#606060] dark:text-[#aaaaaa] mt-0.5 font-normal">
+                <p className="text-[12px] text-neutral-600 dark:text-neutral-400 mt-0.5 font-normal">
                   {formatCount(channelDetails?.subscriberCount)} subscribers • {channelDetails?.videoCount ? `${channelDetails.videoCount} videos` : 'Educational content'}
                 </p>
               </div>
             </div>
 
-            {/* Description Snippet with ...more */}
+            {/* Description Snippet: 1 single clean line */}
             {channelDetails?.description && (
-              <p className="text-[13px] text-[#606060] dark:text-[#aaaaaa] mt-2 line-clamp-2 leading-snug">
+              <p className="text-[12.5px] text-neutral-600 dark:text-neutral-400 mt-2 line-clamp-1 leading-snug">
                 {channelDetails.description}
               </p>
             )}
 
-            {/* Action Buttons: Subscribe & Community (Matching screenshots) */}
-            <div className="flex items-center gap-2 mt-3.5">
+            {/* Action Buttons: Subscribe & Community */}
+            <div className="flex items-center gap-2 mt-3">
               <button
                 onClick={() => {
                   setIsFollowed(!isFollowed);
                   showToast(isFollowed ? 'Unsubscribed' : 'Subscribed to channel');
                 }}
-                className={`flex-1 py-2 rounded-full text-[14px] font-bold transition-all shadow-xs active:scale-98 ${
+                className={`flex-1 py-2 rounded-full text-[13.5px] font-bold transition-all shadow-xs active:scale-98 ${
                   isFollowed
                     ? 'bg-neutral-200 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white'
                     : 'bg-[#0f0f0f] dark:bg-white text-white dark:text-[#0f0f0f] hover:opacity-90'
@@ -852,7 +911,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
               </button>
               <button
                 onClick={() => showToast('Community posts coming soon')}
-                className="px-4 py-2 rounded-full border border-neutral-300 dark:border-neutral-700 text-[#0f0f0f] dark:text-white text-[14px] font-bold flex items-center gap-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                className="px-4 py-2 rounded-full border border-neutral-300 dark:border-neutral-700 text-[#0f0f0f] dark:text-white text-[13.5px] font-bold flex items-center gap-1.5 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
               >
                 <Users size={16} />
                 <span>Community</span>
@@ -860,8 +919,8 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
             </div>
           </div>
 
-          {/* Channel Tabs: Home, Videos, Shorts, Playlists */}
-          <div className="flex items-center border-b border-neutral-200 dark:border-neutral-800 px-3 overflow-x-auto hide-scrollbar shrink-0 mt-1">
+          {/* Sticky Channel Tabs */}
+          <div className="sticky top-12 z-20 bg-white dark:bg-[#0f0f0f] flex items-center border-b border-neutral-200 dark:border-neutral-800 px-3 overflow-x-auto hide-scrollbar shrink-0 mt-1">
             {(['home', 'videos', 'shorts', 'playlists'] as const).map(tab => (
               <button
                 key={tab}
@@ -869,7 +928,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                 className={`px-4 py-2.5 text-[14px] font-bold capitalize whitespace-nowrap transition-colors relative ${
                   channelTab === tab
                     ? 'text-[#0f0f0f] dark:text-white'
-                    : 'text-[#606060] dark:text-[#aaaaaa] hover:text-[#0f0f0f] dark:hover:text-white'
+                    : 'text-neutral-600 dark:text-neutral-400 hover:text-[#0f0f0f] dark:hover:text-white'
                 }`}
               >
                 {tab}
@@ -882,7 +941,6 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
           {/* Channel Tab Content */}
           <div className="flex-1 p-3">
-            {/* Sorting Pills for Videos tab (Latest, Popular, Oldest) */}
             {channelTab === 'videos' && (
               <div className="flex items-center gap-2 mb-3">
                 {(['latest', 'popular', 'oldest'] as const).map(s => (
@@ -891,7 +949,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                     onClick={() => setChannelVideoSort(s)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
                       channelVideoSort === s
-                        ? 'bg-[#0f0f0f] text-white dark:bg-white dark:text-black'
+                        ? 'bg-[#0f0f0f] text-white dark:bg-white dark:text-[#0f0f0f]'
                         : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300'
                     }`}
                   >
@@ -901,8 +959,41 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
               </div>
             )}
 
-            {/* Playlists Tab */}
-            {channelTab === 'playlists' ? (
+            {channelTab === 'shorts' ? (
+              /* Shorts: 3-column vertical grid */
+              <div className="grid grid-cols-3 gap-2">
+                {channelVideos.length > 0 ? (
+                  channelVideos.map(vid => (
+                    <div
+                      key={vid.id}
+                      onClick={() => {
+                        handleSelectVideo(vid);
+                        setActiveChannelId(null);
+                      }}
+                      className="group cursor-pointer aspect-[9/16] rounded-xl overflow-hidden bg-black relative shadow-xs active:scale-95 transition-transform"
+                    >
+                      <img
+                        src={vid.thumbnail}
+                        alt={vid.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80" />
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <p className="text-[11px] font-semibold text-white line-clamp-2 leading-tight drop-shadow-sm">
+                          {decodeHtml(vid.title)}
+                        </p>
+                        <p className="text-[10px] text-neutral-300 mt-0.5">
+                          {formatViews(vid.viewCount)}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="col-span-3 text-center py-12 text-xs text-neutral-500">No shorts available</p>
+                )}
+              </div>
+            ) : channelTab === 'playlists' ? (
+              /* Playlists Tab */
               <div className="space-y-3">
                 {channelPlaylists.length > 0 ? (
                   channelPlaylists.map(pl => (
@@ -911,7 +1002,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                       onClick={() => handleOpenPlaylist(pl.playlistId)}
                       className="flex items-center gap-3 p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 cursor-pointer transition-all border border-neutral-100 dark:border-neutral-800"
                     >
-                      <div className="w-28 sm:w-36 aspect-video bg-neutral-200 dark:bg-neutral-800 rounded-lg overflow-hidden relative shrink-0">
+                      <div className="w-32 sm:w-36 aspect-video bg-neutral-200 dark:bg-neutral-800 rounded-lg overflow-hidden relative shrink-0">
                         {pl.thumbnail ? (
                           <img src={pl.thumbnail} alt={pl.title} className="w-full h-full object-cover" />
                         ) : (
@@ -925,10 +1016,10 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-bold text-[#0f0f0f] dark:text-white line-clamp-2">
+                        <h4 className="text-[13px] font-bold text-[#0f0f0f] dark:text-white line-clamp-2">
                           {pl.title}
                         </h4>
-                        <p className="text-xs text-neutral-500 mt-1">
+                        <p className="text-[11.5px] text-neutral-600 dark:text-neutral-400 mt-1">
                           {pl.videoCount} lectures • View playlist
                         </p>
                       </div>
@@ -952,7 +1043,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                       }}
                       className="flex items-start gap-3 p-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 cursor-pointer transition-all"
                     >
-                      <div className="w-32 sm:w-40 aspect-video rounded-lg overflow-hidden shrink-0 relative bg-black">
+                      <div className="w-32 sm:w-36 aspect-video rounded-lg overflow-hidden shrink-0 relative bg-black">
                         <SmartThumbnail
                           videoId={vid.id}
                           title={vid.title}
@@ -961,10 +1052,10 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                         />
                       </div>
                       <div className="flex-1 min-w-0 pt-0.5">
-                        <h4 className="text-[13.5px] font-medium text-[#0f0f0f] dark:text-[#f1f1f1] line-clamp-2 leading-snug">
+                        <h4 className="text-[12.5px] sm:text-[13px] font-medium text-[#0f0f0f] dark:text-white line-clamp-2 leading-snug">
                           {decodeHtml(vid.title)}
                         </h4>
-                        <div className="text-[11.5px] text-[#606060] dark:text-[#aaaaaa] mt-1 flex items-center gap-1.5">
+                        <div className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-1 flex items-center gap-1.5">
                           {vid.viewCount !== undefined && <span>{formatViews(vid.viewCount)}</span>}
                           <span>•</span>
                           <span>{timeAgo(vid.publishedAt)}</span>
@@ -998,11 +1089,11 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
             <div className="w-8" />
           </div>
 
-          <div className="p-4 bg-gradient-to-b from-indigo-950/20 to-transparent">
+          <div className="p-4 bg-gradient-to-b from-neutral-100 dark:from-neutral-900 to-transparent">
             <h1 className="text-lg sm:text-xl font-bold text-[#0f0f0f] dark:text-white leading-tight">
               {playlistTitle}
             </h1>
-            <p className="text-xs text-neutral-500 mt-1">
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1">
               {playlistVideosList.length} lectures in complete sequence
             </p>
             {playlistVideosList.length > 0 && (
@@ -1011,7 +1102,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   handleSelectVideo(playlistVideosList[0]);
                   setActivePlaylistId(null);
                 }}
-                className="mt-3 px-5 py-2 rounded-full bg-[#0f0f0f] dark:bg-white text-white dark:text-black text-xs font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-transform"
+                className="mt-3 px-5 py-2 rounded-full bg-[#0f0f0f] dark:bg-white text-white dark:text-[#0f0f0f] text-xs font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-transform"
               >
                 <Play size={14} className="fill-current" />
                 <span>Play all lectures</span>
@@ -1027,12 +1118,12 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   handleSelectVideo(vid);
                   setActivePlaylistId(null);
                 }}
-                className="flex items-center gap-3 p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 cursor-pointer transition-all border border-neutral-100/60 dark:border-neutral-800/40"
+                className="flex items-center gap-3 p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 cursor-pointer transition-all border border-neutral-100 dark:border-neutral-800"
               >
                 <span className="text-xs font-bold text-neutral-400 w-5 text-center shrink-0">
                   {idx + 1}
                 </span>
-                <div className="w-28 sm:w-36 aspect-video rounded-lg overflow-hidden shrink-0 bg-black">
+                <div className="w-32 sm:w-36 aspect-video rounded-lg overflow-hidden shrink-0 bg-black">
                   <SmartThumbnail
                     videoId={vid.id}
                     title={vid.title}
@@ -1041,10 +1132,10 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-[13px] font-medium text-[#0f0f0f] dark:text-[#f1f1f1] line-clamp-2 leading-snug">
+                  <h4 className="text-[12.5px] sm:text-[13px] font-medium text-[#0f0f0f] dark:text-white line-clamp-2 leading-snug">
                     {decodeHtml(vid.title)}
                   </h4>
-                  <p className="text-[11px] text-[#606060] dark:text-[#aaaaaa] mt-0.5 truncate">
+                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5 truncate">
                     {vid.channelTitle} • {formatViews(vid.viewCount)}
                   </p>
                 </div>
@@ -1057,9 +1148,9 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
       {/* ================= TOP HEADER / SEARCH BAR ================= */}
       {!selectedVideo ? (
         <header className="sticky top-0 z-50 bg-white dark:bg-[#0f0f0f] border-b border-neutral-100 dark:border-neutral-800/60 shadow-xs">
-          {/* Status Bar Safe Area Spacer */}
+          {/* Status Bar Safe Area Spacer (clean without select-none / pointer-events-none) */}
           <div 
-            className="w-full h-[max(28px,env(safe-area-inset-top,28px))] shrink-0 pointer-events-none select-none bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-sm"
+            className="w-full h-[max(28px,env(safe-area-inset-top,28px))] shrink-0 bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-sm"
             aria-hidden="true"
           />
 
@@ -1068,7 +1159,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
             className={`transition-all duration-300 ease-in-out overflow-hidden ${
               isHeaderVisible || isSearchExpanded
                 ? 'h-12 opacity-100 translate-y-0'
-                : 'h-0 opacity-0 -translate-y-full pointer-events-none'
+                : 'h-0 opacity-0 -translate-y-full'
             }`}
           >
             <div className="h-12 px-3 flex items-center justify-between">
@@ -1099,7 +1190,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                           setSearchInput('');
                           searchInputRef.current?.focus();
                         }}
-                        className="p-1 text-neutral-500 hover:text-neutral-800 dark:hover:text-white"
+                        className="p-1 text-neutral-500 hover:text-[#0f0f0f] dark:hover:text-white"
                       >
                         <X size={16} />
                       </button>
@@ -1117,7 +1208,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                 /* Default Header Layout */
                 <>
                   <div
-                    className="flex items-center gap-1.5 cursor-pointer select-none"
+                    className="flex items-center gap-1.5 cursor-pointer"
                     onClick={() => {
                       if (selectedVideo) setSelectedVideo(null);
                       setActiveCategory('All');
@@ -1170,7 +1261,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                 setSearchQuery('');
                 setSearchInput('');
               }}
-              className="px-2.5 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-neutral-200 shrink-0 hover:bg-neutral-200 dark:hover:bg-neutral-700 active:scale-95 transition-all"
+              className="px-2.5 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white shrink-0 hover:bg-neutral-200 dark:hover:bg-neutral-700 active:scale-95 transition-all"
               title="Explore all"
             >
               <Compass size={18} />
@@ -1191,7 +1282,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   className={`rounded-lg px-3 py-1.5 text-[14px] font-medium shrink-0 transition-colors whitespace-nowrap active:scale-95 ${
                     isActive
                       ? 'bg-[#0f0f0f] text-white dark:bg-white dark:text-[#0f0f0f]'
-                      : 'bg-neutral-100 text-[#0f0f0f] dark:bg-neutral-800 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                      : 'bg-neutral-100 text-[#0f0f0f] dark:bg-neutral-800 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700'
                   }`}
                 >
                   {cat}
@@ -1215,22 +1306,22 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="flex-1 overflow-y-auto hide-scrollbar bg-slate-50 dark:bg-slate-950"
+        className="flex-1 overflow-y-auto hide-scrollbar bg-white dark:bg-[#0f0f0f]"
       >
         {/* Pull to refresh visual indicator */}
         {isPulling && (
           <div 
             style={{ height: `${pullDistance}px` }} 
-            className="w-full flex items-center justify-center overflow-hidden transition-all text-slate-500"
+            className="w-full flex items-center justify-center overflow-hidden transition-all text-neutral-500"
           >
             <RefreshCw size={18} className={`${pullDistance > 50 ? 'animate-spin text-brand-600' : ''}`} />
           </div>
         )}
 
         {selectedVideo ? (
-          /* ================= 1. VIDEO WATCH VIEW (NO select-none, Clean YouTube Layout) ================= */
+          /* ================= 1. VIDEO WATCH VIEW ================= */
           <div ref={playerTopRef} className="max-w-5xl mx-auto pb-16 animate-fade-in bg-white dark:bg-[#0f0f0f]">
-            {/* Player Container: Uses official IFrame API, strip above, zero overlay on video */}
+            {/* Player Container: Sticky at top */}
             <div className="w-full sticky top-0 sm:relative z-30 shadow-md bg-black">
               <CustomVideoPlayer
                 ref={playerRef}
@@ -1242,50 +1333,36 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
               />
             </div>
 
-            <div className="p-4 sm:p-5 space-y-3.5">
-              {/* Playlist Header if present: {playlistTitle} - Lecture {playlistPosition + 1} */}
-              {selectedVideo.playlistTitle && (
-                <div
-                  onClick={() => selectedVideo.playlistId && handleOpenPlaylist(selectedVideo.playlistId)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200/60 dark:border-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-xs font-semibold cursor-pointer hover:underline"
-                >
-                  <BookOpen size={13} />
-                  <span>
-                    {selectedVideo.playlistTitle} - Lecture {(selectedVideo.playlistPosition ?? 0) + 1}
-                  </span>
-                </div>
-              )}
-
-              {/* B) Title & Details: text-[#0f0f0f] dark:text-[#f1f1f1] text-[17px] font-semibold leading-snug */}
+            <div className="p-4 sm:p-5 space-y-3">
+              {/* Smaller crisp Title & Details below player */}
               <div className="flex items-start justify-between gap-3">
                 <div 
                   onClick={() => setIsDescOpen(true)}
                   className="flex-1 cursor-pointer group"
                 >
-                  <h1 className="text-[#0f0f0f] dark:text-[#f1f1f1] text-[17px] font-semibold leading-snug line-clamp-2 tracking-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  <h1 className="text-[#0f0f0f] dark:text-white text-[14.5px] sm:text-[15.5px] font-semibold leading-snug line-clamp-2 tracking-tight">
                     {decodeHtml(selectedVideo.title)}
                   </h1>
-                  {/* Under the title: "{views} views  {time ago}  ...more" in text-[#606060] dark:text-[#aaaaaa] text-[12.5px] */}
-                  <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-[#606060] dark:text-[#aaaaaa] text-[12.5px] mt-1 font-normal">
+                  <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-neutral-600 dark:text-neutral-400 text-[12px] mt-1 font-normal">
                     {selectedVideo.viewCount !== undefined && (
                       <span>{formatViews(selectedVideo.viewCount)}</span>
                     )}
                     <span>{timeAgo(selectedVideo.publishedAt)}</span>
-                    <span className="text-[#0f0f0f] dark:text-slate-200 font-semibold hover:underline">...more</span>
+                    <span className="text-[#0f0f0f] dark:text-white font-semibold hover:underline">...more</span>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => showToast('Options: Save to Khazana or Report')}
-                  className="p-1.5 text-slate-600 dark:text-slate-400 hover:bg-black/5 dark:hover:bg-white/10 rounded-full shrink-0 mt-0.5"
+                  className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:bg-black/5 dark:hover:bg-white/10 rounded-full shrink-0 mt-0.5"
                   aria-label="Options"
                 >
                   <MoreVertical size={20} />
                 </button>
               </div>
 
-              {/* B) Channel Row: real avatar, channel name text-[#0f0f0f] dark:text-white font-semibold text-[15px], subscribers text-[#606060] text-[12px] (hide if unknown), Subscribe button on right */}
-              <div className="flex items-center justify-between pt-1">
+              {/* Channel Row: Tap opens Channel Page */}
+              <div className="flex items-center justify-between pt-0.5">
                 <div 
                   onClick={() => selectedVideo.channelId && handleOpenChannel(selectedVideo.channelId)}
                   className="flex items-center gap-2.5 cursor-pointer group"
@@ -1294,15 +1371,15 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                     avatar={selectedVideo.channelAvatar}
                     title={selectedVideo.channelTitle}
                     size="lg"
-                    className="border border-slate-200 dark:border-slate-700 group-hover:opacity-90"
+                    className="border border-neutral-200 dark:border-neutral-700 group-hover:opacity-90"
                   />
                   <div>
-                    <h3 className="text-[#0f0f0f] dark:text-white font-semibold text-[15px] leading-tight flex items-center gap-1 group-hover:underline">
+                    <h3 className="text-[#0f0f0f] dark:text-white font-semibold text-[14.5px] leading-tight flex items-center gap-1 group-hover:underline">
                       <span>{selectedVideo.channelTitle || 'Channel'}</span>
                       <Check size={13} className="text-white bg-black dark:bg-white dark:text-black rounded-full p-0.5" />
                     </h3>
                     {selectedVideo.subscriberCount !== undefined && (
-                      <p className="text-[#606060] text-[12px] font-normal">
+                      <p className="text-neutral-600 dark:text-neutral-400 text-[11.5px] font-normal">
                         {formatCount(selectedVideo.subscriberCount)} subscribers
                       </p>
                     )}
@@ -1316,7 +1393,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   }}
                   className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-xs active:scale-95 ${
                     isFollowed
-                      ? 'bg-neutral-200 dark:bg-neutral-800 text-[#0f0f0f] dark:text-neutral-200'
+                      ? 'bg-neutral-200 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white'
                       : 'bg-[#0f0f0f] dark:bg-white text-white dark:text-[#0f0f0f] hover:opacity-90'
                   }`}
                 >
@@ -1330,8 +1407,8 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   onClick={handleToggleLike}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     isLiked
-                      ? 'bg-indigo-50 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900'
-                      : 'bg-slate-100 dark:bg-neutral-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-neutral-700'
+                      ? 'bg-neutral-200 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white'
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700'
                   }`}
                 >
                   <ThumbsUp size={15} className={isLiked ? 'fill-current' : ''} />
@@ -1340,7 +1417,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
                 <button
                   onClick={handleShare}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-neutral-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-neutral-700 transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all"
                 >
                   <Share2 size={15} />
                   <span>Share</span>
@@ -1353,8 +1430,8 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   }}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
                     isSaved
-                      ? 'bg-red-50 dark:bg-red-950/70 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900'
-                      : 'bg-slate-100 dark:bg-neutral-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-neutral-700'
+                      ? 'bg-neutral-200 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white'
+                      : 'bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700'
                   }`}
                 >
                   <Bookmark size={15} className={isSaved ? 'fill-current' : ''} />
@@ -1363,8 +1440,8 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
               </div>
 
               {/* Comments Notice */}
-              <div className="p-3 rounded-xl bg-slate-100/80 dark:bg-neutral-800/60 border border-slate-200/60 dark:border-neutral-800 flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400">
-                <MessageSquare size={16} className="text-slate-400 dark:text-neutral-500 shrink-0" />
+              <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/60 dark:border-neutral-800 flex items-center gap-2.5 text-xs text-neutral-600 dark:text-neutral-400">
+                <MessageSquare size={16} className="text-neutral-500 shrink-0" />
                 <span>Comments jaldi aa rahe hain</span>
               </div>
 
@@ -1372,47 +1449,47 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
               <div className="grid grid-cols-2 gap-2 pt-0.5">
                 <button
                   onClick={() => showToast('Class Notes downloaded!')}
-                  className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-100 dark:bg-neutral-800/80 hover:bg-slate-200 dark:hover:bg-neutral-800 border border-slate-200/80 dark:border-neutral-700/60 transition-all active:scale-95"
+                  className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 hover:bg-neutral-200 dark:hover:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700/60 transition-all active:scale-95"
                 >
                   <FileText size={18} className="text-blue-500 mb-1" />
-                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
+                  <span className="text-[11px] font-bold text-[#0f0f0f] dark:text-white leading-tight">
                     Notes
                   </span>
                 </button>
 
                 <button
                   onClick={() => showToast('Lecture available offline!')}
-                  className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-100 dark:bg-neutral-800/80 hover:bg-slate-200 dark:hover:bg-neutral-800 border border-slate-200/80 dark:border-neutral-700/60 transition-all active:scale-95"
+                  className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 hover:bg-neutral-200 dark:hover:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700/60 transition-all active:scale-95"
                 >
-                  <Download size={18} className="text-slate-600 dark:text-slate-400 mb-1" />
-                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 leading-tight">
+                  <Download size={18} className="text-neutral-600 dark:text-neutral-400 mb-1" />
+                  <span className="text-[11px] font-bold text-[#0f0f0f] dark:text-white leading-tight">
                     Download
                   </span>
                 </button>
               </div>
 
-              {/* D) Suggested Videos List (Unlimited Up Next) */}
+              {/* Up Next List: Balanced thumbnails, clean titles */}
               <div className="space-y-1.5 pt-1">
                 {recommendedVideos.map((item, idx) => (
                   <div
                     key={`${item.id}-${idx}`}
                     onClick={() => handleSelectVideo(item)}
-                    className="group cursor-pointer flex items-start gap-2.5 py-1 px-1 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:opacity-90 transition-all"
+                    className="group cursor-pointer flex items-start gap-3 py-1 px-1 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:opacity-90 transition-all"
                   >
-                    <div className="w-32 sm:w-40 shrink-0">
+                    <div className="w-32 sm:w-36 aspect-video shrink-0">
                       <SmartThumbnail
                         videoId={item.id}
                         title={item.title}
                         duration={item.duration}
                         priority={idx < 2}
-                        className="rounded-lg sm:rounded-xl overflow-hidden shadow-xs"
+                        className="rounded-lg sm:rounded-xl overflow-hidden shadow-xs w-full h-full"
                         badgeClassName="!bottom-1 !right-1 !text-[10px] !px-1.5 !py-0.5"
                       />
                     </div>
 
                     <div className="flex-1 min-w-0 pt-0.5">
                       <div className="flex items-start justify-between gap-1">
-                        <h4 className="text-[#0f0f0f] dark:text-[#f1f1f1] font-medium text-[12.5px] sm:text-[13.5px] leading-[1.25] line-clamp-2 break-words flex-1">
+                        <h4 className="text-[#0f0f0f] dark:text-white font-medium text-[12px] sm:text-[12.5px] leading-[1.25] line-clamp-2 break-words flex-1">
                           {decodeHtml(item.title)}
                         </h4>
                         <button
@@ -1421,7 +1498,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                             e.stopPropagation();
                             showToast('Options: Save to Khazana');
                           }}
-                          className="p-1 text-[#606060] dark:text-neutral-400 hover:text-black dark:hover:text-white shrink-0 -mt-1 -mr-1 rounded-full"
+                          className="p-1 text-neutral-600 dark:text-neutral-400 hover:text-[#0f0f0f] dark:hover:text-white shrink-0 -mt-1 -mr-1 rounded-full"
                           aria-label="Options"
                         >
                           <MoreVertical size={16} />
@@ -1433,12 +1510,12 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                           e.stopPropagation();
                           if (item.channelId) handleOpenChannel(item.channelId);
                         }}
-                        className="text-[#606060] dark:text-[#aaaaaa] text-[11px] font-normal mt-0.5 line-clamp-1 hover:underline cursor-pointer"
+                        className="text-neutral-600 dark:text-neutral-400 text-[11px] font-normal mt-0.5 line-clamp-1 hover:underline cursor-pointer"
                       >
                         {item.channelTitle}
                       </p>
 
-                      <div className="text-[#606060] dark:text-[#aaaaaa] text-[10.5px] font-normal mt-0.5 flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
+                      <div className="text-neutral-600 dark:text-neutral-400 text-[10.5px] font-normal mt-0.5 flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
                         {item.viewCount !== undefined && (
                           <>
                             <span>{formatViews(item.viewCount)}</span>
@@ -1461,9 +1538,9 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
           <div className="max-w-6xl mx-auto pb-20">
             {/* Search active notice */}
             {searchQuery && (
-              <div className="px-4 py-2 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <span className="text-xs text-slate-600 dark:text-slate-400">
-                  Showing results for: <strong className="text-slate-900 dark:text-white">"{searchQuery}"</strong>
+              <div className="px-4 py-2 bg-neutral-100 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
+                <span className="text-xs text-neutral-600 dark:text-neutral-400">
+                  Showing results for: <strong className="text-[#0f0f0f] dark:text-white">"{searchQuery}"</strong>
                 </span>
                 <button
                   onClick={handleClearSearch}
@@ -1471,6 +1548,14 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                 >
                   Clear search
                 </button>
+              </div>
+            )}
+
+            {/* Fallback Live Search Skeleton Indicator */}
+            {isSearchingFallback && (
+              <div className="mx-4 my-3 p-3 bg-indigo-50/90 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/50 rounded-xl flex items-center justify-center gap-2.5 text-xs text-indigo-700 dark:text-indigo-300 font-medium animate-pulse">
+                <Sparkles size={16} className="text-indigo-600 dark:text-indigo-400 animate-spin" />
+                <span>Searching YouTube for more lectures…</span>
               </div>
             )}
 
@@ -1505,87 +1590,165 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                 Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="flex flex-col w-full animate-pulse">
                     <div className="px-3.5 sm:px-0">
-                      <div className="w-full aspect-video bg-[#e5e5e5] dark:bg-neutral-800 rounded-[18px] sm:rounded-[22px]" />
+                      <div className="w-full aspect-video bg-neutral-200 dark:bg-neutral-800 rounded-[18px] sm:rounded-[22px]" />
                     </div>
                     <div className="flex items-start gap-3 pt-2.5 pb-5 px-3.5 sm:px-1">
-                      <div className="w-9 h-9 rounded-full bg-[#e5e5e5] dark:bg-neutral-800 shrink-0 mt-0.5" />
+                      <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0 space-y-2 pt-0.5">
-                        <div className="h-4 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-full" />
-                        <div className="h-4 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-3/4" />
-                        <div className="h-3 bg-[#e5e5e5] dark:bg-neutral-800 rounded w-1/2 mt-1" />
+                        <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-full" />
+                        <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-3/4" />
+                        <div className="h-3 bg-neutral-200 dark:bg-neutral-800 rounded w-1/2 mt-1" />
                       </div>
                     </div>
                   </div>
                 ))
               ) : videos.length > 0 ? (
-                videos.map((vid, idx) => (
-                  <div
-                    key={`${vid.id}-${idx}`}
-                    onClick={() => handleSelectVideo(vid)}
-                    className="group cursor-pointer flex flex-col w-full active:opacity-95 transition-opacity"
-                  >
-                    <div className="px-3.5 sm:px-0">
-                      <SmartThumbnail
-                        videoId={vid.id}
-                        title={vid.title}
-                        duration={vid.duration}
-                        priority={idx < 3}
-                        className="w-full aspect-video !rounded-[18px] sm:!rounded-[22px] overflow-hidden shadow-xs"
-                        imgClassName="!rounded-[18px] sm:!rounded-[22px]"
-                      />
-                    </div>
+                videos.map((vid, idx) => {
+                  const isInlineActive = activePreviewVideoId === vid.id;
 
-                    <div className="flex items-start gap-3 pt-2.5 pb-5 px-3.5 sm:px-1">
-                      <ChannelAvatar
-                        avatar={vid.channelAvatar}
-                        title={vid.channelTitle}
-                        size="md"
-                        onClick={() => vid.channelId && handleOpenChannel(vid.channelId)}
-                        className="mt-0.5"
-                      />
+                  return (
+                    <div
+                      key={`${vid.id}-${idx}`}
+                      ref={(el) => {
+                        if (el) cardElementsRef.current.set(vid.id, el);
+                        else cardElementsRef.current.delete(vid.id);
+                      }}
+                      className="group cursor-pointer flex flex-col w-full active:opacity-95 transition-opacity"
+                    >
+                      <div className="px-3.5 sm:px-0 relative">
+                        {isInlineActive ? (
+                          /* YouTube-style Inline Autoplay Preview */
+                          <div className="w-full aspect-video !rounded-[18px] sm:!rounded-[22px] overflow-hidden bg-black relative shadow-lg">
+                            <iframe
+                              src={`https://www.youtube.com/embed/${vid.id}?autoplay=1&mute=${isPreviewMuted ? 1 : 0}&controls=0&playsinline=1&rel=0&modestbranding=1&cc_load_policy=${isPreviewCC ? 1 : 0}`}
+                              title={vid.title}
+                              allow="autoplay; encrypted-media; picture-in-picture"
+                              className="w-full h-full pointer-events-none border-0"
+                            />
 
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-[#0f0f0f] dark:text-[#f1f1f1] font-medium text-[14px] sm:text-[15px] leading-[1.35] tracking-[-0.01em] line-clamp-2 break-words">
-                          {decodeHtml(vid.title)}
-                        </h3>
-                        <div className="text-[#606060] dark:text-[#aaaaaa] text-[12px] leading-[1.35] mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                          <span 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (vid.channelId) handleOpenChannel(vid.channelId);
-                            }}
-                            className="font-normal text-[#606060] dark:text-[#aaaaaa] hover:text-[#0f0f0f] dark:hover:text-white transition-colors cursor-pointer hover:underline"
-                          >
-                            {vid.channelTitle}
-                          </span>
-                          {vid.viewCount !== undefined && (
-                            <>
-                              <span className="text-[10px] text-neutral-400 dark:text-neutral-500">•</span>
-                              <span>{formatViews(vid.viewCount)}</span>
-                            </>
-                          )}
-                          <span className="text-[10px] text-neutral-400 dark:text-neutral-500">•</span>
-                          <span>{timeAgo(vid.publishedAt)}</span>
-                        </div>
+                            {/* Top Quick Actions (Mute/Unmute, CC, Close) */}
+                            <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20 pointer-events-auto">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsPreviewMuted(!isPreviewMuted);
+                                }}
+                                className="p-1.5 rounded-full bg-black/75 hover:bg-black text-white text-xs backdrop-blur-md"
+                                title={isPreviewMuted ? 'Unmute' : 'Mute'}
+                              >
+                                {isPreviewMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsPreviewCC(!isPreviewCC);
+                                }}
+                                className={`p-1.5 rounded-full text-xs backdrop-blur-md ${isPreviewCC ? 'bg-white text-black' : 'bg-black/75 hover:bg-black text-white'}`}
+                                title="Captions"
+                              >
+                                <Subtitles size={15} />
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActivePreviewVideoId(null);
+                                }}
+                                className="p-1.5 rounded-full bg-black/75 hover:bg-black text-white text-xs backdrop-blur-md"
+                                title="Close preview"
+                              >
+                                <X size={15} />
+                              </button>
+                            </div>
+
+                            {/* Bottom Scrubbable Timeline Slider */}
+                            <div 
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute bottom-2 inset-x-3 flex items-center gap-2 z-20 pointer-events-auto bg-black/60 backdrop-blur-xs px-2.5 py-1 rounded-lg"
+                            >
+                              <input
+                                type="range"
+                                min="0"
+                                max={previewDuration}
+                                value={previewProgress}
+                                onChange={(e) => setPreviewProgress(Number(e.target.value))}
+                                className="w-full accent-red-600 h-1.5 rounded-lg cursor-pointer"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div onClick={() => handleSelectVideo(vid)}>
+                            <SmartThumbnail
+                              videoId={vid.id}
+                              title={vid.title}
+                              duration={vid.duration}
+                              priority={idx < 3}
+                              className="w-full aspect-video !rounded-[18px] sm:!rounded-[22px] overflow-hidden shadow-xs"
+                              imgClassName="!rounded-[18px] sm:!rounded-[22px]"
+                            />
+                          </div>
+                        )}
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          showToast('Options: Share & Save');
-                        }}
-                        className="p-1 -mr-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all text-[#0f0f0f] dark:text-neutral-300 shrink-0 mt-0.5"
-                        aria-label="More options"
+                      <div 
+                        onClick={() => handleSelectVideo(vid)}
+                        className="flex items-start gap-3 pt-2.5 pb-5 px-3.5 sm:px-1"
                       >
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
+                        <ChannelAvatar
+                          avatar={vid.channelAvatar}
+                          title={vid.channelTitle}
+                          size="md"
+                          onClick={() => vid.channelId && handleOpenChannel(vid.channelId)}
+                          className="mt-0.5"
+                        />
+
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-[#0f0f0f] dark:text-white font-semibold text-[14px] sm:text-[15px] leading-[1.35] tracking-[-0.01em] line-clamp-2 break-words">
+                            {decodeHtml(vid.title)}
+                          </h3>
+                          <div className="text-neutral-600 dark:text-neutral-400 text-[12px] leading-[1.35] mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                            <span 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (vid.channelId) handleOpenChannel(vid.channelId);
+                              }}
+                              className="font-normal text-neutral-600 dark:text-neutral-400 hover:text-[#0f0f0f] dark:hover:text-white transition-colors cursor-pointer hover:underline"
+                            >
+                              {vid.channelTitle}
+                            </span>
+                            {vid.viewCount !== undefined && (
+                              <>
+                                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">•</span>
+                                <span>{formatViews(vid.viewCount)}</span>
+                              </>
+                            )}
+                            <span className="text-[10px] text-neutral-400 dark:text-neutral-500">•</span>
+                            <span>{timeAgo(vid.publishedAt)}</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            showToast('Options: Share & Save');
+                          }}
+                          className="p-1 -mr-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all text-[#0f0f0f] dark:text-white shrink-0 mt-0.5"
+                          aria-label="More options"
+                        >
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : !hasApiError ? (
-                <div className="col-span-full py-16 text-center text-slate-500">
-                  <p className="text-sm font-semibold mb-2">No videos found.</p>
+                <div className="col-span-full py-16 text-center text-neutral-500">
+                  <p className="text-sm font-semibold mb-2 text-[#0f0f0f] dark:text-white">No videos found.</p>
                   <button
                     onClick={() => loadFeedData(true)}
                     className="px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-bold shadow-xs"
@@ -1602,78 +1765,78 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         )}
       </div>
 
-      {/* ================= C) DESCRIPTION SHEET (z-[200], max-h-[88vh], overscroll-contain) ================= */}
+      {/* ================= DESCRIPTION SHEET: Opens below the player without covering it ================= */}
       {isDescOpen && selectedVideo && (
         <div 
-          className="fixed inset-0 z-[200] flex flex-col justify-end bg-black/60 backdrop-blur-xs animate-fade-in"
+          className="fixed inset-x-0 bottom-0 top-[max(50px,calc(100vw*9/16+36px))] sm:top-[330px] z-[200] flex flex-col justify-end bg-black/40 backdrop-blur-xs animate-fade-in"
           onClick={() => setIsDescOpen(false)}
         >
           <div 
-            className="w-full max-h-[88vh] bg-white dark:bg-[#181818] rounded-t-3xl shadow-2xl flex flex-col border-t border-slate-200 dark:border-neutral-800 overflow-hidden"
+            className="w-full h-full max-h-full bg-white dark:bg-[#181818] rounded-t-2xl shadow-2xl flex flex-col border-t border-neutral-200 dark:border-neutral-800 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Grabber handle */}
-            <div className="w-12 h-1 bg-slate-300 dark:bg-neutral-700 rounded-full mx-auto mt-2.5 mb-1 shrink-0" />
+            <div className="w-12 h-1 bg-neutral-300 dark:bg-neutral-700 rounded-full mx-auto mt-2.5 mb-1 shrink-0" />
 
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-neutral-800 shrink-0">
-              <h2 className="text-[17px] font-bold text-slate-900 dark:text-white">Description</h2>
+            <div className="flex items-center justify-between px-5 py-2.5 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
+              <h2 className="text-[16px] font-bold text-[#0f0f0f] dark:text-white">Description</h2>
               <button 
                 onClick={() => setIsDescOpen(false)}
-                className="p-1.5 rounded-full text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-neutral-800 transition-colors"
+                className="p-1.5 rounded-full text-neutral-500 hover:text-[#0f0f0f] dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 aria-label="Close description"
               >
                 <X size={20} />
               </button>
             </div>
 
-            {/* Content Body: Order: title, stats row, channel row, full description, hashtags */}
-            <div className="flex-1 overflow-y-auto overscroll-contain p-5 space-y-4 whitespace-pre-wrap break-words">
+            {/* Content Body */}
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 space-y-3.5 whitespace-pre-wrap break-words">
               {/* 1. Title */}
-              <h3 className="text-[16px] font-bold text-slate-900 dark:text-white leading-snug">
+              <h3 className="text-[15px] font-bold text-[#0f0f0f] dark:text-white leading-snug">
                 {decodeHtml(selectedVideo.title)}
               </h3>
 
-              {/* 2. Stats Row: full view count with commas, published date like "12 Sep 2026", likes, duration */}
-              <div className="flex items-center justify-around py-3 px-2 bg-slate-50 dark:bg-neutral-900 rounded-2xl border border-slate-100 dark:border-neutral-800 text-center">
+              {/* 2. Stats Row */}
+              <div className="flex items-center justify-around py-3 px-2 bg-neutral-50 dark:bg-neutral-900 rounded-xl border border-neutral-100 dark:border-neutral-800 text-center">
                 <div>
-                  <p className="text-[14px] font-black text-slate-900 dark:text-white">
+                  <p className="text-[14px] font-black text-[#0f0f0f] dark:text-white">
                     {formatFullViews(selectedVideo.viewCount)}
                   </p>
-                  <p className="text-[11px] text-slate-500 font-medium">Views</p>
+                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 font-medium">Views</p>
                 </div>
-                <div className="w-[1px] h-6 bg-slate-200 dark:bg-neutral-800" />
+                <div className="w-[1px] h-6 bg-neutral-200 dark:bg-neutral-800" />
                 <div>
-                  <p className="text-[14px] font-black text-slate-900 dark:text-white">
+                  <p className="text-[14px] font-black text-[#0f0f0f] dark:text-white">
                     {formatFullDate(selectedVideo.publishedAt)}
                   </p>
-                  <p className="text-[11px] text-slate-500 font-medium">Uploaded</p>
+                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 font-medium">Uploaded</p>
                 </div>
                 {selectedVideo.likeCount !== undefined && (
                   <>
-                    <div className="w-[1px] h-6 bg-slate-200 dark:bg-neutral-800" />
+                    <div className="w-[1px] h-6 bg-neutral-200 dark:bg-neutral-800" />
                     <div>
-                      <p className="text-[14px] font-black text-slate-900 dark:text-white">
+                      <p className="text-[14px] font-black text-[#0f0f0f] dark:text-white">
                         {formatCount(selectedVideo.likeCount)}
                       </p>
-                      <p className="text-[11px] text-slate-500 font-medium">Likes</p>
+                      <p className="text-[11px] text-neutral-600 dark:text-neutral-400 font-medium">Likes</p>
                     </div>
                   </>
                 )}
                 {selectedVideo.duration && (
                   <>
-                    <div className="w-[1px] h-6 bg-slate-200 dark:bg-neutral-800" />
+                    <div className="w-[1px] h-6 bg-neutral-200 dark:bg-neutral-800" />
                     <div>
-                      <p className="text-[14px] font-black text-slate-900 dark:text-white">
+                      <p className="text-[14px] font-black text-[#0f0f0f] dark:text-white">
                         {selectedVideo.duration}
                       </p>
-                      <p className="text-[11px] text-slate-500 font-medium">Duration</p>
+                      <p className="text-[11px] text-neutral-600 dark:text-neutral-400 font-medium">Duration</p>
                     </div>
                   </>
                 )}
               </div>
 
-              {/* 3. Channel Row: avatar, name, subscribers */}
+              {/* 3. Channel Row */}
               <div 
                 onClick={() => {
                   if (selectedVideo.channelId) {
@@ -1687,34 +1850,34 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   avatar={selectedVideo.channelAvatar}
                   title={selectedVideo.channelTitle}
                   size="lg"
-                  className="border border-slate-200 dark:border-slate-700"
+                  className="border border-neutral-200 dark:border-neutral-700"
                 />
                 <div>
-                  <p className="text-sm font-bold text-slate-900 dark:text-white group-hover:underline">
+                  <p className="text-sm font-bold text-[#0f0f0f] dark:text-white group-hover:underline">
                     {selectedVideo.channelTitle || 'Channel'}
                   </p>
                   {selectedVideo.subscriberCount !== undefined && (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-neutral-600 dark:text-neutral-400">
                       {formatCount(selectedVideo.subscriberCount)} subscribers
                     </p>
                   )}
                 </div>
               </div>
 
-              {/* 4. Full Description: line starting with timestamp seeks player & closes sheet */}
+              {/* 4. Full Description with timestamps */}
               {selectedVideo.description ? (
-                <div className="pt-2 border-t border-slate-100 dark:border-neutral-800 text-xs sm:text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-sans">
+                <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed font-sans">
                   {renderDescriptionBody(selectedVideo.description)}
                 </div>
               ) : null}
 
               {/* 5. Hashtags as Chips */}
               {selectedVideo.hashtags && selectedVideo.hashtags.length > 0 && (
-                <div className="pt-2 border-t border-slate-100 dark:border-neutral-800 flex flex-wrap gap-1.5">
+                <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 flex flex-wrap gap-1.5">
                   {selectedVideo.hashtags.map((ht, i) => (
                     <span
                       key={i}
-                      className="px-2.5 py-1 rounded-full bg-slate-100 dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 text-xs font-semibold"
+                      className="px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 text-xs font-semibold"
                     >
                       #{ht.replace(/^#/, '')}
                     </span>

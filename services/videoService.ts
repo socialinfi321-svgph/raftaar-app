@@ -111,13 +111,57 @@ export const normalizeSupabaseVideo = (row: any): VideoItem => {
 };
 
 /**
- * Fallback search stub
+ * Fallback search: Calls server-side /api/search with Supabase auth token
  */
 export const fetchSearchFallback = async (query: string): Promise<VideoItem[]> => {
   const url = import.meta.env.VITE_SYNC_API_URL;
   if (!url) return [];
-  /* later: POST to `${url}/api/search` with the Supabase access token in the Authorization header */
-  return [];
+
+  try {
+    const sessionRes = await supabase.auth.getSession();
+    const token = sessionRes.data.session?.access_token;
+    if (!token) return [];
+
+    const res = await fetch(`${url}/api/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ query })
+    });
+
+    if (res.status === 429) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('raftaar:toast', {
+            detail: { message: 'Aaj ki live search limit khatam, Supabase ke results dekho' }
+          })
+        );
+      }
+      return [];
+    }
+
+    const data = await res.json();
+    if (data && data.error === 'limit') {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('raftaar:toast', {
+            detail: { message: 'Aaj ki live search limit khatam, Supabase ke results dekho' }
+          })
+        );
+      }
+      return [];
+    }
+
+    if (data && Array.isArray(data.items)) {
+      return data.items.map(normalizeSupabaseVideo);
+    }
+    return [];
+  } catch (err) {
+    console.warn('Search fallback error:', err);
+    return [];
+  }
 };
 
 /**
@@ -172,7 +216,7 @@ export const rankVideosByQuery = (
  */
 export const searchVideos = async (
   query: string,
-  options: { offset?: number } = {}
+  options: { offset?: number; onFallbackState?: (isFallback: boolean) => void } = {}
 ): Promise<{ items: VideoItem[]; nextToken: string | null; error?: string }> => {
   const offset = options.offset || 0;
   const { fullClean, tokens } = cleanSearchTokens(query);
@@ -276,6 +320,7 @@ export const searchVideos = async (
     // Only on the first page, if fewer than 5 results, call fetchSearchFallback(query)
     if (offset === 0 && merged.length < 5) {
       try {
+        if (options.onFallbackState) options.onFallbackState(true);
         const fallbackResults = await fetchSearchFallback(query);
         for (const fb of fallbackResults) {
           if (fb.id && !seenIds.has(fb.id)) {
@@ -283,7 +328,10 @@ export const searchVideos = async (
             merged.push(fb);
           }
         }
-      } catch {}
+      } catch {
+      } finally {
+        if (options.onFallbackState) options.onFallbackState(false);
+      }
     }
 
     return { items: merged, nextToken };

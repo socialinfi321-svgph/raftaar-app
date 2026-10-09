@@ -197,14 +197,13 @@ export const CustomVideoPlayer = forwardRef<CustomVideoPlayerRef, CustomVideoPla
       <div className="w-full bg-black">
         {/* Normal strip ABOVE the video for close/back button (NOT absolute, zero overlay) */}
         {onBack && (
-          <div className="w-full flex items-center justify-between px-3 py-2 bg-black text-white border-b border-neutral-900">
+          <div className="w-full flex items-center justify-between px-2.5 py-1.5 bg-black text-white border-b border-neutral-900">
             <button
               onClick={onBack}
-              className="flex items-center gap-2 text-white/90 hover:text-white active:scale-95 transition-all text-xs font-medium"
+              className="p-1 rounded-full text-white/90 hover:text-white active:scale-95 transition-all"
               aria-label="Back"
             >
-              <ArrowLeft size={18} />
-              <span className="truncate max-w-[75vw] text-slate-200">{title}</span>
+              <ArrowLeft size={20} />
             </button>
           </div>
         )}
