@@ -1,278 +1,220 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, AlertCircle, ExternalLink, SkipForward, Maximize, Minimize } from 'lucide-react';
+import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
+import { ArrowLeft, AlertCircle, ExternalLink, SkipForward } from 'lucide-react';
 
-interface CustomVideoPlayerProps {
+export interface CustomVideoPlayerRef {
+  seekTo: (seconds: number) => void;
+}
+
+export interface CustomVideoPlayerProps {
   videoId: string;
   title: string;
   totalDurationStr?: string;
   onBack?: () => void;
   onPlayNext?: () => void;
+  onSeekReady?: (seekTo: (seconds: number) => void) => void;
 }
 
-export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
-  videoId,
-  title,
-  onBack,
-  onPlayNext
-}) => {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [hasEmbedError, setHasEmbedError] = useState(false);
-  const [showControls, setShowControls] = useState(false);
-  const [isManualWide, setIsManualWide] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
-  const [isPortrait, setIsPortrait] = useState(
-    typeof window !== 'undefined' ? window.innerHeight > window.innerWidth : false
-  );
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Auto-hide controls after 2.8 seconds
-  const resetHideTimer = () => {
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    setShowControls(true);
-    hideTimerRef.current = setTimeout(() => {
-      setShowControls(false);
-    }, 2800);
-  };
-
-  // Toggle controls on user tap/click
-  const handleToggleControls = () => {
-    setShowControls(prev => {
-      if (prev) {
-        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-        return false;
-      } else {
-        resetHideTimer();
-        return true;
+// Global singleton loader for official YouTube IFrame Player API
+let ytApiPromise: Promise<void> | null = null;
+const loadYouTubeIframeApi = (): Promise<void> => {
+  if (typeof window === 'undefined') return Promise.resolve();
+  if (window.YT && window.YT.Player) {
+    return Promise.resolve();
+  }
+  if (!ytApiPromise) {
+    ytApiPromise = new Promise<void>((resolve) => {
+      const prevCallback = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (typeof prevCallback === 'function') prevCallback();
+        resolve();
+      };
+      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        tag.async = true;
+        document.head.appendChild(tag);
       }
     });
-  };
+  }
+  return ytApiPromise;
+};
 
-  // Show controls briefly on video load, then auto-hide
-  useEffect(() => {
-    setShowControls(true);
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => {
-      setShowControls(false);
-    }, 2200);
+export const CustomVideoPlayer = forwardRef<CustomVideoPlayerRef, CustomVideoPlayerProps>(
+  ({ videoId, title, onBack, onPlayNext, onSeekReady }, ref) => {
+    const playerContainerRef = useRef<HTMLDivElement>(null);
+    const playerInstanceRef = useRef<any>(null);
+    const onPlayNextRef = useRef(onPlayNext);
+    onPlayNextRef.current = onPlayNext;
 
-    return () => {
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    };
-  }, [videoId]);
+    const [hasEmbedError, setHasEmbedError] = useState(false);
+    const [isPlayerReady, setIsPlayerReady] = useState(false);
 
-  // Handle YouTube iframe error messages
-  useEffect(() => {
-    setIsLoaded(false);
-    setHasEmbedError(false);
-
-    const handleMessage = (event: MessageEvent) => {
+    // Expose seekTo to parent via ref and callback
+    const seekTo = (seconds: number) => {
       try {
-        if (!event.data) return;
-        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        const code = Number(data?.info ?? data?.data);
-        if (
-          data &&
-          (data.event === 'onError' || [2, 5, 100, 101, 150].includes(code))
-        ) {
-          setHasEmbedError(true);
+        if (playerInstanceRef.current && typeof playerInstanceRef.current.seekTo === 'function') {
+          playerInstanceRef.current.seekTo(seconds, true);
+          if (typeof playerInstanceRef.current.playVideo === 'function') {
+            playerInstanceRef.current.playVideo();
+          }
+        }
+      } catch (err) {
+        console.warn('Seek error:', err);
+      }
+    };
+
+    useImperativeHandle(ref, () => ({
+      seekTo
+    }), []);
+
+    useEffect(() => {
+      if (onSeekReady) {
+        onSeekReady(seekTo);
+      }
+    }, [onSeekReady]);
+
+    // Handle resume time checking
+    const handleResume = (player: any, vId: string) => {
+      try {
+        const savedTime = Number(localStorage.getItem(`raftaar_progress_${vId}`));
+        const duration = typeof player.getDuration === 'function' ? player.getDuration() : 0;
+        if (savedTime && savedTime >= 10 && (duration <= 0 || savedTime < duration - 15)) {
+          player.seekTo(savedTime, true);
         }
       } catch {}
     };
 
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [videoId]);
+    // Initialize or reload YouTube player using official IFrame API
+    useEffect(() => {
+      let isCancelled = false;
+      setHasEmbedError(false);
+      setIsPlayerReady(false);
 
-  // Orientation & Fullscreen detection
-  useEffect(() => {
-    const handleCheck = () => {
-      const portrait = window.innerHeight > window.innerWidth;
-      setIsPortrait(portrait);
+      loadYouTubeIframeApi().then(() => {
+        if (isCancelled || !playerContainerRef.current) return;
 
-      const isMobile =
-        /Mobi|Android|iPhone|iPod/i.test(navigator.userAgent) ||
-        (window.matchMedia('(pointer: coarse)').matches && Math.min(window.innerWidth, window.innerHeight) <= 600);
-
-      let landscape = false;
-      if (isMobile) {
-        if (window.screen?.orientation) {
-          landscape = window.screen.orientation.type.includes('landscape');
-        } else {
-          landscape = Math.abs(Number(window.orientation || 0)) === 90 || window.innerWidth > window.innerHeight;
+        // If player already exists, load video by ID
+        if (playerInstanceRef.current && typeof playerInstanceRef.current.loadVideoById === 'function') {
+          try {
+            playerInstanceRef.current.loadVideoById(videoId);
+            handleResume(playerInstanceRef.current, videoId);
+            return;
+          } catch {
+            // Re-create player if reload fails
+          }
         }
-      }
-      setIsLandscape(landscape);
-    };
 
-    const handleFullscreenChange = () => {
-      const fs = !!document.fullscreenElement;
-      setIsFullscreen(fs);
-      if (!fs && !isLandscape) {
-        setIsManualWide(false);
-      }
-    };
+        // Clean container div before instantiation
+        playerContainerRef.current.innerHTML = '';
+        const mountDiv = document.createElement('div');
+        mountDiv.style.width = '100%';
+        mountDiv.style.height = '100%';
+        playerContainerRef.current.appendChild(mountDiv);
 
-    handleCheck();
-    window.addEventListener('resize', handleCheck);
-    window.addEventListener('orientationchange', handleCheck);
-    if (window.screen?.orientation) {
-      window.screen.orientation.addEventListener('change', handleCheck);
-    }
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-
-    return () => {
-      window.removeEventListener('resize', handleCheck);
-      window.removeEventListener('orientationchange', handleCheck);
-      if (window.screen?.orientation) {
-        window.screen.orientation.removeEventListener('change', handleCheck);
-      }
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    };
-  }, [isLandscape]);
-
-  // Toggle Fullscreen / Horizontal Wide expansion
-  const handleToggleFullscreen = async () => {
-    const nextWide = !isManualWide;
-    setIsManualWide(nextWide);
-    resetHideTimer();
-
-    const elem = containerRef.current;
-    if (nextWide) {
-      // Enter wide mode
-      if (elem && !document.fullscreenElement) {
         try {
-          if (elem.requestFullscreen) {
-            await elem.requestFullscreen();
-          } else if ((elem as any).webkitRequestFullscreen) {
-            await (elem as any).webkitRequestFullscreen();
+          playerInstanceRef.current = new window.YT.Player(mountDiv, {
+            videoId,
+            playerVars: {
+              autoplay: 1,
+              controls: 1,
+              rel: 0,
+              playsinline: 1,
+              fs: 1,
+              iv_load_policy: 3,
+              origin: window.location.origin
+            },
+            events: {
+              onReady: (event: any) => {
+                if (isCancelled) return;
+                setIsPlayerReady(true);
+                handleResume(event.target, videoId);
+              },
+              onStateChange: (event: any) => {
+                // state === 0 means ENDED
+                if (event.data === 0 && onPlayNextRef.current) {
+                  onPlayNextRef.current();
+                }
+                // NEVER treat state 2 (paused) or 5 (cued) as errors!
+              },
+              onError: (event: any) => {
+                const code = Number(event.data);
+                // Error codes 2, 5, 100, 101, 150, 153 indicate playback/embed errors
+                if ([2, 5, 100, 101, 150, 153].includes(code)) {
+                  setHasEmbedError(true);
+                }
+              }
+            }
+          });
+        } catch (err) {
+          console.warn('YT.Player creation warning:', err);
+        }
+      });
+
+      return () => {
+        isCancelled = true;
+      };
+    }, [videoId]);
+
+    // Cleanup player on unmount
+    useEffect(() => {
+      return () => {
+        if (playerInstanceRef.current && typeof playerInstanceRef.current.destroy === 'function') {
+          try {
+            playerInstanceRef.current.destroy();
+          } catch {}
+          playerInstanceRef.current = null;
+        }
+      };
+    }, []);
+
+    // Save resume position every 10 seconds
+    useEffect(() => {
+      const progressInterval = setInterval(() => {
+        try {
+          if (
+            playerInstanceRef.current &&
+            typeof playerInstanceRef.current.getCurrentTime === 'function'
+          ) {
+            const curr = playerInstanceRef.current.getCurrentTime();
+            if (typeof curr === 'number' && curr > 5) {
+              localStorage.setItem(`raftaar_progress_${videoId}`, String(Math.floor(curr)));
+            }
           }
         } catch {}
-      }
-      try {
-        if ((screen.orientation as any)?.lock) {
-          await (screen.orientation as any).lock('landscape');
-        }
-      } catch {}
-    } else {
-      // Exit wide mode
-      if (document.fullscreenElement) {
-        try {
-          if (document.exitFullscreen) {
-            await document.exitFullscreen();
-          } else if ((document as any).webkitExitFullscreen) {
-            await (document as any).webkitExitFullscreen();
-          }
-        } catch {}
-      }
-      try {
-        if ((screen.orientation as any)?.unlock) {
-          (screen.orientation as any).unlock();
-        }
-      } catch {}
-    }
-  };
+      }, 10000);
 
-  const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0&playsinline=1&enablejsapi=1&fs=1&origin=${encodeURIComponent(originUrl)}`;
+      return () => clearInterval(progressInterval);
+    }, [videoId]);
 
-  const isWide = isManualWide || isFullscreen || isLandscape;
-
-  return (
-    <div
-      ref={containerRef}
-      className={`bg-black select-none transition-all duration-300 relative ${
-        isWide
-          ? 'fixed inset-0 z-[99999] w-screen h-[100dvh] bg-black flex items-center justify-center overflow-hidden'
-          : 'w-full aspect-video sm:rounded-2xl overflow-hidden shadow-xl flex flex-col'
-      }`}
-    >
-      {/* Inner Video Canvas: When user is on portrait phone in wide mode, rotates 90deg to be full horizontal display */}
-      <div
-        className="relative bg-black flex items-center justify-center overflow-hidden transition-all duration-300"
-        style={
-          isWide && isPortrait
-            ? {
-                width: '100dvh',
-                height: '100vw',
-                transform: 'rotate(90deg)',
-                transformOrigin: 'center center'
-              }
-            : {
-                width: '100%',
-                height: '100%'
-              }
-        }
-      >
-        {/* Invisible Tap Zone at the top to toggle controls without interrupting YouTube iframe player */}
-        <div
-          onClick={handleToggleControls}
-          className="absolute top-0 left-0 right-0 h-16 z-20 cursor-pointer"
-          title="Tap to toggle controls"
-        />
-
-        {/* Top Overlay: Small title and back chevron (Fades out when inactive, NO wide button here) */}
-        <div
-          className={`absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-3 py-2 bg-gradient-to-b from-black/90 via-black/40 to-transparent transition-opacity duration-300 pointer-events-none ${
-            showControls ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          <div className="flex items-center gap-2 min-w-0 pr-2 pointer-events-auto">
-            {onBack && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (isWide) {
-                    setIsManualWide(false);
-                    if (document.fullscreenElement) {
-                      document.exitFullscreen?.().catch(() => {});
-                    }
-                  } else {
-                    onBack();
-                  }
-                }}
-                className="p-1 rounded-full text-white/95 hover:text-white hover:bg-white/20 active:scale-95 transition-all shrink-0"
-                title={isWide ? 'Exit Full Screen' : 'Close video'}
-                aria-label={isWide ? 'Exit Full Screen' : 'Close video'}
-              >
-                <ChevronDown size={22} />
-              </button>
-            )}
-            {/* Small title that disappears automatically with controls */}
-            <span className="text-[12px] sm:text-xs font-normal text-white/90 truncate max-w-[75vw] drop-shadow-sm">
-              {title}
-            </span>
+    return (
+      <div className="w-full bg-black">
+        {/* Normal strip ABOVE the video for close/back button (NOT absolute, zero overlay) */}
+        {onBack && (
+          <div className="w-full flex items-center justify-between px-3 py-2 bg-black text-white border-b border-neutral-900">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-white/90 hover:text-white active:scale-95 transition-all text-xs font-medium"
+              aria-label="Back"
+            >
+              <ArrowLeft size={18} />
+              <span className="truncate max-w-[75vw] text-slate-200">{title}</span>
+            </button>
           </div>
-        </div>
+        )}
 
-        {/* Bottom Right: Fullscreen / Horizontal Wide Button (Always works and rotates to horizontal) */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            handleToggleFullscreen();
-          }}
-          className={`absolute bottom-3 right-3 z-30 flex items-center justify-center w-9 h-9 rounded-lg bg-black/75 hover:bg-black/90 text-white/95 hover:text-white backdrop-blur-md border border-white/20 active:scale-90 shadow-xl transition-all duration-200 pointer-events-auto ${
-            showControls || isWide ? 'opacity-100 scale-100' : 'opacity-70 sm:opacity-0 hover:opacity-100'
-          }`}
-          title={isWide ? 'Exit Full Screen' : 'Full Screen Horizontal'}
-          aria-label={isWide ? 'Exit Full Screen' : 'Full Screen Horizontal'}
-        >
-          {isWide ? <Minimize size={18} /> : <Maximize size={18} />}
-        </button>
+        {/* Video Box: Plain w-full aspect-video bg-black div with NOTHING positioned over the video area */}
+        <div className="w-full aspect-video bg-black relative">
+          <div ref={playerContainerRef} className="w-full h-full" />
 
-        {/* Video Container: Exact 16:9 proper shape, zero crop, zero black badges */}
-        <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center">
-          {/* Loading Spinner behind iframe */}
-          {!isLoaded && !hasEmbedError && (
-            <div className="absolute inset-0 z-0 flex flex-col items-center justify-center bg-black text-white">
-              <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          )}
-
-          {/* Embed Error Banner */}
-          {hasEmbedError ? (
+          {/* Embed Error Banner (Only shown if YouTube video cannot be embedded) */}
+          {hasEmbedError && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950 p-6 text-center text-white">
               <AlertCircle size={36} className="text-amber-400 mb-2" />
               <p className="text-sm font-semibold mb-1 text-slate-200">
@@ -302,21 +244,11 @@ export const CustomVideoPlayer: React.FC<CustomVideoPlayerProps> = ({
                 )}
               </div>
             </div>
-          ) : (
-            <iframe
-              key={videoId}
-              src={embedUrl}
-              title={title}
-              referrerPolicy="strict-origin-when-cross-origin"
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-              onLoad={() => setIsLoaded(true)}
-              className="w-full h-full border-0 absolute inset-0"
-              style={{ width: '100%', height: '100%' }}
-            />
           )}
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  }
+);
+
+CustomVideoPlayer.displayName = 'CustomVideoPlayer';

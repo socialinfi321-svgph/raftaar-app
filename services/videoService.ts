@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export const VIDEO_SELECT = '*, youtube_channels(channel_title, channel_handle, channel_avatar, subscriber_count), youtube_playlists(title)';
+export const VIDEO_SELECT = '*, youtube_channels(channel_title, channel_handle, channel_avatar, subscriber_count, channel_banner_url, description), youtube_playlists(title)';
 export const SHOW_SHORTS = false;
 
 export interface VideoItem {
@@ -26,6 +26,29 @@ export interface VideoItem {
   classLevel?: string;
   tags?: string[];
   hashtags?: string[];
+}
+
+export interface RecCursor {
+  tier: number; // 1 through 6
+  offset: number;
+}
+
+export interface ChannelDetails {
+  channelId: string;
+  channelTitle: string;
+  channelHandle?: string;
+  channelAvatar?: string;
+  channelBannerUrl?: string;
+  subscriberCount?: number;
+  videoCount?: number;
+  description?: string;
+}
+
+export interface PlaylistDetails {
+  playlistId: string;
+  title: string;
+  videoCount?: number;
+  thumbnail?: string;
 }
 
 // Format seconds into duration string (e.g. 360 -> "6:00", 3665 -> "1:01:05")
@@ -365,9 +388,6 @@ export const interleaveAndFormatCandidates = (
 
 /**
  * 4. HOME (Supabase only, different for every refresh)
- * - fetchHomeVideos(category, { offset = 0 }):
- *   loads 150 candidates: latest 75 (published_at desc) + most viewed 75 (view_count desc),
- *   merged and deduped; category chips filter by subject/title ilike. Hide Shorts.
  */
 export const fetchHomeVideos = async (
   category = 'All',
@@ -443,167 +463,288 @@ export const fetchHomeVideos = async (
 };
 
 /**
- * 6. Up Next: fetchRecommendedVideos(currentVideo)
- * In this order, dedupe, exclude the current video and Shorts:
- * (a) if playlistId: next videos in same playlist (playlist_position > current, ascending, up to 10)
- * (b) same channel_id and same subject/class_level (limit 15)
- * (c) videos whose tags overlap current tags (.overlaps('tags', currentTags)) when tags exist (limit 20)
- * (d) same subject + class_level from other channels (limit 25)
- * Support paging with an offset.
+ * D) UP NEXT must be unlimited (services/videoService.ts + YouTubeHome.tsx)
+ * Tiers in order:
+ * 1) same playlist, playlist_position greater than current, ascending;
+ * 2) same channel and same subject;
+ * 3) tags overlap with the current video's tags;
+ * 4) same subject + class_level from other channels, view_count desc;
+ * 5) same channel, anything, published_at desc;
+ * 6) the whole library, published_at desc.
+ * Move to next tier when a tier returns fewer than 20 rows. Skip Shorts and current video.
  */
 export const fetchRecommendedVideos = async (
   currentVideo: VideoItem,
-  options: { offset?: number } = {}
-): Promise<{ items: VideoItem[]; error?: string }> => {
-  const offset = options.offset || 0;
+  options: { cursor?: RecCursor | null } = {}
+): Promise<{ items: VideoItem[]; nextCursor: RecCursor | null; error?: string }> => {
+  let currTier = options.cursor ? options.cursor.tier : 1;
+  let currOffset = options.cursor ? options.cursor.offset : 0;
   const currId = currentVideo.id;
-  const seenIds = new Set<string>();
-  if (currId) seenIds.add(currId);
 
-  const results: VideoItem[] = [];
+  const collected: VideoItem[] = [];
 
   try {
-    // (a) Playlist videos
-    if (currentVideo.playlistId && typeof currentVideo.playlistPosition === 'number') {
-      let qA = supabase
-        .from('youtube_videos')
-        .select(VIDEO_SELECT)
-        .eq('playlist_id', currentVideo.playlistId)
-        .gt('playlist_position', currentVideo.playlistPosition)
-        .neq('video_id', currId);
+    while (collected.length < 20 && currTier <= 6) {
+      let q = supabase.from('youtube_videos').select(VIDEO_SELECT);
 
-      if (!SHOW_SHORTS) qA = qA.eq('is_short', false);
+      if (!SHOW_SHORTS) {
+        q = q.eq('is_short', false);
+      }
+      if (currId) {
+        q = q.neq('video_id', currId);
+      }
 
-      const { data: plRows } = await qA
-        .order('playlist_position', { ascending: true })
-        .limit(10);
+      let canRunTier = true;
 
-      if (plRows) {
-        for (const r of plRows) {
-          const item = normalizeSupabaseVideo(r);
-          if (item.id && !seenIds.has(item.id)) {
-            seenIds.add(item.id);
-            results.push(item);
+      switch (currTier) {
+        case 1:
+          if (currentVideo.playlistId && typeof currentVideo.playlistPosition === 'number') {
+            q = q
+              .eq('playlist_id', currentVideo.playlistId)
+              .gt('playlist_position', currentVideo.playlistPosition)
+              .order('playlist_position', { ascending: true });
+          } else {
+            canRunTier = false;
           }
-        }
-      }
-    }
+          break;
 
-    // (b) Same channel_id and same subject/class_level
-    if (currentVideo.channelId) {
-      let qB = supabase
-        .from('youtube_videos')
-        .select(VIDEO_SELECT)
-        .eq('channel_id', currentVideo.channelId)
-        .neq('video_id', currId);
-
-      if (!SHOW_SHORTS) qB = qB.eq('is_short', false);
-
-      if (currentVideo.subject) {
-        qB = qB.eq('subject', currentVideo.subject);
-      } else if (currentVideo.classLevel) {
-        qB = qB.eq('class_level', currentVideo.classLevel);
-      }
-
-      const { data: chRows } = await qB
-        .order('published_at', { ascending: false })
-        .limit(15);
-
-      if (chRows) {
-        for (const r of chRows) {
-          const item = normalizeSupabaseVideo(r);
-          if (item.id && !seenIds.has(item.id)) {
-            seenIds.add(item.id);
-            results.push(item);
+        case 2:
+          if (currentVideo.channelId && currentVideo.subject) {
+            q = q
+              .eq('channel_id', currentVideo.channelId)
+              .eq('subject', currentVideo.subject)
+              .order('published_at', { ascending: false });
+          } else {
+            canRunTier = false;
           }
-        }
-      }
-    }
+          break;
 
-    // (c) Videos whose tags overlap current tags
-    if (currentVideo.tags && currentVideo.tags.length > 0) {
-      try {
-        let qC = supabase
-          .from('youtube_videos')
-          .select(VIDEO_SELECT)
-          .overlaps('tags', currentVideo.tags)
-          .neq('video_id', currId);
+        case 3:
+          if (currentVideo.tags && currentVideo.tags.length > 0) {
+            q = q
+              .overlaps('tags', currentVideo.tags)
+              .order('view_count', { ascending: false });
+          } else {
+            canRunTier = false;
+          }
+          break;
 
-        if (!SHOW_SHORTS) qC = qC.eq('is_short', false);
-
-        const { data: tagRows } = await qC
-          .order('view_count', { ascending: false })
-          .limit(20);
-
-        if (tagRows) {
-          for (const r of tagRows) {
-            const item = normalizeSupabaseVideo(r);
-            if (item.id && !seenIds.has(item.id)) {
-              seenIds.add(item.id);
-              results.push(item);
+        case 4:
+          if (currentVideo.subject) {
+            if (currentVideo.channelId) {
+              q = q.neq('channel_id', currentVideo.channelId);
             }
+            q = q.eq('subject', currentVideo.subject);
+            if (currentVideo.classLevel) {
+              q = q.eq('class_level', currentVideo.classLevel);
+            }
+            q = q.order('view_count', { ascending: false });
+          } else {
+            canRunTier = false;
           }
+          break;
+
+        case 5:
+          if (currentVideo.channelId) {
+            q = q
+              .eq('channel_id', currentVideo.channelId)
+              .order('published_at', { ascending: false });
+          } else {
+            canRunTier = false;
+          }
+          break;
+
+        case 6:
+          q = q.order('published_at', { ascending: false });
+          break;
+
+        default:
+          canRunTier = false;
+          break;
+      }
+
+      if (!canRunTier) {
+        currTier += 1;
+        currOffset = 0;
+        continue;
+      }
+
+      const { data: rows, error } = await q.range(currOffset, currOffset + 19);
+      if (error) {
+        console.warn(`Tier ${currTier} error:`, error.message);
+        currTier += 1;
+        currOffset = 0;
+        continue;
+      }
+
+      const fetched = rows || [];
+      for (const r of fetched) {
+        const item = normalizeSupabaseVideo(r);
+        if (item.id && !collected.some(c => c.id === item.id)) {
+          collected.push(item);
         }
-      } catch (err) {
-        console.warn('Tag overlap query warning:', err);
+      }
+
+      if (fetched.length < 20) {
+        // Move to next tier when tier returns fewer than 20 rows
+        currTier += 1;
+        currOffset = 0;
+      } else {
+        // More rows in this tier
+        currOffset += 20;
+        break;
       }
     }
 
-    // (d) Same subject + class_level from other channels
-    if (currentVideo.subject || currentVideo.classLevel) {
-      let qD = supabase
-        .from('youtube_videos')
-        .select(VIDEO_SELECT)
-        .neq('video_id', currId);
+    const nextCursor: RecCursor | null =
+      currTier <= 6 ? { tier: currTier, offset: currOffset } : null;
 
-      if (!SHOW_SHORTS) qD = qD.eq('is_short', false);
-      if (currentVideo.channelId) qD = qD.neq('channel_id', currentVideo.channelId);
-      if (currentVideo.subject) qD = qD.eq('subject', currentVideo.subject);
-      if (currentVideo.classLevel) qD = qD.eq('class_level', currentVideo.classLevel);
-
-      const { data: subjRows } = await qD
-        .order('view_count', { ascending: false })
-        .limit(25);
-
-      if (subjRows) {
-        for (const r of subjRows) {
-          const item = normalizeSupabaseVideo(r);
-          if (item.id && !seenIds.has(item.id)) {
-            seenIds.add(item.id);
-            results.push(item);
-          }
-        }
-      }
-    }
-
-    // (e) Fallback pool from same subject/latest if still fewer than 10
-    if (results.length < 10) {
-      let qE = supabase
-        .from('youtube_videos')
-        .select(VIDEO_SELECT)
-        .neq('video_id', currId);
-
-      if (!SHOW_SHORTS) qE = qE.eq('is_short', false);
-
-      const { data: generalRows } = await qE
-        .order('published_at', { ascending: false })
-        .limit(25);
-
-      if (generalRows) {
-        for (const r of generalRows) {
-          const item = normalizeSupabaseVideo(r);
-          if (item.id && !seenIds.has(item.id)) {
-            seenIds.add(item.id);
-            results.push(item);
-          }
-        }
-      }
-    }
-
-    // Slice for offset paging
-    const paged = results.slice(offset, offset + 25);
-    return { items: paged };
+    return { items: collected, nextCursor };
   } catch (err: any) {
-    return { items: [], error: err?.message || 'Failed to fetch recommendations' };
+    return { items: [], nextCursor: null, error: err?.message || 'Error fetching recommendations' };
+  }
+};
+
+/**
+ * Fetch channel details and stats for Channel Page
+ */
+export const fetchChannelDetails = async (channelId: string): Promise<ChannelDetails | null> => {
+  try {
+    const { data: ch, error } = await supabase
+      .from('youtube_channels')
+      .select('*')
+      .eq('channel_id', channelId)
+      .maybeSingle();
+
+    if (error || !ch) return null;
+
+    // Optional: count videos
+    const { count } = await supabase
+      .from('youtube_videos')
+      .select('video_id', { count: 'exact', head: true })
+      .eq('channel_id', channelId);
+
+    return {
+      channelId: ch.channel_id,
+      channelTitle: ch.channel_title || '',
+      channelHandle: ch.channel_handle || undefined,
+      channelAvatar: ch.channel_avatar || undefined,
+      channelBannerUrl: ch.channel_banner_url || undefined,
+      subscriberCount: typeof ch.subscriber_count === 'number' ? ch.subscriber_count : undefined,
+      videoCount: count || undefined,
+      description: ch.description || undefined
+    };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Fetch channel videos (with latest, popular, oldest sorting, and shorts)
+ */
+export const fetchChannelVideos = async (
+  channelId: string,
+  sort: 'latest' | 'popular' | 'oldest' = 'latest',
+  options: { offset?: number; isShorts?: boolean } = {}
+): Promise<{ items: VideoItem[]; nextOffset: number | null }> => {
+  const offset = options.offset || 0;
+  try {
+    let q = supabase
+      .from('youtube_videos')
+      .select(VIDEO_SELECT)
+      .eq('channel_id', channelId);
+
+    if (options.isShorts) {
+      q = q.eq('is_short', true);
+    } else {
+      q = q.eq('is_short', false);
+    }
+
+    if (sort === 'popular') {
+      q = q.order('view_count', { ascending: false });
+    } else if (sort === 'oldest') {
+      q = q.order('published_at', { ascending: true });
+    } else {
+      q = q.order('published_at', { ascending: false });
+    }
+
+    const { data, error } = await q.range(offset, offset + 29);
+    if (error || !data) return { items: [], nextOffset: null };
+    const items = data.map(normalizeSupabaseVideo);
+    return { items, nextOffset: data.length === 30 ? offset + 30 : null };
+  } catch {
+    return { items: [], nextOffset: null };
+  }
+};
+
+/**
+ * Fetch distinct playlists of a channel with video samples
+ */
+export const fetchChannelPlaylists = async (
+  channelId: string
+): Promise<{ playlists: PlaylistDetails[]; error?: string }> => {
+  try {
+    const { data: vids, error } = await supabase
+      .from('youtube_videos')
+      .select('playlist_id, youtube_playlists(title), video_id')
+      .eq('channel_id', channelId)
+      .not('playlist_id', 'is', null);
+
+    if (error || !vids) return { playlists: [] };
+
+    const map = new Map<string, { title: string; count: number; sampleVideoId: string }>();
+    for (const v of vids) {
+      if (v.playlist_id) {
+        const pl = Array.isArray(v.youtube_playlists) ? v.youtube_playlists[0] : v.youtube_playlists;
+        const title = pl?.title || 'Playlist';
+        const existing = map.get(v.playlist_id);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          map.set(v.playlist_id, { title, count: 1, sampleVideoId: v.video_id });
+        }
+      }
+    }
+
+    const playlists: PlaylistDetails[] = Array.from(map.entries()).map(([playlistId, val]) => ({
+      playlistId,
+      title: val.title,
+      videoCount: val.count,
+      thumbnail: `https://i.ytimg.com/vi/${val.sampleVideoId}/hqdefault.jpg`
+    }));
+
+    return { playlists };
+  } catch {
+    return { playlists: [] };
+  }
+};
+
+/**
+ * Fetch all videos of a specific playlist in order
+ */
+export const fetchPlaylistVideos = async (
+  playlistId: string
+): Promise<{ playlistTitle?: string; items: VideoItem[] }> => {
+  try {
+    const { data: plData } = await supabase
+      .from('youtube_playlists')
+      .select('title')
+      .eq('playlist_id', playlistId)
+      .maybeSingle();
+
+    const { data, error } = await supabase
+      .from('youtube_videos')
+      .select(VIDEO_SELECT)
+      .eq('playlist_id', playlistId)
+      .order('playlist_position', { ascending: true })
+      .limit(100);
+
+    if (error || !data) return { playlistTitle: plData?.title, items: [] };
+    return {
+      playlistTitle: plData?.title,
+      items: data.map(normalizeSupabaseVideo)
+    };
+  } catch {
+    return { items: [] };
   }
 };
