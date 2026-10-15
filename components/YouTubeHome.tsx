@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useBackHandler } from '../hooks/useBackHandler';
 import { 
-  ArrowLeft, Search, X, ThumbsUp, Share2, 
+  ArrowLeft, Search, X, ThumbsUp, ThumbsDown, Share2, 
   Bookmark, Bell, MoreVertical, Compass, RotateCw, AlertTriangle, RefreshCw,
-  FileText, Download, BookOpen, MessageSquare, Play, Check, ChevronRight,
-  Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Subtitles
+  FileText, Download, BookOpen, MessageSquare, Play, Check, ChevronRight, ChevronDown,
+  Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Subtitles, Send
 } from 'lucide-react';
 import { CustomVideoPlayer, CustomVideoPlayerRef } from './CustomVideoPlayer';
 import { SmartThumbnail } from './SmartThumbnail';
@@ -222,6 +222,44 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   const [isFollowed, setIsFollowed] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Active Playlist Context for Watch Screen (when watching video from a playlist)
+  const [activePlaylistContext, setActivePlaylistContext] = useState<{
+    id: string;
+    title: string;
+    videos: VideoItem[];
+  } | null>(null);
+
+  // Watch Screen Filter Chips & Comments
+  const [watchFilter, setWatchFilter] = useState<'All' | 'From this channel' | 'Related' | 'Recently uploaded'>('All');
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [commentInput, setCommentInput] = useState('');
+  const [commentsList, setCommentsList] = useState([
+    {
+      id: '1',
+      user: 'Rohan Sharma',
+      avatarBg: 'bg-indigo-600',
+      text: 'Sir aapka teaching method bhot accha hai! Concept ekdum crystal clear ho gaya ❤️',
+      time: '2 hours ago',
+      likes: 24
+    },
+    {
+      id: '2',
+      user: 'Priya Patel',
+      avatarBg: 'bg-emerald-600',
+      text: 'Best revision lecture! Thank you so much PW team 🙌',
+      time: '5 hours ago',
+      likes: 18
+    },
+    {
+      id: '3',
+      user: 'Aman Verma',
+      avatarBg: 'bg-amber-600',
+      text: 'Is chapter ke previous year questions bhi solve karwa dijiye please.',
+      time: '1 day ago',
+      likes: 9
+    }
+  ]);
+
   // Channel & Playlist Dedicated View States
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [channelDetails, setChannelDetails] = useState<ChannelDetails | null>(null);
@@ -241,8 +279,63 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   const [previewDuration, setPreviewDuration] = useState(60);
   const [isPreviewMuted, setIsPreviewMuted] = useState(true);
   const [isPreviewCC, setIsPreviewCC] = useState(false);
+  const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
   const idleScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const cardElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Toggle Mute without reloading iframe or restarting video
+  const handleTogglePreviewMute = () => {
+    const iframe = previewIframeRef.current;
+    const nextMuted = !isPreviewMuted;
+    if (iframe && iframe.contentWindow) {
+      const command = nextMuted ? 'mute' : 'unMute';
+      iframe.contentWindow.postMessage(
+        JSON.stringify({ event: 'command', func: command, args: [] }),
+        '*'
+      );
+    }
+    setIsPreviewMuted(nextMuted);
+  };
+
+  // Toggle Captions CC without reloading iframe or restarting video
+  const handleTogglePreviewCC = () => {
+    const iframe = previewIframeRef.current;
+    const nextCC = !isPreviewCC;
+    if (iframe && iframe.contentWindow) {
+      if (nextCC) {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event: 'command', func: 'loadModule', args: ['captions'] }),
+          '*'
+        );
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event: 'command', func: 'setOption', args: ['captions', 'reload', true] }),
+          '*'
+        );
+      } else {
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event: 'command', func: 'setOption', args: ['captions', 'track', {}] }),
+          '*'
+        );
+        iframe.contentWindow.postMessage(
+          JSON.stringify({ event: 'command', func: 'unloadModule', args: ['captions'] }),
+          '*'
+        );
+      }
+    }
+    setIsPreviewCC(nextCC);
+  };
+
+  // Increment preview progress bar
+  useEffect(() => {
+    if (!activePreviewVideoId) {
+      setPreviewProgress(0);
+      return;
+    }
+    const timer = setInterval(() => {
+      setPreviewProgress(p => (p < previewDuration ? p + 1 : p));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [activePreviewVideoId, previewDuration]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -262,6 +355,10 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
   // Android hardware back button integration
   useBackHandler(() => {
+    if (isCommentsOpen) {
+      setIsCommentsOpen(false);
+      return true;
+    }
     if (activePlaylistId) {
       setActivePlaylistId(null);
       return true;
@@ -276,6 +373,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     }
     if (selectedVideo) {
       setSelectedVideo(null);
+      setActivePlaylistContext(null);
       return true;
     }
     if (isSearchExpanded) {
@@ -637,13 +735,27 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   };
 
   // Handle Video Click -> Watch Screen & Unlimited Up Next
-  const handleSelectVideo = (vid: VideoItem) => {
+  const handleSelectVideo = (
+    vid: VideoItem,
+    playlistCtx?: { id: string; title: string; videos: VideoItem[] } | null
+  ) => {
+    // If preview was playing this video, save current progress so main player continues seamlessly
+    if (activePreviewVideoId === vid.id && previewProgress > 2) {
+      try {
+        localStorage.setItem(`raftaar_progress_${vid.id}`, String(Math.floor(previewProgress)));
+      } catch {}
+    }
+    if (playlistCtx !== undefined) {
+      setActivePlaylistContext(playlistCtx);
+    }
     setSelectedVideo(vid);
     setActivePreviewVideoId(null);
     setLikeCount(vid.likeCount || 0);
     setIsLiked(false);
     setIsSaved(false);
     setIsDescOpen(false);
+    setIsCommentsOpen(false);
+    setWatchFilter('All');
     setRecommendedVideos([]);
     recPoolRef.current = [];
 
@@ -725,10 +837,41 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
   // Next video player handler
   const handlePlayNextVideo = () => {
+    if (activePlaylistContext && activePlaylistContext.videos.length > 0) {
+      const currIdx = activePlaylistContext.videos.findIndex(v => v.id === selectedVideo?.id);
+      if (currIdx >= 0 && currIdx < activePlaylistContext.videos.length - 1) {
+        handleSelectVideo(activePlaylistContext.videos[currIdx + 1], activePlaylistContext);
+        return;
+      }
+    }
     if (recommendedVideos.length > 0) {
-      handleSelectVideo(recommendedVideos[0]);
+      handleSelectVideo(recommendedVideos[0], null);
     }
   };
+
+  const handleAddComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!commentInput.trim()) return;
+    const newComment = {
+      id: String(Date.now()),
+      user: 'You (Student)',
+      avatarBg: 'bg-rose-600',
+      text: commentInput.trim(),
+      time: 'Just now',
+      likes: 0
+    };
+    setCommentsList(prev => [newComment, ...prev]);
+    setCommentInput('');
+    showToast('Comment posted! ✨');
+  };
+
+  // Filter recommendations based on selected chip
+  const filteredRecommendedVideos = useMemo(() => {
+    if (watchFilter === 'From this channel' && selectedVideo?.channelId) {
+      return recommendedVideos.filter(v => v.channelId === selectedVideo.channelId);
+    }
+    return recommendedVideos;
+  }, [recommendedVideos, watchFilter, selectedVideo]);
 
   const handleToggleLike = () => {
     if (isLiked) {
@@ -1099,7 +1242,12 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
             {playlistVideosList.length > 0 && (
               <button
                 onClick={() => {
-                  handleSelectVideo(playlistVideosList[0]);
+                  const pCtx = {
+                    id: activePlaylistId || 'playlist',
+                    title: playlistTitle || 'Playlist',
+                    videos: playlistVideosList
+                  };
+                  handleSelectVideo(playlistVideosList[0], pCtx);
                   setActivePlaylistId(null);
                 }}
                 className="mt-3 px-5 py-2 rounded-full bg-[#0f0f0f] dark:bg-white text-white dark:text-[#0f0f0f] text-xs font-bold flex items-center gap-2 shadow-sm active:scale-95 transition-transform"
@@ -1115,7 +1263,12 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
               <div
                 key={vid.id}
                 onClick={() => {
-                  handleSelectVideo(vid);
+                  const pCtx = {
+                    id: activePlaylistId || 'playlist',
+                    title: playlistTitle || 'Playlist',
+                    videos: playlistVideosList
+                  };
+                  handleSelectVideo(vid, pCtx);
                   setActivePlaylistId(null);
                 }}
                 className="flex items-center gap-3 p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/60 cursor-pointer transition-all border border-neutral-100 dark:border-neutral-800"
@@ -1291,13 +1444,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
             })}
           </div>
         </header>
-      ) : (
-        /* Video Watch Mode Safe Area */
-        <div 
-          className="w-full h-[max(12px,env(safe-area-inset-top,12px))] bg-black shrink-0 z-50"
-          aria-hidden="true"
-        />
-      )}
+      ) : null}
 
       {/* ================= MAIN CONTAINER ================= */}
       <div 
@@ -1321,65 +1468,71 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         {selectedVideo ? (
           /* ================= 1. VIDEO WATCH VIEW ================= */
           <div ref={playerTopRef} className="max-w-5xl mx-auto pb-16 animate-fade-in bg-white dark:bg-[#0f0f0f]">
-            {/* Player Container: Sticky at top */}
+            {/* Player Container: Sticky at top with safe area for mobile status bar (battery/network) */}
             <div className="w-full sticky top-0 sm:relative z-30 shadow-md bg-black">
+              {/* Safe Area Spacer: Ensures battery, network, clock sit in black safe zone without covering the video */}
+              <div className="safe-top-bar" aria-hidden="true" />
               <CustomVideoPlayer
                 ref={playerRef}
                 videoId={selectedVideo.id}
                 title={selectedVideo.title}
                 totalDurationStr={selectedVideo.duration}
-                onBack={() => setSelectedVideo(null)}
+                onBack={() => {
+                  setSelectedVideo(null);
+                  setActivePlaylistContext(null);
+                }}
                 onPlayNext={handlePlayNextVideo}
               />
             </div>
 
-            <div className="p-4 sm:p-5 space-y-3">
-              {/* Smaller crisp Title & Details below player */}
-              <div className="flex items-start justify-between gap-3">
+            <div className="p-3.5 sm:p-4 space-y-3">
+              {/* Title & More menu button */}
+              <div className="flex items-start justify-between gap-2">
                 <div 
                   onClick={() => setIsDescOpen(true)}
                   className="flex-1 cursor-pointer group"
                 >
-                  <h1 className="text-[#0f0f0f] dark:text-white text-[14.5px] sm:text-[15.5px] font-semibold leading-snug line-clamp-2 tracking-tight">
+                  <h1 className="text-[#0f0f0f] dark:text-white text-[15px] sm:text-[16px] font-semibold leading-snug line-clamp-2 tracking-tight">
                     {decodeHtml(selectedVideo.title)}
                   </h1>
-                  <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-neutral-600 dark:text-neutral-400 text-[12px] mt-1 font-normal">
+                  <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5 text-neutral-600 dark:text-neutral-400 text-[12px] mt-1 font-normal">
                     {selectedVideo.viewCount !== undefined && (
                       <span>{formatViews(selectedVideo.viewCount)}</span>
                     )}
+                    {selectedVideo.viewCount !== undefined && <span>•</span>}
                     <span>{timeAgo(selectedVideo.publishedAt)}</span>
-                    <span className="text-[#0f0f0f] dark:text-white font-semibold hover:underline">...more</span>
+                    <span className="text-[#0f0f0f] dark:text-white font-semibold hover:underline ml-1">...more</span>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => showToast('Options: Save to Khazana or Report')}
-                  className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:bg-black/5 dark:hover:bg-white/10 rounded-full shrink-0 mt-0.5"
+                  className="p-1.5 text-neutral-600 dark:text-neutral-400 hover:bg-black/5 dark:hover:bg-white/10 rounded-full shrink-0 -mt-1"
                   aria-label="Options"
                 >
                   <MoreVertical size={20} />
                 </button>
               </div>
 
-              {/* Channel Row: Tap opens Channel Page */}
+              {/* Channel Row: Avatar + Name + Subscribers + Subscribe Button (matching Image 1) */}
               <div className="flex items-center justify-between pt-0.5">
                 <div 
                   onClick={() => selectedVideo.channelId && handleOpenChannel(selectedVideo.channelId)}
-                  className="flex items-center gap-2.5 cursor-pointer group"
+                  className="flex items-center gap-2.5 cursor-pointer group min-w-0 flex-1 mr-3"
                 >
                   <ChannelAvatar
                     avatar={selectedVideo.channelAvatar}
                     title={selectedVideo.channelTitle}
-                    size="lg"
-                    className="border border-neutral-200 dark:border-neutral-700 group-hover:opacity-90"
+                    size="md"
+                    className="border border-neutral-200 dark:border-neutral-700 group-hover:opacity-90 shrink-0"
                   />
-                  <div>
-                    <h3 className="text-[#0f0f0f] dark:text-white font-semibold text-[14.5px] leading-tight flex items-center gap-1 group-hover:underline">
-                      <span>{selectedVideo.channelTitle || 'Channel'}</span>
-                      <Check size={13} className="text-white bg-black dark:bg-white dark:text-black rounded-full p-0.5" />
+                  <div className="min-w-0">
+                    <h3 className="text-[#0f0f0f] dark:text-white font-semibold text-[13.5px] sm:text-[14px] leading-tight flex items-center gap-1 group-hover:underline truncate">
+                      <span className="truncate">{selectedVideo.channelTitle || 'Channel'}</span>
+                      <Check size={12} className="text-white bg-black dark:bg-white dark:text-black rounded-full p-0.5 shrink-0" />
                     </h3>
                     {selectedVideo.subscriberCount !== undefined && (
-                      <p className="text-neutral-600 dark:text-neutral-400 text-[11.5px] font-normal">
+                      <p className="text-neutral-600 dark:text-neutral-400 text-[11.5px] font-normal mt-0.5">
                         {formatCount(selectedVideo.subscriberCount)} subscribers
                       </p>
                     )}
@@ -1391,7 +1544,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                     setIsFollowed(!isFollowed);
                     showToast(isFollowed ? 'Unsubscribed' : 'Subscribed');
                   }}
-                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-xs active:scale-95 ${
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all shadow-xs active:scale-95 shrink-0 ${
                     isFollowed
                       ? 'bg-neutral-200 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white'
                       : 'bg-[#0f0f0f] dark:bg-white text-white dark:text-[#0f0f0f] hover:opacity-90'
@@ -1401,23 +1554,32 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                 </button>
               </div>
 
-              {/* Action Buttons (Like, Share, Save) */}
+              {/* Action Buttons Carousel (joined Like/Dislike, Share, Save, Download) */}
               <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pt-1">
-                <button
-                  onClick={handleToggleLike}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                    isLiked
-                      ? 'bg-neutral-200 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white'
-                      : 'bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700'
-                  }`}
-                >
-                  <ThumbsUp size={15} className={isLiked ? 'fill-current' : ''} />
-                  <span>{likeCount > 0 ? formatCount(likeCount) : 'Like'}</span>
-                </button>
+                {/* Joined Like / Dislike pill */}
+                <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-full shrink-0">
+                  <button
+                    onClick={handleToggleLike}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-l-full transition-all hover:bg-neutral-200 dark:hover:bg-neutral-700 ${
+                      isLiked ? 'text-brand-600 dark:text-brand-400' : 'text-[#0f0f0f] dark:text-white'
+                    }`}
+                  >
+                    <ThumbsUp size={15} className={isLiked ? 'fill-current' : ''} />
+                    <span>{likeCount > 0 ? formatCount(likeCount) : 'Like'}</span>
+                  </button>
+                  <div className="w-[1px] h-4 bg-neutral-300 dark:bg-neutral-700" />
+                  <button
+                    onClick={() => showToast('Disliked')}
+                    className="px-2.5 py-1.5 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-r-full transition-all"
+                    aria-label="Dislike"
+                  >
+                    <ThumbsDown size={15} />
+                  </button>
+                </div>
 
                 <button
                   onClick={handleShare}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700 shrink-0 transition-all"
                 >
                   <Share2 size={15} />
                   <span>Share</span>
@@ -1428,109 +1590,208 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                     setIsSaved(!isSaved);
                     showToast(isSaved ? 'Removed from Khazana' : 'Saved to Khazana ✨');
                   }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all ${
                     isSaved
-                      ? 'bg-neutral-200 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white'
+                      ? 'bg-neutral-200 dark:bg-neutral-700 text-[#0f0f0f] dark:text-white'
                       : 'bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700'
                   }`}
                 >
                   <Bookmark size={15} className={isSaved ? 'fill-current' : ''} />
                   <span>{isSaved ? 'Saved' : 'Save'}</span>
                 </button>
-              </div>
-
-              {/* Comments Notice */}
-              <div className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/60 border border-neutral-200/60 dark:border-neutral-800 flex items-center gap-2.5 text-xs text-neutral-600 dark:text-neutral-400">
-                <MessageSquare size={16} className="text-neutral-500 shrink-0" />
-                <span>Comments jaldi aa rahe hain</span>
-              </div>
-
-              {/* Secondary Action Cards (Notes, Download) */}
-              <div className="grid grid-cols-2 gap-2 pt-0.5">
-                <button
-                  onClick={() => showToast('Class Notes downloaded!')}
-                  className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 hover:bg-neutral-200 dark:hover:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700/60 transition-all active:scale-95"
-                >
-                  <FileText size={18} className="text-blue-500 mb-1" />
-                  <span className="text-[11px] font-bold text-[#0f0f0f] dark:text-white leading-tight">
-                    Notes
-                  </span>
-                </button>
 
                 <button
-                  onClick={() => showToast('Lecture available offline!')}
-                  className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-neutral-100 dark:bg-neutral-800/80 hover:bg-neutral-200 dark:hover:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700/60 transition-all active:scale-95"
+                  onClick={() => showToast('Lecture downloaded offline!')}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700 shrink-0 transition-all"
                 >
-                  <Download size={18} className="text-neutral-600 dark:text-neutral-400 mb-1" />
-                  <span className="text-[11px] font-bold text-[#0f0f0f] dark:text-white leading-tight">
-                    Download
-                  </span>
+                  <Download size={15} />
+                  <span>Download</span>
                 </button>
               </div>
 
-              {/* Up Next List: Balanced thumbnails, clean titles */}
-              <div className="space-y-1.5 pt-1">
-                {recommendedVideos.map((item, idx) => (
-                  <div
-                    key={`${item.id}-${idx}`}
-                    onClick={() => handleSelectVideo(item)}
-                    className="group cursor-pointer flex items-start gap-3 py-1 px-1 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 active:opacity-90 transition-all"
+              {/* Comments Preview Card (as in Image 1) */}
+              <div 
+                onClick={() => setIsCommentsOpen(true)}
+                className="p-3 rounded-xl bg-neutral-100 dark:bg-neutral-800/70 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#0f0f0f] dark:text-white">
+                    <span>Comments</span>
+                    <span className="font-normal text-neutral-500 dark:text-neutral-400">
+                      {commentsList.length}
+                    </span>
+                  </div>
+                  <ChevronDown size={15} className="text-neutral-500" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-5 h-5 rounded-full ${commentsList[0]?.avatarBg || 'bg-indigo-600'} text-white flex items-center justify-center text-[9.5px] font-bold shrink-0`}>
+                    {commentsList[0]?.user?.[0] || 'U'}
+                  </div>
+                  <p className="text-[11.5px] text-neutral-700 dark:text-neutral-300 truncate flex-1">
+                    {commentsList[0]?.text || 'Be the first to comment!'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Recommendations Filter Chips (as in Image 2) */}
+              <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pt-1">
+                {(['All', 'From this channel', 'Related', 'Recently uploaded'] as const).map((chip) => (
+                  <button
+                    key={chip}
+                    onClick={() => setWatchFilter(chip)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                      watchFilter === chip
+                        ? 'bg-[#0f0f0f] dark:bg-white text-white dark:text-[#0f0f0f]'
+                        : 'bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                    }`}
                   >
-                    <div className="w-32 sm:w-36 aspect-video shrink-0">
-                      <SmartThumbnail
-                        videoId={item.id}
-                        title={item.title}
-                        duration={item.duration}
-                        priority={idx < 2}
-                        className="rounded-lg sm:rounded-xl overflow-hidden shadow-xs w-full h-full"
-                        badgeClassName="!bottom-1 !right-1 !text-[10px] !px-1.5 !py-0.5"
-                      />
-                    </div>
+                    {chip}
+                  </button>
+                ))}
+              </div>
 
-                    <div className="flex-1 min-w-0 pt-0.5">
-                      <div className="flex items-start justify-between gap-1">
-                        <h4 className="text-[#0f0f0f] dark:text-white font-medium text-[12px] sm:text-[12.5px] leading-[1.25] line-clamp-2 break-words flex-1">
-                          {decodeHtml(item.title)}
-                        </h4>
-                        <button
-                          type="button"
+              {/* Recommendations Section */}
+              {activePlaylistContext && activePlaylistContext.videos.length > 0 ? (
+                /* 1) Playlist Mode: Sequence list with index numbers */
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between p-2.5 bg-neutral-100 dark:bg-neutral-800/80 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-[#0f0f0f] dark:text-white truncate">
+                        {activePlaylistContext.title}
+                      </p>
+                      <p className="text-[11px] text-neutral-500">
+                        Playlist • {activePlaylistContext.videos.length} videos
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setActivePlaylistContext(null)}
+                      className="text-[11px] font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-white ml-2 shrink-0"
+                    >
+                      Exit playlist
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5 pt-1">
+                    {activePlaylistContext.videos.map((vid, idx) => {
+                      const isCurrent = vid.id === selectedVideo.id;
+                      return (
+                        <div
+                          key={vid.id}
+                          onClick={() => handleSelectVideo(vid, activePlaylistContext)}
+                          className={`flex items-center gap-2.5 p-2 rounded-xl cursor-pointer transition-all ${
+                            isCurrent
+                              ? 'bg-neutral-200/70 dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700'
+                              : 'hover:bg-neutral-100 dark:hover:bg-neutral-800/60'
+                          }`}
+                        >
+                          <span className="text-xs font-bold text-neutral-400 w-5 text-center shrink-0">
+                            {isCurrent ? <Play size={12} className="fill-current text-brand-600 dark:text-brand-400 mx-auto" /> : idx + 1}
+                          </span>
+                          <div className="w-28 sm:w-32 aspect-video rounded-lg overflow-hidden shrink-0 bg-black">
+                            <SmartThumbnail
+                              videoId={vid.id}
+                              title={vid.title}
+                              duration={vid.duration}
+                              className="w-full h-full rounded-lg"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className={`text-[12px] sm:text-[12.5px] font-medium leading-snug line-clamp-2 ${
+                              isCurrent ? 'text-brand-600 dark:text-brand-400 font-semibold' : 'text-[#0f0f0f] dark:text-white'
+                            }`}>
+                              {decodeHtml(vid.title)}
+                            </h4>
+                            <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-0.5 truncate">
+                              {vid.channelTitle}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                /* 2) Normal Mode: FULL THUMBNAIL recommendation cards (matching Image 2) */
+                <div className="space-y-4 pt-2">
+                  {filteredRecommendedVideos.map((item, idx) => (
+                    <div
+                      key={`${item.id}-${idx}`}
+                      onClick={() => handleSelectVideo(item, null)}
+                      className="group cursor-pointer flex flex-col w-full active:opacity-90 transition-opacity pb-2"
+                    >
+                      {/* Full width 16:9 Thumbnail with modern subtle rounded corners */}
+                      <div className="w-full aspect-video">
+                        <SmartThumbnail
+                          videoId={item.id}
+                          title={item.title}
+                          duration={item.duration}
+                          priority={idx < 2}
+                          className="w-full h-full rounded-lg sm:rounded-[10px] overflow-hidden shadow-xs"
+                        />
+                      </div>
+
+                      {/* Video metadata row below thumbnail matching Image 2 */}
+                      <div className="flex items-start gap-3 mt-2.5 px-0.5">
+                        <div
                           onClick={(e) => {
                             e.stopPropagation();
-                            showToast('Options: Save to Khazana');
+                            if (item.channelId) handleOpenChannel(item.channelId);
                           }}
-                          className="p-1 text-neutral-600 dark:text-neutral-400 hover:text-[#0f0f0f] dark:hover:text-white shrink-0 -mt-1 -mr-1 rounded-full"
-                          aria-label="Options"
                         >
-                          <MoreVertical size={16} />
-                        </button>
-                      </div>
+                          <ChannelAvatar
+                            avatar={item.channelAvatar}
+                            title={item.channelTitle}
+                            size="md"
+                            className="shrink-0 mt-0.5 hover:opacity-85 transition-opacity"
+                          />
+                        </div>
 
-                      <p 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (item.channelId) handleOpenChannel(item.channelId);
-                        }}
-                        className="text-neutral-600 dark:text-neutral-400 text-[11px] font-normal mt-0.5 line-clamp-1 hover:underline cursor-pointer"
-                      >
-                        {item.channelTitle}
-                      </p>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="text-[#0f0f0f] dark:text-white font-medium text-[13.5px] sm:text-[14.5px] leading-snug line-clamp-2">
+                              {decodeHtml(item.title)}
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                showToast('Options: Save to Khazana');
+                              }}
+                              className="p-1 text-neutral-600 dark:text-neutral-400 hover:text-[#0f0f0f] dark:hover:text-white shrink-0 -mt-0.5 rounded-full"
+                              aria-label="Options"
+                            >
+                              <MoreVertical size={18} />
+                            </button>
+                          </div>
 
-                      <div className="text-neutral-600 dark:text-neutral-400 text-[10.5px] font-normal mt-0.5 flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
-                        {item.viewCount !== undefined && (
-                          <>
-                            <span>{formatViews(item.viewCount)}</span>
+                          <p className="text-[11.5px] text-neutral-600 dark:text-neutral-400 mt-1 flex items-center flex-wrap gap-x-1.5">
+                            <span
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (item.channelId) handleOpenChannel(item.channelId);
+                              }}
+                              className="hover:underline cursor-pointer"
+                            >
+                              {item.channelTitle}
+                            </span>
                             <span>•</span>
-                          </>
-                        )}
-                        <span>{timeAgo(item.publishedAt)}</span>
+                            {item.viewCount !== undefined && (
+                              <>
+                                <span>{formatViews(item.viewCount)}</span>
+                                <span>•</span>
+                              </>
+                            )}
+                            <span>{timeAgo(item.publishedAt)}</span>
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {/* Rec sentinel with 1200px margin */}
-                <div ref={recSentinelRef} className="h-10 w-full" />
-              </div>
+                  {/* Rec sentinel with 1200px margin */}
+                  <div ref={recSentinelRef} className="h-10 w-full" />
+                </div>
+              )}
             </div>
           </div>
         ) : (
@@ -1590,7 +1851,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                 Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="flex flex-col w-full animate-pulse">
                     <div className="px-3.5 sm:px-0">
-                      <div className="w-full aspect-video bg-neutral-200 dark:bg-neutral-800 rounded-[18px] sm:rounded-[22px]" />
+                      <div className="w-full aspect-video bg-neutral-200 dark:bg-neutral-800 rounded-lg sm:rounded-[10px]" />
                     </div>
                     <div className="flex items-start gap-3 pt-2.5 pb-5 px-3.5 sm:px-1">
                       <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 shrink-0 mt-0.5" />
@@ -1617,66 +1878,70 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                     >
                       <div className="px-3.5 sm:px-0 relative">
                         {isInlineActive ? (
-                          /* YouTube-style Inline Autoplay Preview */
-                          <div className="w-full aspect-video !rounded-[18px] sm:!rounded-[22px] overflow-hidden bg-black relative shadow-lg">
+                          /* YouTube-style Inline Autoplay Preview (Matches Image 1) */
+                          <div 
+                            onClick={() => handleSelectVideo(vid)}
+                            className="w-full aspect-video rounded-lg sm:rounded-[10px] overflow-hidden bg-black relative shadow-md cursor-pointer"
+                          >
                             <iframe
-                              src={`https://www.youtube.com/embed/${vid.id}?autoplay=1&mute=${isPreviewMuted ? 1 : 0}&controls=0&playsinline=1&rel=0&modestbranding=1&cc_load_policy=${isPreviewCC ? 1 : 0}`}
+                              ref={previewIframeRef}
+                              src={`https://www.youtube.com/embed/${vid.id}?enablejsapi=1&autoplay=1&mute=1&controls=0&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0`}
                               title={vid.title}
                               allow="autoplay; encrypted-media; picture-in-picture"
                               className="w-full h-full pointer-events-none border-0"
                             />
 
-                            {/* Top Quick Actions (Mute/Unmute, CC, Close) */}
-                            <div className="absolute top-2 right-2 flex items-center gap-1.5 z-20 pointer-events-auto">
+                            {/* Top-Right Vertical Actions: Sound (Top) and CC (Bottom) like in Image 1 */}
+                            <div className="absolute top-2.5 right-2.5 flex flex-col gap-2 z-30 pointer-events-auto">
+                              {/* Sound Mute/Unmute Button (Top) */}
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setIsPreviewMuted(!isPreviewMuted);
+                                  handleTogglePreviewMute();
                                 }}
-                                className="p-1.5 rounded-full bg-black/75 hover:bg-black text-white text-xs backdrop-blur-md"
+                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/65 hover:bg-black/85 active:scale-95 backdrop-blur-md flex items-center justify-center text-white transition-all shadow-md"
                                 title={isPreviewMuted ? 'Unmute' : 'Mute'}
+                                aria-label={isPreviewMuted ? 'Unmute' : 'Mute'}
                               >
-                                {isPreviewMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                                {isPreviewMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
                               </button>
 
+                              {/* Captions CC Button (Below Mute) */}
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setIsPreviewCC(!isPreviewCC);
+                                  handleTogglePreviewCC();
                                 }}
-                                className={`p-1.5 rounded-full text-xs backdrop-blur-md ${isPreviewCC ? 'bg-white text-black' : 'bg-black/75 hover:bg-black text-white'}`}
-                                title="Captions"
+                                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full ${
+                                  isPreviewCC 
+                                    ? 'bg-white text-black' 
+                                    : 'bg-black/65 hover:bg-black/85 text-white'
+                                } active:scale-95 backdrop-blur-md flex items-center justify-center transition-all shadow-md`}
+                                title={isPreviewCC ? 'Captions on' : 'Captions off'}
+                                aria-label={isPreviewCC ? 'Captions on' : 'Captions off'}
                               >
-                                <Subtitles size={15} />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActivePreviewVideoId(null);
-                                }}
-                                className="p-1.5 rounded-full bg-black/75 hover:bg-black text-white text-xs backdrop-blur-md"
-                                title="Close preview"
-                              >
-                                <X size={15} />
+                                <div className={`w-[22px] h-[16px] rounded-[3px] border-[1.5px] ${
+                                  isPreviewCC ? 'border-black bg-black text-white' : 'border-white text-white'
+                                } flex items-center justify-center text-[9px] font-extrabold tracking-tighter leading-none`}>
+                                  CC
+                                </div>
                               </button>
                             </div>
 
-                            {/* Bottom Scrubbable Timeline Slider */}
-                            <div 
-                              onClick={(e) => e.stopPropagation()}
-                              className="absolute bottom-2 inset-x-3 flex items-center gap-2 z-20 pointer-events-auto bg-black/60 backdrop-blur-xs px-2.5 py-1 rounded-lg"
-                            >
-                              <input
-                                type="range"
-                                min="0"
-                                max={previewDuration}
-                                value={previewProgress}
-                                onChange={(e) => setPreviewProgress(Number(e.target.value))}
-                                className="w-full accent-red-600 h-1.5 rounded-lg cursor-pointer"
+                            {/* Duration Badge at Bottom Right (like in Image 1) */}
+                            {vid.duration && (
+                              <span className="absolute bottom-2.5 right-2.5 bg-black/80 text-white text-[12px] font-medium px-1.5 py-0.5 rounded-[4px] leading-none pointer-events-none z-20">
+                                {vid.duration}
+                              </span>
+                            )}
+
+                            {/* Bottom Red Progress Line (subtle and sleek like YouTube Image 1) */}
+                            <div className="absolute bottom-0 inset-x-0 h-[2.5px] bg-white/20 z-20 pointer-events-none">
+                              <div 
+                                className="h-full bg-red-600 transition-all duration-300" 
+                                style={{ width: `${Math.min(100, Math.max(3, (previewProgress / previewDuration) * 100))}%` }} 
                               />
                             </div>
                           </div>
@@ -1687,8 +1952,8 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                               title={vid.title}
                               duration={vid.duration}
                               priority={idx < 3}
-                              className="w-full aspect-video !rounded-[18px] sm:!rounded-[22px] overflow-hidden shadow-xs"
-                              imgClassName="!rounded-[18px] sm:!rounded-[22px]"
+                              className="w-full aspect-video rounded-lg sm:rounded-[10px] overflow-hidden shadow-xs"
+                              imgClassName="rounded-lg sm:rounded-[10px]"
                             />
                           </div>
                         )}
@@ -1768,7 +2033,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
       {/* ================= DESCRIPTION SHEET: Opens below the player without covering it ================= */}
       {isDescOpen && selectedVideo && (
         <div 
-          className="fixed inset-x-0 bottom-0 top-[max(50px,calc(100vw*9/16+36px))] sm:top-[330px] z-[200] flex flex-col justify-end bg-black/40 backdrop-blur-xs animate-fade-in"
+          className="fixed inset-x-0 bottom-0 watch-sheet-backdrop z-[200] flex flex-col justify-end bg-black/40 backdrop-blur-xs animate-fade-in"
           onClick={() => setIsDescOpen(false)}
         >
           <div 
@@ -1884,6 +2149,89 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= COMMENTS SHEET: Opens below the player without covering it ================= */}
+      {isCommentsOpen && selectedVideo && (
+        <div 
+          className="fixed inset-x-0 bottom-0 watch-sheet-backdrop z-[200] flex flex-col justify-end bg-black/40 backdrop-blur-xs animate-fade-in"
+          onClick={() => setIsCommentsOpen(false)}
+        >
+          <div 
+            className="w-full h-full max-h-full bg-white dark:bg-[#181818] rounded-t-2xl shadow-2xl flex flex-col border-t border-neutral-200 dark:border-neutral-800 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Grabber handle */}
+            <div className="w-12 h-1 bg-neutral-300 dark:bg-neutral-700 rounded-full mx-auto mt-2.5 mb-1 shrink-0" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-2 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
+              <h2 className="text-[15px] font-bold text-[#0f0f0f] dark:text-white">
+                Comments <span className="font-normal text-xs text-neutral-500">({commentsList.length})</span>
+              </h2>
+              <button 
+                onClick={() => setIsCommentsOpen(false)}
+                className="p-1 rounded-full text-neutral-500 hover:text-[#0f0f0f] dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                aria-label="Close comments"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Comment Input */}
+            <form onSubmit={handleAddComment} className="p-3 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-2 shrink-0">
+              <div className="w-7 h-7 rounded-full bg-rose-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+                U
+              </div>
+              <input
+                type="text"
+                value={commentInput}
+                onChange={(e) => setCommentInput(e.target.value)}
+                placeholder="Add a comment..."
+                className="flex-1 bg-neutral-100 dark:bg-neutral-800 rounded-full px-3.5 py-1.5 text-xs text-[#0f0f0f] dark:text-white placeholder-neutral-400 focus:outline-hidden"
+              />
+              <button
+                type="submit"
+                disabled={!commentInput.trim()}
+                className="p-1.5 rounded-full text-brand-600 dark:text-brand-400 disabled:opacity-40 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                aria-label="Post comment"
+              >
+                <Send size={16} />
+              </button>
+            </form>
+
+            {/* Comments List */}
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4">
+              {commentsList.map((cmt) => (
+                <div key={cmt.id} className="flex items-start gap-3">
+                  <div className={`w-7 h-7 rounded-full ${cmt.avatarBg} text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5`}>
+                    {cmt.user[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-[#0f0f0f] dark:text-white">{cmt.user}</span>
+                      <span className="text-[11px] text-neutral-500">{cmt.time}</span>
+                    </div>
+                    <p className="text-xs text-[#0f0f0f] dark:text-neutral-200 mt-0.5 break-words">
+                      {cmt.text}
+                    </p>
+                    <div className="flex items-center gap-3 mt-1.5 text-neutral-500 text-[11px]">
+                      <button 
+                        onClick={() => {
+                          setCommentsList(prev => prev.map(c => c.id === cmt.id ? { ...c, likes: c.likes + 1 } : c));
+                        }}
+                        className="flex items-center gap-1 hover:text-[#0f0f0f] dark:hover:text-white"
+                      >
+                        <ThumbsUp size={12} />
+                        <span>{cmt.likes}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

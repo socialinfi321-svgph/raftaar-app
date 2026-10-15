@@ -67,3 +67,26 @@ html, body, #root {
   to { opacity: 1; }
 }
 .hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* YouTube Mobile Player Safe Area Bar (for Battery, Network, Clock status bar) */
+.safe-top-bar {
+  height: max(env(safe-area-inset-top, 0px), 26px);
+  background-color: #000000;
+  width: 100%;
+}
+@media (min-width: 640px) {
+  .safe-top-bar {
+    display: none !important;
+    height: 0px !important;
+  }
+}
+
+/* Watch sheets positioning right below the sticky video player */
+.watch-sheet-backdrop {
+  top: calc(100vw * 9 / 16 + max(env(safe-area-inset-top, 0px), 26px));
+}
+@media (min-width: 640px) {
+  .watch-sheet-backdrop {
+    top: 320px !important;
+  }
+}

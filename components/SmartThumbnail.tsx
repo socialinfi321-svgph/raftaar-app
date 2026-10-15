@@ -78,7 +78,7 @@ export const SmartThumbnail: React.FC<SmartThumbnailProps> = ({
     <div
       className={`relative w-full aspect-video bg-[#e5e5e5] dark:bg-neutral-800 ${
         !isLoaded ? 'animate-pulse' : ''
-      } rounded-xl sm:rounded-2xl overflow-hidden select-none ${className}`}
+      } rounded-lg sm:rounded-[10px] overflow-hidden select-none ${className}`}
     >
       {/* Main Thumbnail Image - invisible while loading to avoid any dummy image flash */}
       <img

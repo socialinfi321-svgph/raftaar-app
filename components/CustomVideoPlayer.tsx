@@ -1,5 +1,17 @@
-import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
-import { ArrowLeft, AlertCircle, ExternalLink, SkipForward } from 'lucide-react';
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useImperativeHandle,
+  forwardRef,
+  memo
+} from 'react';
+import {
+  ArrowLeft,
+  AlertCircle,
+  ExternalLink,
+  SkipForward
+} from 'lucide-react';
 
 export interface CustomVideoPlayerRef {
   seekTo: (seconds: number) => void;
@@ -46,17 +58,18 @@ const loadYouTubeIframeApi = (): Promise<void> => {
   return ytApiPromise;
 };
 
-export const CustomVideoPlayer = forwardRef<CustomVideoPlayerRef, CustomVideoPlayerProps>(
-  ({ videoId, title, onBack, onPlayNext, onSeekReady }, ref) => {
+const CustomVideoPlayerComponent = forwardRef<CustomVideoPlayerRef, CustomVideoPlayerProps>(
+  ({ videoId, onBack, onPlayNext, onSeekReady }, ref) => {
+    const playerWrapperRef = useRef<HTMLDivElement>(null);
     const playerContainerRef = useRef<HTMLDivElement>(null);
     const playerInstanceRef = useRef<any>(null);
+    const loadedVideoIdRef = useRef<string | null>(null);
     const onPlayNextRef = useRef(onPlayNext);
     onPlayNextRef.current = onPlayNext;
 
     const [hasEmbedError, setHasEmbedError] = useState(false);
-    const [isPlayerReady, setIsPlayerReady] = useState(false);
 
-    // Expose seekTo to parent via ref and callback
+    // Expose controls to parent via ref
     const seekTo = (seconds: number) => {
       try {
         if (playerInstanceRef.current && typeof playerInstanceRef.current.seekTo === 'function') {
@@ -85,7 +98,7 @@ export const CustomVideoPlayer = forwardRef<CustomVideoPlayerRef, CustomVideoPla
       try {
         const savedTime = Number(localStorage.getItem(`raftaar_progress_${vId}`));
         const duration = typeof player.getDuration === 'function' ? player.getDuration() : 0;
-        if (savedTime && savedTime >= 10 && (duration <= 0 || savedTime < duration - 15)) {
+        if (savedTime && savedTime >= 3 && (duration <= 0 || savedTime < duration - 10)) {
           player.seekTo(savedTime, true);
         }
       } catch {}
@@ -95,7 +108,11 @@ export const CustomVideoPlayer = forwardRef<CustomVideoPlayerRef, CustomVideoPla
     useEffect(() => {
       let isCancelled = false;
       setHasEmbedError(false);
-      setIsPlayerReady(false);
+
+      // Avoid re-initialization if same video is already loaded
+      if (loadedVideoIdRef.current === videoId && playerInstanceRef.current) {
+        return;
+      }
 
       loadYouTubeIframeApi().then(() => {
         if (isCancelled || !playerContainerRef.current) return;
@@ -103,8 +120,12 @@ export const CustomVideoPlayer = forwardRef<CustomVideoPlayerRef, CustomVideoPla
         // If player already exists, load video by ID
         if (playerInstanceRef.current && typeof playerInstanceRef.current.loadVideoById === 'function') {
           try {
+            loadedVideoIdRef.current = videoId;
             playerInstanceRef.current.loadVideoById(videoId);
             handleResume(playerInstanceRef.current, videoId);
+            if (typeof playerInstanceRef.current.playVideo === 'function') {
+              playerInstanceRef.current.playVideo();
+            }
             return;
           } catch {
             // Re-create player if reload fails
@@ -119,6 +140,7 @@ export const CustomVideoPlayer = forwardRef<CustomVideoPlayerRef, CustomVideoPla
         playerContainerRef.current.appendChild(mountDiv);
 
         try {
+          loadedVideoIdRef.current = videoId;
           playerInstanceRef.current = new window.YT.Player(mountDiv, {
             videoId,
             playerVars: {
@@ -133,19 +155,29 @@ export const CustomVideoPlayer = forwardRef<CustomVideoPlayerRef, CustomVideoPla
             events: {
               onReady: (event: any) => {
                 if (isCancelled) return;
-                setIsPlayerReady(true);
+                try {
+                  const iframe = event.target.getIframe?.();
+                  if (iframe) {
+                    iframe.setAttribute(
+                      'allow',
+                      'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen'
+                    );
+                    iframe.setAttribute('allowfullscreen', 'true');
+                  }
+                } catch {}
                 handleResume(event.target, videoId);
+                try {
+                  event.target.playVideo();
+                } catch {}
               },
               onStateChange: (event: any) => {
                 // state === 0 means ENDED
                 if (event.data === 0 && onPlayNextRef.current) {
                   onPlayNextRef.current();
                 }
-                // NEVER treat state 2 (paused) or 5 (cued) as errors!
               },
               onError: (event: any) => {
                 const code = Number(event.data);
-                // Error codes 2, 5, 100, 101, 150, 153 indicate playback/embed errors
                 if ([2, 5, 100, 101, 150, 153].includes(code)) {
                   setHasEmbedError(true);
                 }
@@ -170,11 +202,12 @@ export const CustomVideoPlayer = forwardRef<CustomVideoPlayerRef, CustomVideoPla
             playerInstanceRef.current.destroy();
           } catch {}
           playerInstanceRef.current = null;
+          loadedVideoIdRef.current = null;
         }
       };
     }, []);
 
-    // Save resume position every 10 seconds
+    // Save resume position periodically
     useEffect(() => {
       const progressInterval = setInterval(() => {
         try {
@@ -183,71 +216,77 @@ export const CustomVideoPlayer = forwardRef<CustomVideoPlayerRef, CustomVideoPla
             typeof playerInstanceRef.current.getCurrentTime === 'function'
           ) {
             const curr = playerInstanceRef.current.getCurrentTime();
-            if (typeof curr === 'number' && curr > 5) {
+            if (typeof curr === 'number' && curr > 3) {
               localStorage.setItem(`raftaar_progress_${videoId}`, String(Math.floor(curr)));
             }
           }
         } catch {}
-      }, 10000);
+      }, 8000);
 
       return () => clearInterval(progressInterval);
     }, [videoId]);
 
     return (
-      <div className="w-full bg-black">
-        {/* Normal strip ABOVE the video for close/back button (NOT absolute, zero overlay) */}
+      <div
+        ref={playerWrapperRef}
+        className="w-full bg-black relative aspect-video select-none overflow-hidden"
+      >
+        {/* Floating Back Button (Top Left) */}
         {onBack && (
-          <div className="w-full flex items-center justify-between px-2.5 py-1.5 bg-black text-white border-b border-neutral-900">
-            <button
-              onClick={onBack}
-              className="p-1 rounded-full text-white/90 hover:text-white active:scale-95 transition-all"
-              aria-label="Back"
-            >
-              <ArrowLeft size={20} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onBack}
+            className="absolute top-2 left-2 z-20 p-2 rounded-full bg-black/45 hover:bg-black/75 text-white backdrop-blur-xs transition-all active:scale-90 shadow-md"
+            aria-label="Back"
+            title="Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
         )}
 
-        {/* Video Box: Plain w-full aspect-video bg-black div with NOTHING positioned over the video area */}
-        <div className="w-full aspect-video bg-black relative">
-          <div ref={playerContainerRef} className="w-full h-full" />
+        {/* Video Box with native YouTube controls & native fullscreen button */}
+        <div
+          ref={playerContainerRef}
+          className="w-full h-full flex items-center justify-center [&>iframe]:w-full [&>iframe]:h-full"
+        />
 
-          {/* Embed Error Banner (Only shown if YouTube video cannot be embedded) */}
-          {hasEmbedError && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950 p-6 text-center text-white">
-              <AlertCircle size={36} className="text-amber-400 mb-2" />
-              <p className="text-sm font-semibold mb-1 text-slate-200">
-                Is video ko yahan nahi chala sakte
-              </p>
-              <p className="text-xs text-slate-400 mb-4 max-w-xs">
-                Creator ne is video ko third-party apps me chalana disable kiya hua hai.
-              </p>
-              <div className="flex items-center gap-3">
-                <a
-                  href={`https://www.youtube.com/watch?v=${videoId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-sm"
+        {/* Embed Error Banner (Only shown if YouTube video cannot be embedded) */}
+        {hasEmbedError && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950 p-6 text-center text-white">
+            <AlertCircle size={36} className="text-amber-400 mb-2" />
+            <p className="text-sm font-semibold mb-1 text-slate-200">
+              Is video ko yahan nahi chala sakte
+            </p>
+            <p className="text-xs text-slate-400 mb-4 max-w-xs">
+              Creator ne is video ko third-party apps me chalana disable kiya hua hai.
+            </p>
+            <div className="flex items-center gap-3">
+              <a
+                href={`https://www.youtube.com/watch?v=${videoId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-sm"
+              >
+                <ExternalLink size={14} />
+                <span>Open on YouTube</span>
+              </a>
+              {onPlayNext && (
+                <button
+                  onClick={onPlayNext}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors"
                 >
-                  <ExternalLink size={14} />
-                  <span>Open on YouTube</span>
-                </a>
-                {onPlayNext && (
-                  <button
-                    onClick={onPlayNext}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors"
-                  >
-                    <SkipForward size={14} />
-                    <span>Next video</span>
-                  </button>
-                )}
-              </div>
+                  <SkipForward size={14} />
+                  <span>Next video</span>
+                </button>
+              )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
 );
 
-CustomVideoPlayer.displayName = 'CustomVideoPlayer';
+CustomVideoPlayerComponent.displayName = 'CustomVideoPlayer';
+
+export const CustomVideoPlayer = memo(CustomVideoPlayerComponent);
