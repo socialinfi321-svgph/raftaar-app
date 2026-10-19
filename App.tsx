@@ -14,6 +14,7 @@ import { LoginScreen } from './components/LoginScreen';
 import { DashboardModal } from './components/DashboardModal';
 import { AchievementsModal } from './components/AchievementsModal';
 import { YouTubeHome } from './components/YouTubeHome';
+import { loadYouTubeIframeApi } from './components/CustomVideoPlayer';
 import { PracticeScreen } from './components/PracticeScreen';
 import { RewardsScreen } from './components/RewardsScreen';
 import { KhazanaScreen } from './components/KhazanaScreen';
@@ -251,6 +252,11 @@ export default function App() {
 
   // --- 1. GLOBAL STATUS BAR MANAGEMENT ---
   useStatusBar(theme);
+
+  // Warm-up YouTube IFrame Player API for instant video loading
+  useEffect(() => {
+    loadYouTubeIframeApi();
+  }, []);
 
   // --- THEME MANAGEMENT ---
   useEffect(() => {

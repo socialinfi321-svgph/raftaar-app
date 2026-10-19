@@ -6,7 +6,8 @@ import {
   FileText, Download, BookOpen, MessageSquare, Play, Check, ChevronRight, ChevronDown,
   Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Subtitles, Send
 } from 'lucide-react';
-import { CustomVideoPlayer, CustomVideoPlayerRef } from './CustomVideoPlayer';
+import { CustomVideoPlayer, CustomVideoPlayerRef, loadYouTubeIframeApi } from './CustomVideoPlayer';
+import { InlinePreviewPlayer } from './InlinePreviewPlayer';
 import { SmartThumbnail } from './SmartThumbnail';
 import { 
   searchVideos, 
@@ -273,69 +274,60 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   const [playlistTitle, setPlaylistTitle] = useState<string | null>(null);
   const [playlistVideosList, setPlaylistVideosList] = useState<VideoItem[]>([]);
 
-  // Inline Autoplay on Home feed (idle scroll detection)
+  // Warm up YouTube IFrame API on mount
+  useEffect(() => {
+    loadYouTubeIframeApi();
+  }, []);
+
+  // Inline Autoplay on Home feed (idle scroll detection & center card targeting)
   const [activePreviewVideoId, setActivePreviewVideoId] = useState<string | null>(null);
-  const [previewProgress, setPreviewProgress] = useState(0);
-  const [previewDuration, setPreviewDuration] = useState(60);
-  const [isPreviewMuted, setIsPreviewMuted] = useState(true);
-  const [isPreviewCC, setIsPreviewCC] = useState(false);
-  const previewIframeRef = useRef<HTMLIFrameElement | null>(null);
   const idleScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
   const cardElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // Toggle Mute without reloading iframe or restarting video
-  const handleTogglePreviewMute = () => {
-    const iframe = previewIframeRef.current;
-    const nextMuted = !isPreviewMuted;
-    if (iframe && iframe.contentWindow) {
-      const command = nextMuted ? 'mute' : 'unMute';
-      iframe.contentWindow.postMessage(
-        JSON.stringify({ event: 'command', func: command, args: [] }),
-        '*'
-      );
-    }
-    setIsPreviewMuted(nextMuted);
-  };
+  // Function to target the card nearest to the vertical center of the screen
+  const triggerCenterCardPreview = useCallback(() => {
+    if (selectedVideo || activeChannelId || activePlaylistId) return;
+    const centerY = window.innerHeight / 2;
+    let closestId: string | null = null;
+    let closestDist = Infinity;
 
-  // Toggle Captions CC without reloading iframe or restarting video
-  const handleTogglePreviewCC = () => {
-    const iframe = previewIframeRef.current;
-    const nextCC = !isPreviewCC;
-    if (iframe && iframe.contentWindow) {
-      if (nextCC) {
-        iframe.contentWindow.postMessage(
-          JSON.stringify({ event: 'command', func: 'loadModule', args: ['captions'] }),
-          '*'
-        );
-        iframe.contentWindow.postMessage(
-          JSON.stringify({ event: 'command', func: 'setOption', args: ['captions', 'reload', true] }),
-          '*'
-        );
-      } else {
-        iframe.contentWindow.postMessage(
-          JSON.stringify({ event: 'command', func: 'setOption', args: ['captions', 'track', {}] }),
-          '*'
-        );
-        iframe.contentWindow.postMessage(
-          JSON.stringify({ event: 'command', func: 'unloadModule', args: ['captions'] }),
-          '*'
-        );
+    cardElementsRef.current.forEach((el, id) => {
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const cardCenter = rect.top + rect.height / 2;
+      const dist = Math.abs(cardCenter - centerY);
+      if (dist < closestDist && rect.top > 60 && rect.bottom < window.innerHeight) {
+        closestDist = dist;
+        closestId = id;
+      }
+    });
+
+    // Fallback to first visible card on screen if none matched strict center criteria
+    if (!closestId) {
+      for (const [id, el] of cardElementsRef.current.entries()) {
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.top >= 0 && rect.top < window.innerHeight) {
+          closestId = id;
+          break;
+        }
       }
     }
-    setIsPreviewCC(nextCC);
-  };
 
-  // Increment preview progress bar
-  useEffect(() => {
-    if (!activePreviewVideoId) {
-      setPreviewProgress(0);
-      return;
+    if (closestId) {
+      setActivePreviewVideoId(closestId);
     }
-    const timer = setInterval(() => {
-      setPreviewProgress(p => (p < previewDuration ? p + 1 : p));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [activePreviewVideoId, previewDuration]);
+  }, [selectedVideo, activeChannelId, activePlaylistId]);
+
+  // Page load / initial feed arrival: start preview on center card after 1s without needing user to scroll
+  useEffect(() => {
+    if (videos.length > 0 && !selectedVideo && !activeChannelId && !activePlaylistId) {
+      const initialTimer = setTimeout(() => {
+        triggerCenterCardPreview();
+      }, 1000);
+      return () => clearTimeout(initialTimer);
+    }
+  }, [videos, selectedVideo, activeChannelId, activePlaylistId, triggerCenterCardPreview]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -663,31 +655,11 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
       clearTimeout(idleScrollTimerRef.current);
     }
 
-    // After 2.8 seconds of idle scroll, trigger inline preview on center card
+    // After 1.0 second of idle scroll, trigger inline preview on center card
     if (!selectedVideo && !activeChannelId && !activePlaylistId) {
       idleScrollTimerRef.current = setTimeout(() => {
-        const centerY = window.innerHeight / 2;
-        let closestId: string | null = null;
-        let closestDist = Infinity;
-
-        cardElementsRef.current.forEach((el, id) => {
-          if (!el) return;
-          const rect = el.getBoundingClientRect();
-          const cardCenter = rect.top + rect.height / 2;
-          const dist = Math.abs(cardCenter - centerY);
-          if (dist < closestDist && rect.top > 60 && rect.bottom < window.innerHeight) {
-            closestDist = dist;
-            closestId = id;
-          }
-        });
-
-        if (closestId) {
-          const targetVid = videos.find(v => v.id === closestId);
-          setActivePreviewVideoId(closestId);
-          setPreviewProgress(0);
-          setPreviewDuration(targetVid?.durationSeconds || 180);
-        }
-      }, 2800);
+        triggerCenterCardPreview();
+      }, 1000);
     }
   };
 
@@ -737,12 +709,13 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   // Handle Video Click -> Watch Screen & Unlimited Up Next
   const handleSelectVideo = (
     vid: VideoItem,
-    playlistCtx?: { id: string; title: string; videos: VideoItem[] } | null
+    playlistCtx?: { id: string; title: string; videos: VideoItem[] } | null,
+    previewSeconds?: number
   ) => {
-    // If preview was playing this video, save current progress so main player continues seamlessly
-    if (activePreviewVideoId === vid.id && previewProgress > 2) {
+    // If preview was playing this video, save current progress from real player.getCurrentTime()
+    if (typeof previewSeconds === 'number' && previewSeconds > 2) {
       try {
-        localStorage.setItem(`raftaar_progress_${vid.id}`, String(Math.floor(previewProgress)));
+        localStorage.setItem(`raftaar_progress_${vid.id}`, String(Math.floor(previewSeconds)));
       } catch {}
     }
     if (playlistCtx !== undefined) {
@@ -1878,73 +1851,15 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                     >
                       <div className="px-3.5 sm:px-0 relative">
                         {isInlineActive ? (
-                          /* YouTube-style Inline Autoplay Preview (Matches Image 1) */
-                          <div 
-                            onClick={() => handleSelectVideo(vid)}
-                            className="w-full aspect-video rounded-lg sm:rounded-[10px] overflow-hidden bg-black relative shadow-md cursor-pointer"
-                          >
-                            <iframe
-                              ref={previewIframeRef}
-                              src={`https://www.youtube.com/embed/${vid.id}?enablejsapi=1&autoplay=1&mute=1&controls=0&playsinline=1&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0`}
-                              title={vid.title}
-                              allow="autoplay; encrypted-media; picture-in-picture"
-                              className="w-full h-full pointer-events-none border-0"
-                            />
-
-                            {/* Top-Right Vertical Actions: Sound (Top) and CC (Bottom) like in Image 1 */}
-                            <div className="absolute top-2.5 right-2.5 flex flex-col gap-2 z-30 pointer-events-auto">
-                              {/* Sound Mute/Unmute Button (Top) */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleTogglePreviewMute();
-                                }}
-                                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/65 hover:bg-black/85 active:scale-95 backdrop-blur-md flex items-center justify-center text-white transition-all shadow-md"
-                                title={isPreviewMuted ? 'Unmute' : 'Mute'}
-                                aria-label={isPreviewMuted ? 'Unmute' : 'Mute'}
-                              >
-                                {isPreviewMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                              </button>
-
-                              {/* Captions CC Button (Below Mute) */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleTogglePreviewCC();
-                                }}
-                                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full ${
-                                  isPreviewCC 
-                                    ? 'bg-white text-black' 
-                                    : 'bg-black/65 hover:bg-black/85 text-white'
-                                } active:scale-95 backdrop-blur-md flex items-center justify-center transition-all shadow-md`}
-                                title={isPreviewCC ? 'Captions on' : 'Captions off'}
-                                aria-label={isPreviewCC ? 'Captions on' : 'Captions off'}
-                              >
-                                <div className={`w-[22px] h-[16px] rounded-[3px] border-[1.5px] ${
-                                  isPreviewCC ? 'border-black bg-black text-white' : 'border-white text-white'
-                                } flex items-center justify-center text-[9px] font-extrabold tracking-tighter leading-none`}>
-                                  CC
-                                </div>
-                              </button>
-                            </div>
-
-                            {/* Duration Badge at Bottom Right (like in Image 1) */}
-                            {vid.duration && (
-                              <span className="absolute bottom-2.5 right-2.5 bg-black/80 text-white text-[12px] font-medium px-1.5 py-0.5 rounded-[4px] leading-none pointer-events-none z-20">
-                                {vid.duration}
-                              </span>
-                            )}
-
-                            {/* Bottom Red Progress Line (subtle and sleek like YouTube Image 1) */}
-                            <div className="absolute bottom-0 inset-x-0 h-[2.5px] bg-white/20 z-20 pointer-events-none">
-                              <div 
-                                className="h-full bg-red-600 transition-all duration-300" 
-                                style={{ width: `${Math.min(100, Math.max(3, (previewProgress / previewDuration) * 100))}%` }} 
-                              />
-                            </div>
-                          </div>
+                          /* Official YouTube IFrame API Inline Preview */
+                          <InlinePreviewPlayer
+                            videoId={vid.id}
+                            title={vid.title}
+                            thumbnailUrl={vid.thumbnail}
+                            durationStr={vid.duration}
+                            durationSeconds={vid.durationSeconds}
+                            onSelect={(currentTime) => handleSelectVideo(vid, null, currentTime)}
+                          />
                         ) : (
                           <div onClick={() => handleSelectVideo(vid)}>
                             <SmartThumbnail
