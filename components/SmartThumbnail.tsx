@@ -7,8 +7,10 @@ export interface SmartThumbnailProps {
   className?: string;
   imgClassName?: string;
   badgeClassName?: string;
+  roundedClassName?: string;
   showPlayIcon?: boolean;
   priority?: boolean;
+  flush?: boolean;
 }
 
 // Direct YouTube CDN URL hierarchy for maximum 1080p/HD fidelity with zero API quota consumption
@@ -25,8 +27,8 @@ const RESOLUTION_URLS = [
 
 /**
  * SmartThumbnail: High-performance, zero-quota 1080p HD YouTube thumbnail component.
- * Features YouTube's exact light-grey skeleton color, zero spinner, dummy 120x90 check,
- * and official YouTube mobile duration badge styling.
+ * Supports `flush` mode for full-bleed cards with zero corner rounding or shadows,
+ * and unified bottom-left plain timer styling matching InlinePreviewPlayer.
  */
 export const SmartThumbnail: React.FC<SmartThumbnailProps> = ({
   videoId,
@@ -35,8 +37,10 @@ export const SmartThumbnail: React.FC<SmartThumbnailProps> = ({
   className = '',
   imgClassName = '',
   badgeClassName = '',
+  roundedClassName = 'rounded-lg sm:rounded-[10px]',
   showPlayIcon = false,
-  priority = false
+  priority = false,
+  flush = false
 }) => {
   const [fallbackIndex, setFallbackIndex] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -78,7 +82,7 @@ export const SmartThumbnail: React.FC<SmartThumbnailProps> = ({
     <div
       className={`relative w-full aspect-video bg-[#e5e5e5] dark:bg-neutral-800 ${
         !isLoaded ? 'animate-pulse' : ''
-      } rounded-lg sm:rounded-[10px] overflow-hidden select-none ${className}`}
+      } ${flush ? '' : roundedClassName} overflow-hidden select-none ${className}`}
     >
       {/* Main Thumbnail Image - invisible while loading to avoid any dummy image flash */}
       <img
@@ -106,13 +110,19 @@ export const SmartThumbnail: React.FC<SmartThumbnailProps> = ({
         </div>
       )}
 
-      {/* Duration Badge formatted exactly like official YouTube mobile */}
+      {/* Unified Bottom-Left Plain Timer Overlay (matches InlinePreviewPlayer position with zero jump) */}
       {duration && isLoaded && (
-        <span
-          className={`absolute bottom-2 right-2 bg-black/80 text-white text-[12px] font-medium px-1.5 py-0.5 rounded-[4px] leading-none pointer-events-none z-10 ${badgeClassName}`}
-        >
-          {duration}
-        </span>
+        <div className="absolute inset-x-0 bottom-5 px-3 flex items-end justify-between pointer-events-none z-20">
+          <span
+            className={`min-h-[40px] flex items-center text-white text-[14px] font-medium tabular-nums leading-none ${badgeClassName}`}
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              textShadow: '0 1px 3px rgba(0,0,0,0.65)'
+            }}
+          >
+            {duration}
+          </span>
+        </div>
       )}
     </div>
   );

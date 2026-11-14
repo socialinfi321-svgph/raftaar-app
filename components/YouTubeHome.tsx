@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useBackHandler } from '../hooks/useBackHandler';
 import { 
   ArrowLeft, Search, X, ThumbsUp, ThumbsDown, Share2, 
-  Bookmark, Bell, MoreVertical, Compass, RotateCw, AlertTriangle, RefreshCw,
+  Bookmark, Bell, MoreVertical, MoreHorizontal, Compass, RotateCw, AlertTriangle, RefreshCw,
   FileText, Download, BookOpen, MessageSquare, Play, Check, ChevronRight, ChevronDown,
   Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Subtitles, Send
 } from 'lucide-react';
@@ -138,7 +138,7 @@ const ChannelAvatar: React.FC<{
   title?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
 }> = ({ avatar, title = '', size = 'md', className = '', onClick }) => {
   const sizeClasses = {
     sm: 'w-7 h-7 text-xs',
@@ -169,6 +169,31 @@ const ChannelAvatar: React.FC<{
   );
 };
 
+// Mobile-only landscape fill detection (never triggers on desktop)
+const LANDSCAPE_FILL_QUERY = '(orientation: landscape) and (max-height: 520px) and (pointer: coarse)';
+
+const useLandscapeFill = (): boolean => {
+  const [isLandscapeFill, setIsLandscapeFill] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia(LANDSCAPE_FILL_QUERY).matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mql = window.matchMedia(LANDSCAPE_FILL_QUERY);
+    const update = () => setIsLandscapeFill(mql.matches);
+    update();
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', update);
+      return () => mql.removeEventListener('change', update);
+    }
+    mql.addListener(update);
+    return () => mql.removeListener(update);
+  }, []);
+
+  return isLandscapeFill;
+};
+
 export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   // Feed state
   const [videos, setVideos] = useState<VideoItem[]>([]);
@@ -195,6 +220,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
   // Top header scroll hide & pull to refresh
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const lastScrollY = useRef(0);
+  const headerRef = useRef<HTMLElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const playerTopRef = useRef<HTMLDivElement>(null);
@@ -279,55 +305,239 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     loadYouTubeIframeApi();
   }, []);
 
-  // Inline Autoplay on Home feed (idle scroll detection & center card targeting)
+  // Watch screen native Android WebView bridge & mobile landscape fill
+  const isWatchActive = Boolean(selectedVideo);
+  const isMobileLandscape = useLandscapeFill();
+  const isLandscapeFillActive = isWatchActive && isMobileLandscape;
+
+  useEffect(() => {
+    try {
+      (window as any).RaftaarNative?.setWatchMode?.(isWatchActive);
+    } catch {}
+    return () => {
+      try {
+        (window as any).RaftaarNative?.setWatchMode?.(false);
+      } catch {}
+    };
+  }, [isWatchActive]);
+
+  useEffect(() => {
+    if (!isLandscapeFillActive) {
+      return;
+    }
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.dispatchEvent(new CustomEvent('app:nav-visible', { detail: { visible: false } }));
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.dispatchEvent(new CustomEvent('app:nav-visible', { detail: { visible: true } }));
+    };
+  }, [isLandscapeFillActive]);
+
+  // IntersectionObserver-driven Inline Autoplay on Home feed
   const [activePreviewVideoId, setActivePreviewVideoId] = useState<string | null>(null);
-  const idleScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const activePreviewVideoIdRef = useRef<string | null>(null);
+  activePreviewVideoIdRef.current = activePreviewVideoId;
+
   const cardElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const visibilityRatiosRef = useRef<Map<string, number>>(new Map());
+  const cappedVideoIdsRef = useRef<Set<string>>(new Set());
+  const lastScrollTimeRef = useRef<number>(0);
+  const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewCapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const candidateVideoIdRef = useRef<string | null>(null);
 
-  // Function to target the card nearest to the vertical center of the screen
-  const triggerCenterCardPreview = useCallback(() => {
-    if (selectedVideo || activeChannelId || activePlaylistId) return;
-    const centerY = window.innerHeight / 2;
-    let closestId: string | null = null;
-    let closestDist = Infinity;
+  const isPreviewBlocked = useCallback((): boolean => {
+    if (typeof document !== 'undefined' && document.hidden) return true;
+    if (selectedVideo || activeChannelId || activePlaylistId) return true;
+    const nav = typeof navigator !== 'undefined' ? (navigator as any) : null;
+    const conn = nav?.connection || nav?.mozConnection || nav?.webkitConnection;
+    if (conn?.saveData === true) return true;
+    if (conn?.effectiveType === 'slow-2g' || conn?.effectiveType === '2g') return true;
+    return false;
+  }, [selectedVideo, activeChannelId, activePlaylistId]);
 
-    cardElementsRef.current.forEach((el, id) => {
+  const pickBestCandidate = useCallback((): string | null => {
+    let bestId: string | null = null;
+    let bestRatio = -1;
+    let bestTop = Infinity;
+
+    visibilityRatiosRef.current.forEach((ratio, id) => {
+      if (ratio < 0.6) return;
+      if (cappedVideoIdsRef.current.has(id)) return;
+      const el = cardElementsRef.current.get(id);
       if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const cardCenter = rect.top + rect.height / 2;
-      const dist = Math.abs(cardCenter - centerY);
-      if (dist < closestDist && rect.top > 60 && rect.bottom < window.innerHeight) {
-        closestDist = dist;
-        closestId = id;
+      const top = el.getBoundingClientRect().top;
+
+      if (ratio > bestRatio + 0.001) {
+        bestRatio = ratio;
+        bestTop = top;
+        bestId = id;
+      } else if (Math.abs(ratio - bestRatio) <= 0.001 && top < bestTop) {
+        bestTop = top;
+        bestId = id;
       }
     });
 
-    // Fallback to first visible card on screen if none matched strict center criteria
-    if (!closestId) {
-      for (const [id, el] of cardElementsRef.current.entries()) {
-        if (!el) continue;
-        const rect = el.getBoundingClientRect();
-        if (rect.top >= 0 && rect.top < window.innerHeight) {
-          closestId = id;
-          break;
+    return bestId;
+  }, []);
+
+  const schedulePreviewActivation = useCallback(
+    (candidateId: string | null) => {
+      if (dwellTimerRef.current) {
+        clearTimeout(dwellTimerRef.current);
+        dwellTimerRef.current = null;
+      }
+      candidateVideoIdRef.current = candidateId;
+
+      if (!candidateId || isPreviewBlocked()) {
+        return;
+      }
+
+      const attemptActivate = (targetId: string) => {
+        if (isPreviewBlocked()) return;
+        const latestBest = pickBestCandidate();
+        if (latestBest !== targetId) return;
+
+        const sinceScroll = Date.now() - lastScrollTimeRef.current;
+        if (sinceScroll < 150) {
+          dwellTimerRef.current = setTimeout(() => {
+            attemptActivate(targetId);
+          }, 150 - sinceScroll);
+          return;
         }
+
+        setActivePreviewVideoId(targetId);
+      };
+
+      dwellTimerRef.current = setTimeout(() => {
+        attemptActivate(candidateId);
+      }, 250);
+    },
+    [isPreviewBlocked, pickBestCandidate]
+  );
+
+  const evaluatePreviewCandidate = useCallback(() => {
+    if (isPreviewBlocked()) {
+      if (dwellTimerRef.current) {
+        clearTimeout(dwellTimerRef.current);
+        dwellTimerRef.current = null;
+      }
+      candidateVideoIdRef.current = null;
+      if (activePreviewVideoIdRef.current !== null) {
+        setActivePreviewVideoId(null);
+      }
+      return;
+    }
+
+    const currentActive = activePreviewVideoIdRef.current;
+    if (currentActive) {
+      const currentRatio = visibilityRatiosRef.current.get(currentActive) ?? 0;
+      if (currentRatio < 0.5) {
+        setActivePreviewVideoId(null);
       }
     }
 
-    if (closestId) {
-      setActivePreviewVideoId(closestId);
-    }
-  }, [selectedVideo, activeChannelId, activePlaylistId]);
+    const bestCandidate = pickBestCandidate();
 
-  // Page load / initial feed arrival: start preview on center card after 1s without needing user to scroll
-  useEffect(() => {
-    if (videos.length > 0 && !selectedVideo && !activeChannelId && !activePlaylistId) {
-      const initialTimer = setTimeout(() => {
-        triggerCenterCardPreview();
-      }, 1000);
-      return () => clearTimeout(initialTimer);
+    if (currentActive && bestCandidate !== currentActive) {
+      setActivePreviewVideoId(null);
     }
-  }, [videos, selectedVideo, activeChannelId, activePlaylistId, triggerCenterCardPreview]);
+
+    if (
+      bestCandidate !== candidateVideoIdRef.current ||
+      (!currentActive && bestCandidate && !dwellTimerRef.current)
+    ) {
+      schedulePreviewActivation(bestCandidate);
+    }
+  }, [isPreviewBlocked, pickBestCandidate, schedulePreviewActivation]);
+
+  // Observe every home feed card's media box using IntersectionObserver
+  useEffect(() => {
+    if (selectedVideo || activeChannelId || activePlaylistId || videos.length === 0) {
+      if (dwellTimerRef.current) {
+        clearTimeout(dwellTimerRef.current);
+        dwellTimerRef.current = null;
+      }
+      if (activePreviewVideoIdRef.current !== null) {
+        setActivePreviewVideoId(null);
+      }
+      return;
+    }
+
+    const rootEl = scrollContainerRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const vidId = entry.target.getAttribute('data-video-id');
+          if (!vidId) return;
+          visibilityRatiosRef.current.set(vidId, entry.intersectionRatio);
+          // Reset 30s cooldown once the card completely leaves the viewport
+          if (entry.intersectionRatio === 0 || !entry.isIntersecting) {
+            cappedVideoIdsRef.current.delete(vidId);
+          }
+        });
+        evaluatePreviewCandidate();
+      },
+      {
+        root: rootEl,
+        threshold: [0, 0.25, 0.5, 0.6, 0.75, 1]
+      }
+    );
+
+    cardElementsRef.current.forEach((el) => {
+      if (el) observer.observe(el);
+    });
+
+    return () => {
+      observer.disconnect();
+      if (dwellTimerRef.current) {
+        clearTimeout(dwellTimerRef.current);
+        dwellTimerRef.current = null;
+      }
+    };
+  }, [videos, selectedVideo, activeChannelId, activePlaylistId, evaluatePreviewCandidate]);
+
+  // Stop preview when tab is hidden; re-evaluate when visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (dwellTimerRef.current) {
+          clearTimeout(dwellTimerRef.current);
+          dwellTimerRef.current = null;
+        }
+        candidateVideoIdRef.current = null;
+        setActivePreviewVideoId(null);
+      } else {
+        evaluatePreviewCandidate();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [evaluatePreviewCandidate]);
+
+  // Max 30-second cap per preview to save data
+  useEffect(() => {
+    if (previewCapTimerRef.current) {
+      clearTimeout(previewCapTimerRef.current);
+      previewCapTimerRef.current = null;
+    }
+    if (!activePreviewVideoId) return;
+
+    const cappedId = activePreviewVideoId;
+    previewCapTimerRef.current = setTimeout(() => {
+      cappedVideoIdsRef.current.add(cappedId);
+      setActivePreviewVideoId((prev) => (prev === cappedId ? null : prev));
+    }, 30000);
+
+    return () => {
+      if (previewCapTimerRef.current) {
+        clearTimeout(previewCapTimerRef.current);
+        previewCapTimerRef.current = null;
+      }
+    };
+  }, [activePreviewVideoId]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -619,6 +829,9 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     if (selectedVideo) setSelectedVideo(null);
     if (activeChannelId) setActiveChannelId(null);
     if (activePlaylistId) setActivePlaylistId(null);
+    cappedVideoIdsRef.current.clear();
+    visibilityRatiosRef.current.clear();
+    candidateVideoIdRef.current = null;
     setActivePreviewVideoId(null);
     scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     loadFeedData(true);
@@ -633,7 +846,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     return () => window.removeEventListener('raftaar:home-refresh', onHomeRefresh);
   }, [handleFullReload]);
 
-  // Smart Header hide/show on scroll + Idle detection for inline autoplay
+  // Smart Header hide/show on scroll + Scroll stop detection for IntersectionObserver preview
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
     const delta = scrollTop - lastScrollY.current;
@@ -646,21 +859,16 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
       window.dispatchEvent(new CustomEvent('app:nav-visible', { detail: { visible: true } }));
     }
     lastScrollY.current = scrollTop;
+    lastScrollTimeRef.current = Date.now();
 
-    // Reset inline preview if scrolling
-    if (activePreviewVideoId) {
+    // Immediately stop any active preview as soon as scroll starts
+    if (activePreviewVideoIdRef.current) {
       setActivePreviewVideoId(null);
     }
-    if (idleScrollTimerRef.current) {
-      clearTimeout(idleScrollTimerRef.current);
-    }
 
-    // After 1.0 second of idle scroll, trigger inline preview on center card
-    if (!selectedVideo && !activeChannelId && !activePlaylistId) {
-      idleScrollTimerRef.current = setTimeout(() => {
-        triggerCenterCardPreview();
-      }, 1000);
-    }
+    // Debounce candidate activation until scroll stays quiet for >= 150ms + 250ms dwell
+    const bestCandidate = pickBestCandidate();
+    schedulePreviewActivation(bestCandidate);
   };
 
   // Pull to refresh touch handlers
@@ -712,8 +920,8 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     playlistCtx?: { id: string; title: string; videos: VideoItem[] } | null,
     previewSeconds?: number
   ) => {
-    // If preview was playing this video, save current progress from real player.getCurrentTime()
-    if (typeof previewSeconds === 'number' && previewSeconds > 2) {
+    // If preview was playing this video, save current progress so main player resumes at exact second
+    if (typeof previewSeconds === 'number' && previewSeconds >= 1) {
       try {
         localStorage.setItem(`raftaar_progress_${vid.id}`, String(Math.floor(previewSeconds)));
       } catch {}
@@ -1273,7 +1481,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
       {/* ================= TOP HEADER / SEARCH BAR ================= */}
       {!selectedVideo ? (
-        <header className="sticky top-0 z-50 bg-white dark:bg-[#0f0f0f] border-b border-neutral-100 dark:border-neutral-800/60 shadow-xs">
+        <header ref={headerRef} className="sticky top-0 z-50 bg-white dark:bg-[#0f0f0f] border-b border-neutral-100 dark:border-neutral-800/60 shadow-xs">
           {/* Status Bar Safe Area Spacer (clean without select-none / pointer-events-none) */}
           <div 
             className="w-full h-[max(28px,env(safe-area-inset-top,28px))] shrink-0 bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-sm"
@@ -1440,16 +1648,45 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
         {selectedVideo ? (
           /* ================= 1. VIDEO WATCH VIEW ================= */
-          <div ref={playerTopRef} className="max-w-5xl mx-auto pb-16 animate-fade-in bg-white dark:bg-[#0f0f0f]">
-            {/* Player Container: Sticky at top with safe area for mobile status bar (battery/network) */}
-            <div className="w-full sticky top-0 sm:relative z-30 shadow-md bg-black">
-              {/* Safe Area Spacer: Ensures battery, network, clock sit in black safe zone without covering the video */}
-              <div className="safe-top-bar" aria-hidden="true" />
+          <div
+            ref={playerTopRef}
+            className={
+              isLandscapeFillActive
+                ? 'w-full h-full bg-black'
+                : 'max-w-5xl mx-auto pb-16 animate-fade-in bg-white dark:bg-[#0f0f0f]'
+            }
+          >
+            {/* Player Container: Fixed 100dvw x 100dvh in mobile landscape fill; sticky portrait otherwise */}
+            <div
+              className={
+                isLandscapeFillActive
+                  ? 'fixed inset-0 w-[100dvw] h-[100dvh] z-[9999] bg-black flex flex-col'
+                  : 'w-full sticky top-0 sm:relative z-30 shadow-md bg-black'
+              }
+              style={
+                isLandscapeFillActive
+                  ? {
+                      position: 'fixed',
+                      inset: 0,
+                      width: '100dvw',
+                      height: '100dvh',
+                      zIndex: 9999,
+                      backgroundColor: '#000'
+                    }
+                  : undefined
+              }
+            >
+              {/* Safe Area Spacer: Hidden via class in landscape fill so player index never changes */}
+              <div
+                className={isLandscapeFillActive ? 'hidden' : 'safe-top-bar'}
+                aria-hidden="true"
+              />
               <CustomVideoPlayer
                 ref={playerRef}
                 videoId={selectedVideo.id}
                 title={selectedVideo.title}
                 totalDurationStr={selectedVideo.duration}
+                isLandscapeFill={isLandscapeFillActive}
                 onBack={() => {
                   setSelectedVideo(null);
                   setActivePlaylistContext(null);
@@ -1458,6 +1695,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
               />
             </div>
 
+            {!isLandscapeFillActive && (
             <div className="p-3.5 sm:p-4 space-y-3">
               {/* Title & More menu button */}
               <div className="flex items-start justify-between gap-2">
@@ -1692,14 +1930,15 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                       onClick={() => handleSelectVideo(item, null)}
                       className="group cursor-pointer flex flex-col w-full active:opacity-90 transition-opacity pb-2"
                     >
-                      {/* Full width 16:9 Thumbnail with modern subtle rounded corners */}
-                      <div className="w-full aspect-video">
+                      {/* Full width 16:9 Thumbnail: edge-to-edge on mobile, rounded on sm+ */}
+                      <div className="-mx-3.5 sm:mx-0 w-[calc(100%+1.75rem)] sm:w-full aspect-video">
                         <SmartThumbnail
                           videoId={item.id}
                           title={item.title}
                           duration={item.duration}
                           priority={idx < 2}
-                          className="w-full h-full rounded-lg sm:rounded-[10px] overflow-hidden shadow-xs"
+                          roundedClassName="rounded-none sm:rounded-[10px]"
+                          className="w-full h-full overflow-hidden shadow-xs"
                         />
                       </div>
 
@@ -1766,6 +2005,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                 </div>
               )}
             </div>
+            )}
           </div>
         ) : (
           /* ================= 2. MAIN FEED ================= */
@@ -1817,22 +2057,23 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
               </div>
             )}
 
-            {/* Video Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-4.5 sm:gap-4 sm:p-4 pt-1.5">
+            {/* Video Cards Grid: Full-bleed on mobile, spaced sharp grid on desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-2 sm:gap-4 sm:p-4 pt-1.5">
               {loading && videos.length === 0 ? (
-                /* Skeleton loader */
+                /* Skeleton loader matching Header -> Full-bleed Media -> Title */
                 Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="flex flex-col w-full animate-pulse">
-                    <div className="px-3.5 sm:px-0">
-                      <div className="w-full aspect-video bg-neutral-200 dark:bg-neutral-800 rounded-lg sm:rounded-[10px]" />
-                    </div>
-                    <div className="flex items-start gap-3 pt-2.5 pb-5 px-3.5 sm:px-1">
-                      <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0 space-y-2 pt-0.5">
-                        <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-full" />
-                        <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-3/4" />
-                        <div className="h-3 bg-neutral-200 dark:bg-neutral-800 rounded w-1/2 mt-1" />
+                    <div className="px-3.5 py-2.5 flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-800 shrink-0" />
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="h-3.5 bg-neutral-200 dark:bg-neutral-800 rounded w-1/3" />
+                        <div className="h-3 bg-neutral-200 dark:bg-neutral-800 rounded w-1/4" />
                       </div>
+                    </div>
+                    <div className="w-full aspect-video bg-neutral-200 dark:bg-neutral-800" />
+                    <div className="px-3.5 pt-2.5 pb-4 space-y-2">
+                      <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-full" />
+                      <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-3/4" />
                     </div>
                   </div>
                 ))
@@ -1843,71 +2084,34 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   return (
                     <div
                       key={`${vid.id}-${idx}`}
-                      ref={(el) => {
-                        if (el) cardElementsRef.current.set(vid.id, el);
-                        else cardElementsRef.current.delete(vid.id);
-                      }}
-                      className="group cursor-pointer flex flex-col w-full active:opacity-95 transition-opacity"
+                      className="flex flex-col w-full"
                     >
-                      <div className="px-3.5 sm:px-0 relative">
-                        {isInlineActive ? (
-                          /* Official YouTube IFrame API Inline Preview */
-                          <InlinePreviewPlayer
-                            videoId={vid.id}
-                            title={vid.title}
-                            thumbnailUrl={vid.thumbnail}
-                            durationStr={vid.duration}
-                            durationSeconds={vid.durationSeconds}
-                            onSelect={(currentTime) => handleSelectVideo(vid, null, currentTime)}
-                          />
-                        ) : (
-                          <div onClick={() => handleSelectVideo(vid)}>
-                            <SmartThumbnail
-                              videoId={vid.id}
-                              title={vid.title}
-                              duration={vid.duration}
-                              priority={idx < 3}
-                              className="w-full aspect-video rounded-lg sm:rounded-[10px] overflow-hidden shadow-xs"
-                              imgClassName="rounded-lg sm:rounded-[10px]"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      <div 
-                        onClick={() => handleSelectVideo(vid)}
-                        className="flex items-start gap-3 pt-2.5 pb-5 px-3.5 sm:px-1"
-                      >
+                      {/* 1. HEADER ROW (Above Video): Avatar (lg) + Channel & Views•Time + MoreHorizontal */}
+                      <div className="px-3.5 py-2.5 flex items-center gap-3">
                         <ChannelAvatar
                           avatar={vid.channelAvatar}
                           title={vid.channelTitle}
-                          size="md"
-                          onClick={() => vid.channelId && handleOpenChannel(vid.channelId)}
-                          className="mt-0.5"
+                          size="lg"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (vid.channelId) handleOpenChannel(vid.channelId);
+                          }}
                         />
 
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-[#0f0f0f] dark:text-white font-semibold text-[14px] sm:text-[15px] leading-[1.35] tracking-[-0.01em] line-clamp-2 break-words">
-                            {decodeHtml(vid.title)}
-                          </h3>
-                          <div className="text-neutral-600 dark:text-neutral-400 text-[12px] leading-[1.35] mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                            <span 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (vid.channelId) handleOpenChannel(vid.channelId);
-                              }}
-                              className="font-normal text-neutral-600 dark:text-neutral-400 hover:text-[#0f0f0f] dark:hover:text-white transition-colors cursor-pointer hover:underline"
-                            >
-                              {vid.channelTitle}
-                            </span>
-                            {vid.viewCount !== undefined && (
-                              <>
-                                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">•</span>
-                                <span>{formatViews(vid.viewCount)}</span>
-                              </>
-                            )}
-                            <span className="text-[10px] text-neutral-400 dark:text-neutral-500">•</span>
-                            <span>{timeAgo(vid.publishedAt)}</span>
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (vid.channelId) handleOpenChannel(vid.channelId);
+                            }}
+                            className="font-semibold text-[15px] text-[#0f0f0f] dark:text-white truncate cursor-pointer hover:underline leading-tight"
+                          >
+                            {vid.channelTitle}
+                          </div>
+                          <div className="text-[13px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5 leading-tight">
+                            {vid.viewCount !== undefined
+                              ? `${formatViews(vid.viewCount)} • ${timeAgo(vid.publishedAt)}`
+                              : timeAgo(vid.publishedAt)}
                           </div>
                         </div>
 
@@ -1917,11 +2121,56 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                             e.stopPropagation();
                             showToast('Options: Share & Save');
                           }}
-                          className="p-1 -mr-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all text-[#0f0f0f] dark:text-white shrink-0 mt-0.5"
+                          className="w-6 h-6 flex items-center justify-center text-[#0f0f0f] dark:text-white shrink-0 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
                           aria-label="More options"
                         >
-                          <MoreVertical className="w-5 h-5" />
+                          <MoreHorizontal size={20} />
                         </button>
+                      </div>
+
+                      {/* 2. MEDIA (Full-Bleed 16:9, Zero Rounding, Zero Shadow; IntersectionObserver target) */}
+                      <div
+                        data-video-id={vid.id}
+                        ref={(el) => {
+                          if (el) cardElementsRef.current.set(vid.id, el);
+                          else cardElementsRef.current.delete(vid.id);
+                        }}
+                        className="w-full relative"
+                      >
+                        {isInlineActive ? (
+                          <InlinePreviewPlayer
+                            videoId={vid.id}
+                            title={vid.title}
+                            thumbnailUrl={vid.thumbnail}
+                            durationStr={vid.duration}
+                            durationSeconds={vid.durationSeconds}
+                            onSelect={(currentTime) => handleSelectVideo(vid, null, currentTime)}
+                          />
+                        ) : (
+                          <div
+                            onClick={() => handleSelectVideo(vid)}
+                            className="w-full cursor-pointer"
+                          >
+                            <SmartThumbnail
+                              videoId={vid.id}
+                              title={vid.title}
+                              duration={vid.duration}
+                              priority={idx < 3}
+                              flush
+                              imgClassName="rounded-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 3. TITLE (Below Video): Clean 2-line title, tap opens Watch Screen */}
+                      <div
+                        onClick={() => handleSelectVideo(vid)}
+                        className="px-3.5 pt-2.5 pb-4 cursor-pointer"
+                      >
+                        <h3 className="text-[15px] font-semibold leading-snug line-clamp-2 text-[#0f0f0f] dark:text-white break-words">
+                          {decodeHtml(vid.title)}
+                        </h3>
                       </div>
                     </div>
                   );
@@ -1946,7 +2195,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
       </div>
 
       {/* ================= DESCRIPTION SHEET: Opens below the player without covering it ================= */}
-      {isDescOpen && selectedVideo && (
+      {isDescOpen && selectedVideo && !isLandscapeFillActive && (
         <div 
           className="fixed inset-x-0 bottom-0 watch-sheet-backdrop z-[200] flex flex-col justify-end bg-black/40 backdrop-blur-xs animate-fade-in"
           onClick={() => setIsDescOpen(false)}
@@ -2070,7 +2319,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
       )}
 
       {/* ================= COMMENTS SHEET: Opens below the player without covering it ================= */}
-      {isCommentsOpen && selectedVideo && (
+      {isCommentsOpen && selectedVideo && !isLandscapeFillActive && (
         <div 
           className="fixed inset-x-0 bottom-0 watch-sheet-backdrop z-[200] flex flex-col justify-end bg-black/40 backdrop-blur-xs animate-fade-in"
           onClick={() => setIsCommentsOpen(false)}

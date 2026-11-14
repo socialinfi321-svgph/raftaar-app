@@ -24,6 +24,7 @@ export interface CustomVideoPlayerProps {
   onBack?: () => void;
   onPlayNext?: () => void;
   onSeekReady?: (seekTo: (seconds: number) => void) => void;
+  isLandscapeFill?: boolean;
 }
 
 declare global {
@@ -64,7 +65,7 @@ if (typeof window !== 'undefined') {
 }
 
 const CustomVideoPlayerComponent = forwardRef<CustomVideoPlayerRef, CustomVideoPlayerProps>(
-  ({ videoId, onPlayNext, onSeekReady }, ref) => {
+  ({ videoId, onPlayNext, onSeekReady, isLandscapeFill = false }, ref) => {
     const playerWrapperRef = useRef<HTMLDivElement>(null);
     const playerContainerRef = useRef<HTMLDivElement>(null);
     const playerInstanceRef = useRef<any>(null);
@@ -141,12 +142,12 @@ const CustomVideoPlayerComponent = forwardRef<CustomVideoPlayerRef, CustomVideoP
       }
     }, [onSeekReady]);
 
-    // Resume saved progress
+    // Resume saved progress (>= 1s so preview taps resume accurately)
     const handleResume = (player: any, vId: string) => {
       try {
         const savedTime = Number(localStorage.getItem(`raftaar_progress_${vId}`));
         const duration = typeof player.getDuration === 'function' ? player.getDuration() : 0;
-        if (savedTime && savedTime >= 3 && (duration <= 0 || savedTime < duration - 10)) {
+        if (savedTime && savedTime >= 1 && (duration <= 0 || savedTime < duration - 10)) {
           player.seekTo(savedTime, true);
         }
       } catch {}
@@ -262,6 +263,18 @@ const CustomVideoPlayerComponent = forwardRef<CustomVideoPlayerRef, CustomVideoP
                       clearTimeout(thumbnailTimeoutRef.current);
                     }
 
+                    // Verify saved resume position stuck after autoplay start
+                    try {
+                      const savedTime = Number(localStorage.getItem(`raftaar_progress_${videoId}`));
+                      const curr =
+                        typeof event.target?.getCurrentTime === 'function'
+                          ? event.target.getCurrentTime()
+                          : 0;
+                      if (savedTime >= 2 && typeof curr === 'number' && curr < 1.5) {
+                        handleResume(event.target, videoId);
+                      }
+                    } catch {}
+
                     // Try calling unMute()
                     try {
                       event.target.unMute();
@@ -331,9 +344,10 @@ const CustomVideoPlayerComponent = forwardRef<CustomVideoPlayerRef, CustomVideoP
       };
     }, []);
 
-    // Save resume position periodically
+    // Save resume position periodically once playback has started
     useEffect(() => {
       const progressInterval = setInterval(() => {
+        if (!hasStartedPlayingRef.current) return;
         try {
           if (
             playerInstanceRef.current &&
@@ -351,11 +365,15 @@ const CustomVideoPlayerComponent = forwardRef<CustomVideoPlayerRef, CustomVideoP
     }, [videoId]);
 
     return (
-      <div className="w-full bg-black flex flex-col">
-        {/* Video Player Area: Pure aspect-video, no select-none, no top strip, no absolute overlays */}
+      <div className={isLandscapeFill ? 'w-full h-full bg-black flex flex-col' : 'w-full bg-black flex flex-col'}>
+        {/* Video Player Area: Pure aspect-video (or full viewport height in landscape fill), no select-none, no overlays */}
         <div
           ref={playerWrapperRef}
-          className="w-full bg-black relative aspect-video overflow-hidden"
+          className={
+            isLandscapeFill
+              ? 'w-full h-full bg-black relative overflow-hidden flex-1'
+              : 'w-full bg-black relative aspect-video overflow-hidden'
+          }
           style={{
             backgroundImage: `url(https://i.ytimg.com/vi/${videoId}/hqdefault.jpg)`,
             backgroundSize: 'cover',
