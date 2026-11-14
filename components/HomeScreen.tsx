@@ -33,13 +33,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [isPaused, setIsPaused] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  const greetingRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleWindowScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+    const scrollParent = rootRef.current?.closest('.overflow-y-auto') as HTMLElement | null;
+
+    const handleScrollUpdate = () => {
+      if (headerRef.current && greetingRef.current) {
+        const headerBottom = headerRef.current.getBoundingClientRect().bottom;
+        const greetingBottom = greetingRef.current.getBoundingClientRect().bottom;
+        setIsScrolled(greetingBottom <= headerBottom + 1);
+        return;
+      }
+      const scrollTop = scrollParent ? scrollParent.scrollTop : window.scrollY;
+      setIsScrolled(scrollTop > 48);
     };
-    window.addEventListener('scroll', handleWindowScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleWindowScroll);
+
+    handleScrollUpdate();
+    scrollParent?.addEventListener('scroll', handleScrollUpdate, { passive: true });
+    window.addEventListener('scroll', handleScrollUpdate, { passive: true });
+    return () => {
+      scrollParent?.removeEventListener('scroll', handleScrollUpdate);
+      window.removeEventListener('scroll', handleScrollUpdate);
+    };
   }, []);
 
   // Slide data
@@ -106,31 +124,65 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const avatar = profile?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=dev';
 
   return (
-    <div className="bg-slate-50 dark:bg-slate-950 pb-[calc(5rem+env(safe-area-inset-bottom))] transition-colors duration-300 min-h-[100dvh]">
+    <div ref={rootRef} className="bg-slate-50 dark:bg-slate-950 pb-[calc(5rem+env(safe-area-inset-bottom))] transition-colors duration-300 min-h-[100dvh]">
         
         {/* Fixed Top Nav (Sticky) */}
-        <div className={`sticky top-0 z-50 px-5 sm:px-6 pt-safe-header pb-1.5 transition-colors duration-300 ease-in-out ${isScrolled ? 'bg-white dark:bg-slate-950 shadow-sm' : 'bg-[#0f2133]'}`}>
-            {/* Top Row: Menu, Logo, Icons */}
+        <div
+          ref={headerRef}
+          className={`sticky top-0 z-50 px-4 sm:px-6 pt-safe-header pb-2.5 transition-all duration-300 ease-in-out ${
+            isScrolled
+              ? 'bg-white dark:bg-slate-950 shadow-sm border-b border-slate-100 dark:border-slate-800/60'
+              : 'bg-[#0f2133] border-b border-transparent'
+          }`}
+        >
+            {/* Top Row: Menu, Logo/Greeting, Icons */}
             <div className={`flex justify-between items-center transition-colors duration-300 ease-in-out ${isScrolled ? 'text-slate-900 dark:text-white' : 'text-white'}`}>
-                <div className="flex items-center gap-2 sm:gap-3">
-                    <button onClick={() => setDrawerOpen(true)} className="lg:hidden relative py-1 flex-shrink-0 cursor-pointer focus:outline-none rounded-full">
-                        <div className={`w-[clamp(2.5rem,8vw,3rem)] h-[clamp(2.5rem,8vw,3rem)] rounded-full flex items-center justify-center text-[clamp(1.2rem,4vw,1.5rem)] font-normal uppercase shadow-sm ring-2 transition-colors duration-300 ${isScrolled ? 'bg-brand-500 text-white ring-slate-100 dark:ring-slate-800' : 'bg-[#00897b] text-white ring-white/10'}`}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <button onClick={() => setDrawerOpen(true)} className="lg:hidden relative flex-shrink-0 cursor-pointer focus:outline-none rounded-full active:scale-95 transition-transform" aria-label="Open profile menu">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[15px] font-normal uppercase shadow-xs ring-2 transition-colors duration-300 ${isScrolled ? 'bg-[#00897b] text-white ring-slate-100 dark:ring-slate-800' : 'bg-[#00897b] text-white ring-white/15'}`}>
                             {firstName.charAt(0)}
                         </div>
-                        <div className={`absolute bottom-0.5 right-0 w-[clamp(1.1rem,3.5vw,1.3rem)] h-[clamp(1.1rem,3.5vw,1.3rem)] rounded-full shadow-md flex flex-col items-center justify-center gap-[0.15rem] border border-white/20 transition-colors duration-300 ${isScrolled ? 'bg-slate-100 dark:bg-slate-800 border-slate-200' : 'bg-white'}`}>
-                            <div className={`w-[40%] h-[1.5px] rounded-full transition-colors duration-300 ${isScrolled ? 'bg-slate-600 dark:bg-slate-400' : 'bg-slate-900'}`}></div>
-                            <div className={`w-[40%] h-[1.5px] rounded-full transition-colors duration-300 ${isScrolled ? 'bg-slate-600 dark:bg-slate-400' : 'bg-slate-900'}`}></div>
-                            <div className={`w-[40%] h-[1.5px] rounded-full transition-colors duration-300 ${isScrolled ? 'bg-slate-600 dark:bg-slate-400' : 'bg-slate-900'}`}></div>
+                        <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full shadow-sm flex flex-col items-center justify-center gap-[2px] border transition-colors duration-300 ${isScrolled ? 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700' : 'bg-white border-white/20'}`}>
+                            <span className={`w-[7px] h-[1.3px] rounded-full transition-colors duration-300 ${isScrolled ? 'bg-slate-800 dark:bg-slate-200' : 'bg-slate-900'}`} />
+                            <span className={`w-[7px] h-[1.3px] rounded-full transition-colors duration-300 ${isScrolled ? 'bg-slate-800 dark:bg-slate-200' : 'bg-slate-900'}`} />
+                            <span className={`w-[7px] h-[1.3px] rounded-full transition-colors duration-300 ${isScrolled ? 'bg-slate-800 dark:bg-slate-200' : 'bg-slate-900'}`} />
                         </div>
                     </button>
                     
-                    <div className="flex items-center gap-1 select-none shrink-0 ml-1">
-                      <div className="relative flex items-center justify-center">
-                          <div className="italic font-black text-[clamp(1.25rem,4vw,1.5rem)] tracking-tight">R</div>
-                          <i className="fa-solid fa-bolt text-yellow-500 absolute -left-1 opacity-90 text-[clamp(0.9rem,3vw,1.1rem)] transform -rotate-12 transition-transform duration-300"></i>
+                    <div className="relative flex items-center min-w-0 ml-0.5 h-7">
+                      {/* Default: R RAFTAAR logo */}
+                      <div
+                        className={`flex items-center gap-1 select-none shrink-0 transition-all duration-300 ease-in-out ${
+                          isScrolled
+                            ? 'opacity-0 -translate-y-2 pointer-events-none absolute left-0'
+                            : 'opacity-100 translate-y-0'
+                        }`}
+                      >
+                        <div className="relative flex items-center justify-center">
+                            <div className="italic font-black text-[clamp(1.25rem,4vw,1.5rem)] tracking-tight">R</div>
+                            <i className="fa-solid fa-bolt text-yellow-500 absolute -left-1 opacity-90 text-[clamp(0.9rem,3vw,1.1rem)] transform -rotate-12 transition-transform duration-300"></i>
+                        </div>
+                        <div className="font-bold text-[clamp(0.95rem,3vw,1.1rem)] tracking-wide shrink-0">
+                            RAFTAAR
+                        </div>
                       </div>
-                      <div className="font-bold text-[clamp(0.95rem,3vw,1.1rem)] tracking-wide shrink-0">
-                          RAFTAAR
+
+                      {/* Scrolled: Small "Hey, {firstName}" matching Home page */}
+                      <div
+                        className={`flex items-center transition-all duration-300 ease-in-out ${
+                          isScrolled
+                            ? 'opacity-100 translate-y-0'
+                            : 'opacity-0 translate-y-2 pointer-events-none absolute left-0'
+                        }`}
+                      >
+                        <span
+                          className="text-[13px] font-medium tracking-[-0.01em] text-[#0f0f0f] dark:text-white truncate block max-w-[160px] leading-none"
+                          style={{
+                            fontFamily: '"Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, sans-serif'
+                          }}
+                        >
+                          Hey, <span className="font-semibold text-[#5b5ce6] dark:text-[#8e8dff]">{firstName}</span>
+                        </span>
                       </div>
                     </div>
                 </div>
@@ -154,7 +206,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         {/* Scrollable Content starts here */}
         {/* Greeting with same background to create seamless look */}
-        <div className="bg-[#0f2133] px-5 sm:px-6 relative overflow-hidden flex justify-start pb-2.5 pt-0">
+        <div
+          ref={greetingRef}
+          className="bg-[#0f2133] px-4 sm:px-6 relative overflow-hidden flex justify-start pb-2.5 pt-0"
+        >
             <motion.div 
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}

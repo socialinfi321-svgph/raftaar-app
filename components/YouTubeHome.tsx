@@ -1530,25 +1530,19 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
 
       {/* ================= TOP HEADER / SEARCH BAR ================= */}
       {!selectedVideo ? (
-        <header ref={headerRef} className="sticky top-0 z-50 bg-white dark:bg-[#0f0f0f] border-b border-neutral-100 dark:border-neutral-800/60 shadow-xs">
-          {/* Status Bar Safe Area Spacer (compact upper header) */}
-          <div 
-            className="w-full h-[max(10px,env(safe-area-inset-top,0px))] shrink-0 bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-sm"
-            aria-hidden="true"
-          />
-
-          {/* Top Logo / Search Row */}
+        <header ref={headerRef} className="sticky top-0 z-50 pt-safe-header bg-white dark:bg-[#0f0f0f] border-b border-neutral-100 dark:border-neutral-800/60 shadow-xs">
+          {/* Top Profile / Greeting / Search Row (exact Study page position & profile size) */}
           <div
             className={`transition-all duration-300 ease-in-out overflow-hidden ${
               isHeaderVisible || isSearchExpanded
-                ? 'h-10 opacity-100 translate-y-0'
-                : 'h-0 opacity-0 -translate-y-full'
+                ? 'max-h-24 opacity-100 translate-y-0'
+                : 'max-h-0 opacity-0 -translate-y-full'
             }`}
           >
-            <div className="h-10 px-3 flex items-center justify-between">
+            <div className="px-4 sm:px-6 pb-2.5 flex items-center justify-between">
               {isSearchExpanded ? (
                 /* Search Overlay Mode */
-                <form onSubmit={handleSearchSubmit} className="flex items-center w-full h-10 gap-2">
+                <form onSubmit={handleSearchSubmit} className="flex items-center w-full py-0.5 gap-2">
                   <button
                     type="button"
                     onClick={() => setIsSearchExpanded(false)}
@@ -1588,13 +1582,13 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
                   </button>
                 </form>
               ) : (
-                /* Default Header Layout: Study-section profile + small Hii greeting */
+                /* Default Header Layout: Compact w-9 h-9 profile lifted cleanly above divider line + small Hii greeting */
                 <>
                   <div className="flex items-center gap-2.5 min-w-0">
                     <button
                       type="button"
                       onClick={() => setIsProfileDrawerOpen(true)}
-                      className="relative py-0.5 shrink-0 cursor-pointer focus:outline-none rounded-full active:scale-95 transition-transform"
+                      className="relative flex-shrink-0 cursor-pointer focus:outline-none rounded-full active:scale-95 transition-transform"
                       aria-label="Open profile menu"
                     >
                       <div className="w-9 h-9 rounded-full bg-[#00897b] text-white flex items-center justify-center text-[15px] font-normal uppercase shadow-xs ring-2 ring-slate-100 dark:ring-slate-800">
@@ -1656,7 +1650,7 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
           </div>
 
           {/* Category Tabs Row: Boxless editorial tabs with distinct Outfit font (no Trending/Compass icon) */}
-          <div className={`px-3.5 pt-0.5 pb-1.5 flex items-center gap-5 overflow-x-auto hide-scrollbar transition-all duration-300 ${
+          <div className={`px-4 sm:px-6 pt-1 pb-1.5 flex items-center gap-5 overflow-x-auto hide-scrollbar transition-all duration-300 ${
             isHeaderVisible ? 'border-t border-neutral-100/60 dark:border-neutral-800/40' : ''
           }`}>
             {CATEGORIES.map((cat) => {
