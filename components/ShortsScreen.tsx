@@ -169,7 +169,7 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
 
   if (loading) {
     return (
-      <div className="h-[100dvh] w-full bg-slate-50 dark:bg-black overflow-hidden flex flex-col relative pt-[max(env(safe-area-inset-top),3.5rem)]">
+      <div className="h-[100dvh] w-full bg-slate-50 dark:bg-black overflow-hidden flex flex-col relative pt-[max(env(safe-area-inset-top,0px),1.5rem)]">
          <div className="flex justify-start px-4 sm:px-6 w-full mb-6 mt-4">
             <div className="w-24 h-8 bg-slate-200 dark:bg-[#111] rounded-full animate-pulse"></div>
          </div>
@@ -283,7 +283,7 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
   return (
     <div className="h-[100dvh] w-full bg-slate-50 dark:bg-black font-sans text-slate-900 dark:text-white relative overflow-hidden flex flex-col select-none transition-colors duration-300">
       {/* Top Navigation - Fixed Global */}
-      <div className="absolute top-0 w-full z-40 px-5 pt-[max(env(safe-area-inset-top),1.5rem)] pb-2 bg-transparent flex justify-between items-center pointer-events-none transition-colors duration-300">
+      <div className="absolute top-0 w-full z-40 px-5 pt-safe-header pb-1.5 bg-transparent flex justify-between items-center pointer-events-none transition-colors duration-300">
          <div className="flex items-center gap-5 pointer-events-auto w-full justify-between">
             <div className="flex gap-5 items-center">
                 <div 
@@ -382,13 +382,13 @@ export const ShortsScreen: React.FC<ShortsScreenProps> = ({ profile, session, na
            return (
               <div 
                 key={`${q.id}-${idx}`} 
-                className="w-full h-full relative snap-start snap-always flex-shrink-0 flex flex-col pt-[calc(max(env(safe-area-inset-top),3.5rem)+0.5rem)] pb-[calc(4rem+env(safe-area-inset-bottom))] bg-slate-50 dark:bg-black"
+                className="w-full h-full relative snap-start snap-always flex-shrink-0 flex flex-col pt-[calc(max(env(safe-area-inset-top,0px),1.5rem)+0.5rem)] pb-[calc(4rem+env(safe-area-inset-bottom))] bg-slate-50 dark:bg-black"
               >
                  {/* Background Gradient */}
                  <div className="absolute inset-0 w-full h-full pointer-events-none bg-slate-50 dark:bg-black"></div>
 
                  {/* Sub-Header Area Inside Reel */}
-                 <div className="flex justify-start items-center px-4 sm:px-6 w-full mb-3 mt-4 relative z-10">
+                 <div className="flex justify-start items-center px-4 sm:px-6 w-full mb-2 mt-1 relative z-10">
                     <div className="flex gap-2">
                         <div className="flex items-center bg-indigo-50/70 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-300 px-4 py-1.5 rounded-full text-[13px] font-bold">
                             {q.subject || 'Physics'}

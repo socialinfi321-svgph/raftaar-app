@@ -261,7 +261,7 @@ export const PracticeScreen: React.FC<PracticeScreenProps> = ({ onSelectChapter,
   return (
     <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
       {/* Sticky Top Header */}
-      <div className="sticky top-0 z-40 px-4 sm:px-6 py-3 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
+      <div className="sticky top-0 z-40 px-4 sm:px-6 pb-2 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shadow-sm transition-colors">
         <div className="flex items-center gap-3">
           <button
             onClick={selectedSubject ? handleBackToSubjects : () => navigate('/')}

@@ -217,7 +217,7 @@ export const PYQSubjectiveScreen: React.FC<PYQSubjectiveScreenProps> = ({
     <div className="h-[100dvh] flex flex-col bg-slate-50 dark:bg-slate-950 font-sans animate-fade-in text-slate-900 dark:text-white transition-colors duration-300">
       
       {/* Header */}
-      <div className="px-4 pb-3 pt-safe-header bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center sticky top-0 z-50 transition-colors shadow-sm shrink-0">
+      <div className="px-4 pb-2 pt-safe-header bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center sticky top-0 z-50 transition-colors shadow-sm shrink-0">
         <div className="flex items-center gap-3">
           <button onClick={onExit} className="p-2 -ml-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-full transition-colors active:scale-95">
             <ArrowLeft size={20} />

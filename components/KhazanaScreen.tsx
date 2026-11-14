@@ -147,7 +147,7 @@ export const KhazanaScreen: React.FC<KhazanaScreenProps> = ({ profile, navigate 
     <div className="h-full flex flex-col bg-[#FAFAFA] text-[#101828] overflow-hidden font-sans selection:bg-[#3A5643]/20 relative">
 
       {/* Top Header */}
-      <div className="relative z-50 px-4 pt-safe-header pb-3 flex justify-between items-center bg-white border-b border-[#EAECF0] shadow-sm">
+      <div className="relative z-50 px-4 pt-safe-header pb-2 flex justify-between items-center bg-white border-b border-[#EAECF0] shadow-sm">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="p-1 -ml-1 active:scale-90 transition-transform">
             <ArrowLeft size={24} className="text-[#101828]" />

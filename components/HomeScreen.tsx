@@ -109,7 +109,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     <div className="bg-slate-50 dark:bg-slate-950 pb-[calc(5rem+env(safe-area-inset-bottom))] transition-colors duration-300 min-h-[100dvh]">
         
         {/* Fixed Top Nav (Sticky) */}
-        <div className={`sticky top-0 z-50 px-5 sm:px-6 pt-safe-header pb-2 transition-colors duration-300 ease-in-out ${isScrolled ? 'bg-white dark:bg-slate-950 shadow-sm' : 'bg-[#0f2133]'}`}>
+        <div className={`sticky top-0 z-50 px-5 sm:px-6 pt-safe-header pb-1.5 transition-colors duration-300 ease-in-out ${isScrolled ? 'bg-white dark:bg-slate-950 shadow-sm' : 'bg-[#0f2133]'}`}>
             {/* Top Row: Menu, Logo, Icons */}
             <div className={`flex justify-between items-center transition-colors duration-300 ease-in-out ${isScrolled ? 'text-slate-900 dark:text-white' : 'text-white'}`}>
                 <div className="flex items-center gap-2 sm:gap-3">
@@ -154,7 +154,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
         {/* Scrollable Content starts here */}
         {/* Greeting with same background to create seamless look */}
-        <div className="bg-[#0f2133] px-5 sm:px-6 relative overflow-hidden flex justify-start pb-4 pt-1">
+        <div className="bg-[#0f2133] px-5 sm:px-6 relative overflow-hidden flex justify-start pb-2.5 pt-0">
             <motion.div 
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
@@ -506,7 +506,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             className={`fixed top-0 left-0 h-[100dvh] w-[85%] max-w-[320px] bg-white dark:bg-slate-900 z-[999] shadow-2xl transition-transform duration-300 ease-in-out transform flex flex-col ${isDrawerOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
             {/* Drawer Header */}
-            <div className="pt-safe-top px-6 pt-12 pb-6 border-b border-slate-100 dark:border-slate-800">
+            <div className="pt-safe-header px-6 pb-4 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-4 mb-5">
                     <div className="w-[clamp(3.5rem,15vw,4rem)] h-[clamp(3.5rem,15vw,4rem)] rounded-full bg-[#00897b] flex items-center justify-center text-white text-[clamp(1.5rem,6vw,1.875rem)] font-normal uppercase shadow">
                         {firstName.charAt(0)}

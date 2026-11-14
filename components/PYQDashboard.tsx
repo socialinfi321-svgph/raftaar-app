@@ -87,7 +87,7 @@ export const PYQDashboard: React.FC<PYQDashboardProps> = ({
                     <div className="absolute inset-0 z-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#888 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 
                     {/* Header with Safe Area (pt-safe-header) */}
-                    <div className="px-5 pb-4 pt-safe-header bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 flex items-center gap-3 sticky top-0 z-50 shadow-sm shrink-0 transition-colors">
+                    <div className="px-5 pb-2.5 pt-safe-header bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 flex items-center gap-3 sticky top-0 z-50 shadow-sm shrink-0 transition-colors">
                         <button onClick={handleAppBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors -ml-1 active:scale-95">
                             <ChevronLeft size={24} />
                         </button>

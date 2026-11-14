@@ -119,7 +119,7 @@ export const DashboardModal: React.FC<DashboardModalProps> = ({ isOpen, profile,
                         Dashboard Modal Header is Dark Slate. Status bar needs to be white text. So Theme Color should be Dark.
                         Let's override useThemeColor('#0f172a').
                         */}
-                        <div className="relative z-10 px-5 pt-safe-header pb-4">
+                        <div className="relative z-10 px-5 pt-safe-header pb-2.5">
                         <div className="flex justify-between items-center mb-4">
                             {/* UI Back Button triggers same logic as hardware back */}
                             <button onClick={handleAppBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-white/5 backdrop-blur-md border border-white/10 active:bg-white/10 transition-all hover:scale-105">

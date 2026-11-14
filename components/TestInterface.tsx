@@ -192,7 +192,7 @@ export const TestInterface: React.FC<TestInterfaceProps> = ({
     <div className="flex flex-col h-[100dvh] bg-slate-50 dark:bg-slate-950 relative font-sans animate-fade-in overflow-hidden transition-colors duration-300">
         
         {/* --- HEADER (Fixed with Safe Area) --- */}
-        <div className="px-4 pb-3 pt-safe-header bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center z-50 sticky top-0 shadow-sm shrink-0 transition-colors">
+        <div className="px-4 pb-2 pt-safe-header bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center z-50 sticky top-0 shadow-sm shrink-0 transition-colors">
              <div className="flex items-center gap-3">
                  {/* UI Back Button */}
                  <button onClick={handleNavigationBack} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white p-1 -ml-1 rounded-full active:bg-slate-100 dark:active:bg-slate-900">

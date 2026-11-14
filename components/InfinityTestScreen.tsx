@@ -283,7 +283,7 @@ export const InfinityTestScreen: React.FC<InfinityTestScreenProps> = ({
       return (
           <div className="h-[100dvh] flex flex-col bg-white dark:bg-slate-950 overflow-y-auto font-sans animate-fade-in transition-colors hide-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {/* Analytics Header - Safe Area Fixed */}
-              <div className="bg-white dark:bg-slate-950 px-5 pb-4 pt-safe-header border-b border-gray-100 dark:border-slate-800 sticky top-0 z-50 flex justify-between items-center shadow-sm">
+              <div className="bg-white dark:bg-slate-950 px-5 pb-2.5 pt-safe-header border-b border-gray-100 dark:border-slate-800 sticky top-0 z-50 flex justify-between items-center shadow-sm">
                   <h2 className="text-lg font-black text-gray-900 dark:text-white">{isPYQ ? `Result - ${pyqYear}` : 'Objective Test'}</h2>
                   <div className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 px-3 py-1 rounded-full text-xs font-bold font-mono">
                       {formatTime(elapsedTime)}

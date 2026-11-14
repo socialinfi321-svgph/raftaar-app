@@ -59,7 +59,7 @@ const SplashScreen = () => (
 const FullPageComingSoon = ({ onClose, title, profile }: { onClose: () => void, title: string, profile: Profile | null }) => {
   return (
   <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 font-sans animate-fade-in transition-colors duration-300">
-    <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+    <div className="sticky top-0 z-50 px-5 pb-2 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
         <div className="flex items-center gap-3">
             <button onClick={onClose} className="p-2 -ml-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-500 dark:text-slate-400 transition-colors active:scale-95">
                 <ArrowLeft size={20} />
@@ -114,7 +114,7 @@ const ExamScreen = ({ showCS, profile, navigate }: { showCS: () => void, profile
 
     return (
         <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-            <div className="sticky top-0 z-50 px-5 pb-3 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+            <div className="sticky top-0 z-50 px-5 pb-2 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
                 <div className="flex items-center gap-3">
                     <button onClick={() => navigate('/')} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors p-1 -ml-1 rounded-full active:bg-slate-100 dark:active:bg-slate-900">
                         <i className="fa-solid fa-chevron-left text-lg"></i>
@@ -510,7 +510,7 @@ export default function App() {
 
         <div className="flex-1 flex flex-col relative w-full h-[100dvh]">
         {showTopHeader && (
-            <div className="px-4 pb-3 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
+            <div className="px-4 pb-2 pt-safe-header bg-white dark:bg-slate-950 flex justify-between items-center sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 shadow-sm transition-all">
                 <div className="flex items-center gap-2"><RaftaarLogo /></div>
                 <div className="flex items-center gap-3 shrink-0">
                     {/* Theme Toggle Button */}

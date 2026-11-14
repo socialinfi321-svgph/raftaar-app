@@ -1136,7 +1136,7 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
           isProfileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="pt-safe-top px-6 pt-12 pb-6 border-b border-slate-100 dark:border-slate-800">
+        <div className="pt-safe-header px-6 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3.5">
             <div className="w-14 h-14 rounded-full bg-[#00897b] flex items-center justify-center text-white text-2xl font-normal uppercase shadow">
               {firstName.charAt(0)}
@@ -1182,7 +1182,7 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
       {activeChannelId && (
         <div className="fixed inset-0 z-[150] bg-white dark:bg-[#0f0f0f] flex flex-col overflow-y-auto animate-fade-in">
           {/* Top Bar */}
-          <div className="sticky top-0 z-30 flex items-center justify-between px-3 h-12 bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-md border-b border-neutral-100 dark:border-neutral-800">
+          <div className="sticky top-0 z-30 flex items-center justify-between px-3 pt-safe-header pb-2 bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-md border-b border-neutral-100 dark:border-neutral-800">
             <button
               onClick={() => setActiveChannelId(null)}
               className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#0f0f0f] dark:text-white"
@@ -1448,7 +1448,7 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
       {/* ================= DEDICATED PLAYLIST PAGE VIEW ================= */}
       {activePlaylistId && (
         <div className="fixed inset-0 z-[160] bg-white dark:bg-[#0f0f0f] flex flex-col overflow-y-auto animate-fade-in">
-          <div className="sticky top-0 z-30 flex items-center justify-between px-3 h-12 bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-md border-b border-neutral-100 dark:border-neutral-800">
+          <div className="sticky top-0 z-30 flex items-center justify-between px-3 pt-safe-header pb-2 bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-md border-b border-neutral-100 dark:border-neutral-800">
             <button
               onClick={() => setActivePlaylistId(null)}
               className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-[#0f0f0f] dark:text-white"
@@ -1531,9 +1531,9 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
       {/* ================= TOP HEADER / SEARCH BAR ================= */}
       {!selectedVideo ? (
         <header ref={headerRef} className="sticky top-0 z-50 bg-white dark:bg-[#0f0f0f] border-b border-neutral-100 dark:border-neutral-800/60 shadow-xs">
-          {/* Status Bar Safe Area Spacer (clean without select-none / pointer-events-none) */}
+          {/* Status Bar Safe Area Spacer (compact upper header) */}
           <div 
-            className="w-full h-[max(28px,env(safe-area-inset-top,28px))] shrink-0 bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-sm"
+            className="w-full h-[max(10px,env(safe-area-inset-top,0px))] shrink-0 bg-white/95 dark:bg-[#0f0f0f]/95 backdrop-blur-sm"
             aria-hidden="true"
           />
 
@@ -1541,11 +1541,11 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
           <div
             className={`transition-all duration-300 ease-in-out overflow-hidden ${
               isHeaderVisible || isSearchExpanded
-                ? 'h-12 opacity-100 translate-y-0'
+                ? 'h-10 opacity-100 translate-y-0'
                 : 'h-0 opacity-0 -translate-y-full'
             }`}
           >
-            <div className="h-12 px-3 flex items-center justify-between">
+            <div className="h-10 px-3 flex items-center justify-between">
               {isSearchExpanded ? (
                 /* Search Overlay Mode */
                 <form onSubmit={handleSearchSubmit} className="flex items-center w-full h-10 gap-2">
@@ -1656,7 +1656,7 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
           </div>
 
           {/* Category Tabs Row: Boxless editorial tabs with distinct Outfit font (no Trending/Compass icon) */}
-          <div className={`px-3.5 py-2 flex items-center gap-5 overflow-x-auto hide-scrollbar transition-all duration-300 ${
+          <div className={`px-3.5 pt-0.5 pb-1.5 flex items-center gap-5 overflow-x-auto hide-scrollbar transition-all duration-300 ${
             isHeaderVisible ? 'border-t border-neutral-100/60 dark:border-neutral-800/40' : ''
           }`}>
             {CATEGORIES.map((cat) => {
