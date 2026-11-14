@@ -342,10 +342,8 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
   const cardElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
   const visibilityRatiosRef = useRef<Map<string, number>>(new Map());
-  const cappedVideoIdsRef = useRef<Set<string>>(new Set());
   const lastScrollTimeRef = useRef<number>(0);
   const dwellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previewCapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const candidateVideoIdRef = useRef<string | null>(null);
 
   const isPreviewBlocked = useCallback((): boolean => {
@@ -365,7 +363,6 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
     visibilityRatiosRef.current.forEach((ratio, id) => {
       if (ratio < 0.6) return;
-      if (cappedVideoIdsRef.current.has(id)) return;
       const el = cardElementsRef.current.get(id);
       if (!el) return;
       const top = el.getBoundingClientRect().top;
@@ -401,10 +398,10 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         if (latestBest !== targetId) return;
 
         const sinceScroll = Date.now() - lastScrollTimeRef.current;
-        if (sinceScroll < 150) {
+        if (sinceScroll < 120) {
           dwellTimerRef.current = setTimeout(() => {
             attemptActivate(targetId);
-          }, 150 - sinceScroll);
+          }, 120 - sinceScroll);
           return;
         }
 
@@ -413,7 +410,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
       dwellTimerRef.current = setTimeout(() => {
         attemptActivate(candidateId);
-      }, 250);
+      }, 150);
     },
     [isPreviewBlocked, pickBestCandidate]
   );
@@ -434,20 +431,18 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     const currentActive = activePreviewVideoIdRef.current;
     if (currentActive) {
       const currentRatio = visibilityRatiosRef.current.get(currentActive) ?? 0;
-      if (currentRatio < 0.5) {
-        setActivePreviewVideoId(null);
+      // Keep current video playing continuously until user slides at least 50% off screen
+      if (currentRatio >= 0.5) {
+        return;
       }
+      setActivePreviewVideoId(null);
     }
 
     const bestCandidate = pickBestCandidate();
 
-    if (currentActive && bestCandidate !== currentActive) {
-      setActivePreviewVideoId(null);
-    }
-
     if (
       bestCandidate !== candidateVideoIdRef.current ||
-      (!currentActive && bestCandidate && !dwellTimerRef.current)
+      (bestCandidate && !dwellTimerRef.current)
     ) {
       schedulePreviewActivation(bestCandidate);
     }
@@ -473,10 +468,6 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
           const vidId = entry.target.getAttribute('data-video-id');
           if (!vidId) return;
           visibilityRatiosRef.current.set(vidId, entry.intersectionRatio);
-          // Reset 30s cooldown once the card completely leaves the viewport
-          if (entry.intersectionRatio === 0 || !entry.isIntersecting) {
-            cappedVideoIdsRef.current.delete(vidId);
-          }
         });
         evaluatePreviewCandidate();
       },
@@ -516,28 +507,6 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [evaluatePreviewCandidate]);
-
-  // Max 30-second cap per preview to save data
-  useEffect(() => {
-    if (previewCapTimerRef.current) {
-      clearTimeout(previewCapTimerRef.current);
-      previewCapTimerRef.current = null;
-    }
-    if (!activePreviewVideoId) return;
-
-    const cappedId = activePreviewVideoId;
-    previewCapTimerRef.current = setTimeout(() => {
-      cappedVideoIdsRef.current.add(cappedId);
-      setActivePreviewVideoId((prev) => (prev === cappedId ? null : prev));
-    }, 30000);
-
-    return () => {
-      if (previewCapTimerRef.current) {
-        clearTimeout(previewCapTimerRef.current);
-        previewCapTimerRef.current = null;
-      }
-    };
-  }, [activePreviewVideoId]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -829,7 +798,6 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     if (selectedVideo) setSelectedVideo(null);
     if (activeChannelId) setActiveChannelId(null);
     if (activePlaylistId) setActivePlaylistId(null);
-    cappedVideoIdsRef.current.clear();
     visibilityRatiosRef.current.clear();
     candidateVideoIdRef.current = null;
     setActivePreviewVideoId(null);
@@ -846,7 +814,7 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     return () => window.removeEventListener('raftaar:home-refresh', onHomeRefresh);
   }, [handleFullReload]);
 
-  // Smart Header hide/show on scroll + Scroll stop detection for IntersectionObserver preview
+  // Smart Header hide/show on scroll + Keep active preview playing until >= 50% slid away
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const scrollTop = e.currentTarget.scrollTop;
     const delta = scrollTop - lastScrollY.current;
@@ -861,12 +829,30 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
     lastScrollY.current = scrollTop;
     lastScrollTimeRef.current = Date.now();
 
-    // Immediately stop any active preview as soon as scroll starts
-    if (activePreviewVideoIdRef.current) {
-      setActivePreviewVideoId(null);
+    const activeId = activePreviewVideoIdRef.current;
+    if (activeId) {
+      const activeEl = cardElementsRef.current.get(activeId);
+      const rootEl = scrollContainerRef.current;
+      if (activeEl && rootEl) {
+        const elRect = activeEl.getBoundingClientRect();
+        const rootRect = rootEl.getBoundingClientRect();
+        const visibleTop = Math.max(elRect.top, rootRect.top);
+        const visibleBottom = Math.min(elRect.bottom, rootRect.bottom);
+        const visibleH = Math.max(0, visibleBottom - visibleTop);
+        const liveRatio = elRect.height > 0 ? visibleH / elRect.height : 0;
+        visibilityRatiosRef.current.set(activeId, liveRatio);
+
+        // Only stop active video and switch once user slides at least 50% off screen
+        if (liveRatio < 0.5) {
+          setActivePreviewVideoId(null);
+          const nextBest = pickBestCandidate();
+          schedulePreviewActivation(nextBest);
+        }
+        return;
+      }
     }
 
-    // Debounce candidate activation until scroll stays quiet for >= 150ms + 250ms dwell
+    // No active preview currently playing: schedule best visible card once scroll settles
     const bestCandidate = pickBestCandidate();
     schedulePreviewActivation(bestCandidate);
   };
@@ -2104,11 +2090,21 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                               e.stopPropagation();
                               if (vid.channelId) handleOpenChannel(vid.channelId);
                             }}
-                            className="font-semibold text-[15px] text-[#0f0f0f] dark:text-white truncate cursor-pointer hover:underline leading-tight"
+                            style={{
+                              fontFamily:
+                                '"Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+                            }}
+                            className="font-semibold text-[13px] tracking-[-0.012em] text-[#0f0f0f] dark:text-white truncate cursor-pointer hover:underline leading-[1.2]"
                           >
                             {vid.channelTitle}
                           </div>
-                          <div className="text-[13px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5 leading-tight">
+                          <div
+                            style={{
+                              fontFamily:
+                                '"Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+                            }}
+                            className="text-[11px] font-normal tracking-[-0.005em] text-[#737373] dark:text-neutral-400 truncate mt-0.5 leading-[1.2]"
+                          >
                             {vid.viewCount !== undefined
                               ? `${formatViews(vid.viewCount)} • ${timeAgo(vid.publishedAt)}`
                               : timeAgo(vid.publishedAt)}
@@ -2163,12 +2159,18 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                         )}
                       </div>
 
-                      {/* 3. TITLE (Below Video): Clean 2-line title, tap opens Watch Screen */}
+                      {/* 3. TITLE (Below Video): Small crisp slightly-bold text matching reference image for both English & Hindi */}
                       <div
                         onClick={() => handleSelectVideo(vid)}
                         className="px-3.5 pt-2.5 pb-4 cursor-pointer"
                       >
-                        <h3 className="text-[15px] font-semibold leading-snug line-clamp-2 text-[#0f0f0f] dark:text-white break-words">
+                        <h3
+                          style={{
+                            fontFamily:
+                              '"Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+                          }}
+                          className="text-[13px] font-medium tracking-[-0.01em] leading-[1.35] line-clamp-2 text-[#0f0f0f] dark:text-neutral-100 break-words"
+                        >
                           {decodeHtml(vid.title)}
                         </h3>
                       </div>

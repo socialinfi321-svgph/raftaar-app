@@ -24,8 +24,6 @@ const formatCountdown = (seconds: number): string => {
 
 const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
   videoId,
-  thumbnailUrl,
-  title,
   durationStr,
   durationSeconds = 60,
   onSelect
@@ -146,6 +144,10 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
               } catch {}
               try {
                 event.target.playVideo();
+                if (event.target?.getPlayerState?.() === 1) {
+                  setIsPlaying(true);
+                  startPolling();
+                }
               } catch {}
             },
             onStateChange: (event: any) => {
@@ -164,6 +166,16 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
               } else {
                 // PAUSED (2), BUFFERING (3), ENDED (0), CUED (5) -> stop polling
                 stopPolling();
+                if (state === 0) {
+                  try {
+                    const dur = event.target?.getDuration?.();
+                    if (typeof dur === 'number' && dur > 0) {
+                      setDuration(dur);
+                      currentTimeRef.current = dur;
+                      setCurrentTime(dur);
+                    }
+                  } catch {}
+                }
               }
             }
           }
@@ -342,18 +354,12 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
         className="absolute inset-0 w-full h-full pointer-events-none z-0 [&>iframe]:!absolute [&>iframe]:!inset-0 [&>iframe]:!w-full [&>iframe]:!h-full [&>iframe]:!border-0"
       />
 
-      {/* z-10: Thumbnail overlay stays visible until PLAYING (state 1), then fades out in 150ms */}
+      {/* z-10: Solid black screen overlay until PLAYING (state 1) so there is zero thumbnail flicker */}
       <div
-        className={`absolute inset-0 z-10 bg-black pointer-events-none transition-opacity duration-150 ${
-          isPlaying ? 'opacity-0' : 'opacity-100'
+        className={`absolute inset-0 z-10 bg-black pointer-events-none ${
+          isPlaying ? 'opacity-0 invisible' : 'opacity-100'
         }`}
-      >
-        <img
-          src={thumbnailUrl}
-          alt={title}
-          className="w-full h-full object-cover"
-        />
-      </div>
+      />
 
       {/* z-20: Bottom-edge progress line + 20px transparent touch scrub area */}
       <div
@@ -386,47 +392,45 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
         </div>
       </div>
 
-      {/* z-30: Bottom overlay row (Left plain white countdown + Right vertical CC & Mute 40x40 circles) */}
-      <div className="absolute inset-x-0 bottom-5 px-3 flex items-end justify-between pointer-events-none z-30">
-        {/* Left: Plain white countdown timer vertically aligned with Mute button */}
+      {/* z-30: Bottom-left compact timer badge positioned low with subtle transparent black pill */}
+      <div className="absolute bottom-2 left-2.5 pointer-events-none z-30">
         <span
-          className="min-h-[40px] flex items-center text-white text-[14px] font-medium tabular-nums leading-none"
+          className="inline-flex items-center px-1.5 py-[3px] rounded-[4px] bg-black/65 text-white text-[11px] font-medium tabular-nums leading-none"
           style={{
-            fontFamily: "'Inter', sans-serif",
-            textShadow: '0 1px 3px rgba(0,0,0,0.65)'
+            fontFamily: "'Inter', sans-serif"
           }}
         >
           {badgeText}
         </span>
+      </div>
 
-        {/* Right: Vertical column (CC on top, Mute below), 40x40 circles */}
-        <div className="flex flex-col gap-2 pointer-events-auto">
-          <button
-            type="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={handleToggleCC}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors active:scale-95 ${
-              isCC ? 'bg-white text-black' : 'text-white'
-            }`}
-            style={isCC ? undefined : { backgroundColor: 'rgba(38, 38, 38, 0.75)' }}
-            title={isCC ? 'Turn off captions' : 'Turn on captions'}
-            aria-label={isCC ? 'Turn off captions' : 'Turn on captions'}
-          >
-            <Subtitles size={18} />
-          </button>
+      {/* z-30: Bottom-right vertical column (CC on top, Mute below), 40x40 circles */}
+      <div className="absolute bottom-4 right-3 flex flex-col gap-2 pointer-events-auto z-30">
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={handleToggleCC}
+          className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors active:scale-95 ${
+            isCC ? 'bg-white text-black' : 'text-white'
+          }`}
+          style={isCC ? undefined : { backgroundColor: 'rgba(38, 38, 38, 0.75)' }}
+          title={isCC ? 'Turn off captions' : 'Turn on captions'}
+          aria-label={isCC ? 'Turn off captions' : 'Turn on captions'}
+        >
+          <Subtitles size={18} />
+        </button>
 
-          <button
-            type="button"
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={handleToggleMute}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white transition-colors active:scale-95"
-            style={{ backgroundColor: 'rgba(38, 38, 38, 0.75)' }}
-            title={isMuted ? 'Unmute' : 'Mute'}
-            aria-label={isMuted ? 'Unmute' : 'Mute'}
-          >
-            {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-          </button>
-        </div>
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={handleToggleMute}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white transition-colors active:scale-95"
+          style={{ backgroundColor: 'rgba(38, 38, 38, 0.75)' }}
+          title={isMuted ? 'Unmute' : 'Mute'}
+          aria-label={isMuted ? 'Unmute' : 'Mute'}
+        >
+          {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+        </button>
       </div>
     </div>
   );

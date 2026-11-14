@@ -110,14 +110,13 @@ export const SmartThumbnail: React.FC<SmartThumbnailProps> = ({
         </div>
       )}
 
-      {/* Unified Bottom-Left Plain Timer Overlay (matches InlinePreviewPlayer position with zero jump) */}
+      {/* Unified Bottom-Left Compact Timer Pill (matches InlinePreviewPlayer position with zero jump) */}
       {duration && isLoaded && (
-        <div className="absolute inset-x-0 bottom-5 px-3 flex items-end justify-between pointer-events-none z-20">
+        <div className="absolute bottom-2 left-2.5 pointer-events-none z-20">
           <span
-            className={`min-h-[40px] flex items-center text-white text-[14px] font-medium tabular-nums leading-none ${badgeClassName}`}
+            className={`inline-flex items-center px-1.5 py-[3px] rounded-[4px] bg-black/65 text-white text-[11px] font-medium tabular-nums leading-none ${badgeClassName}`}
             style={{
-              fontFamily: "'Inter', sans-serif",
-              textShadow: '0 1px 3px rgba(0,0,0,0.65)'
+              fontFamily: "'Inter', sans-serif"
             }}
           >
             {duration}
