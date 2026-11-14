@@ -176,12 +176,12 @@ const ResultScreen = ({ stats, onHome }: { stats: any, onHome: () => void }) => 
 
 // NavIcon Component
 const NavIcon = ({ icon, label, target, isActive, navigate, svgIcon, onCustomClick }: { icon: string, label: string, target: string, isActive: boolean, navigate: any, svgIcon?: React.ReactNode, onCustomClick?: () => void }) => (
-    <button onClick={onCustomClick || (() => navigate(target))} className={`flex flex-col items-center justify-center w-16 gap-0.5 transition-all select-none ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}>
-        <div className="h-5 flex items-center justify-center">
-            {svgIcon ? svgIcon : <i className={`fa-solid ${icon} text-[18px]`}></i>}
+    <button onClick={onCustomClick || (() => navigate(target))} className={`flex flex-col items-center justify-center w-16 transition-all select-none ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'}`}>
+        <div className="h-[18px] flex items-center justify-center">
+            {svgIcon ? svgIcon : <i className={`fa-solid ${icon} text-[17px]`}></i>}
         </div>
         <span className="text-[10px] font-bold tracking-tight leading-none mt-0.5">{label}</span>
-        <div className={`w-1 h-1 rounded-full mt-0.5 transition-opacity ${isActive ? 'bg-brand-600 dark:bg-brand-400 opacity-100' : 'opacity-0'}`}></div>
+        <div className={`w-1 h-1 rounded-full mt-[2px] transition-opacity ${isActive ? 'bg-brand-600 dark:bg-brand-400 opacity-100' : 'opacity-0'}`}></div>
     </button>
 );
 
@@ -721,7 +721,7 @@ export default function App() {
         </AnimatePresence>
 
         {showNav && (
-            <div className={`lg:hidden fixed bottom-0 left-0 right-0 w-full bg-white dark:bg-slate-950 border-t border-slate-200/80 dark:border-slate-800/80 flex justify-around pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] z-40 shadow-[0_-3px_16px_rgba(0,0,0,0.04)] transition-transform duration-300 ease-in-out ${
+            <div className={`lg:hidden fixed bottom-0 left-0 right-0 w-full bg-white dark:bg-slate-950 border-t border-slate-200/80 dark:border-slate-800/80 flex justify-around pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))] z-40 shadow-[0_-3px_16px_rgba(0,0,0,0.04)] transition-transform duration-300 ease-in-out ${
                 isBottomNavVisible ? 'translate-y-0' : 'translate-y-full'
             }`}>
                 <div className="flex w-full justify-around items-center">
