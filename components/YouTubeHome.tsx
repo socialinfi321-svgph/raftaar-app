@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useBackHandler } from '../hooks/useBackHandler';
 import { 
   ArrowLeft, Search, X, ThumbsUp, ThumbsDown, Share2, 
-  Bookmark, Bell, MoreVertical, MoreHorizontal, Compass, RotateCw, AlertTriangle, RefreshCw,
+  Bookmark, Bell, MoreVertical, MoreHorizontal, RotateCw, AlertTriangle, RefreshCw,
   FileText, Download, BookOpen, MessageSquare, Play, Check, ChevronRight, ChevronDown,
   Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Subtitles, Send
 } from 'lucide-react';
+import { Profile } from '../types';
 import { CustomVideoPlayer, CustomVideoPlayerRef, loadYouTubeIframeApi } from './CustomVideoPlayer';
 import { InlinePreviewPlayer } from './InlinePreviewPlayer';
 import { SmartThumbnail } from './SmartThumbnail';
@@ -194,7 +195,11 @@ const useLandscapeFill = (): boolean => {
   return isLandscapeFill;
 };
 
-export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
+export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> = ({ navigate, profile }) => {
+  const nameParts = (profile?.full_name || 'Developer').trim().split(/\s+/);
+  const firstName = nameParts[0] || 'Developer';
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState(false);
+
   // Feed state
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -526,6 +531,10 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
 
   // Android hardware back button integration
   useBackHandler(() => {
+    if (isProfileDrawerOpen) {
+      setIsProfileDrawerOpen(false);
+      return true;
+    }
     if (isCommentsOpen) {
       setIsCommentsOpen(false);
       return true;
@@ -1115,6 +1124,60 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
         </div>
       )}
 
+      {/* ================= STUDY-STYLE PROFILE SIDE DRAWER ================= */}
+      <div
+        className={`fixed inset-0 bg-black/60 z-[298] transition-opacity duration-300 ${
+          isProfileDrawerOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={() => setIsProfileDrawerOpen(false)}
+      />
+      <div
+        className={`fixed top-0 left-0 h-[100dvh] w-[82%] max-w-[300px] bg-white dark:bg-slate-900 z-[299] shadow-2xl transition-transform duration-300 ease-in-out transform flex flex-col ${
+          isProfileDrawerOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="pt-safe-top px-6 pt-12 pb-6 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3.5">
+            <div className="w-14 h-14 rounded-full bg-[#00897b] flex items-center justify-center text-white text-2xl font-normal uppercase shadow">
+              {firstName.charAt(0)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white truncate capitalize">
+                {profile?.full_name || firstName}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Weekly XP: <span className="font-semibold text-[#00897b] dark:text-teal-400">{profile?.weekly_xp || 0}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 py-4 px-3 flex flex-col gap-1">
+          {[
+            { label: 'Study Dashboard', icon: 'fa-book-open', path: '/' },
+            { label: 'Practice Chapters', icon: 'fa-brain', path: '/practice' },
+            { label: 'Mock Exams', icon: 'fa-file-signature', path: '/exam' },
+            { label: 'Rewards & Rank', icon: 'fa-trophy', path: '/rewards' }
+          ].map((item) => (
+            <button
+              key={item.path}
+              type="button"
+              onClick={() => {
+                setIsProfileDrawerOpen(false);
+                navigate(item.path);
+              }}
+              className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300"
+            >
+              <div className="flex items-center gap-3.5">
+                <i className={`fa-solid ${item.icon} w-5 text-center text-sm text-slate-500 dark:text-slate-400`} />
+                <span className="text-sm font-medium">{item.label}</span>
+              </div>
+              <ChevronRight size={16} className="text-slate-400" />
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* ================= DEDICATED CHANNEL PAGE VIEW ================= */}
       {activeChannelId && (
         <div className="fixed inset-0 z-[150] bg-white dark:bg-[#0f0f0f] flex flex-col overflow-y-auto animate-fade-in">
@@ -1525,22 +1588,44 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                   </button>
                 </form>
               ) : (
-                /* Default Header Layout */
+                /* Default Header Layout: Study-section profile + small Hii greeting */
                 <>
-                  <div
-                    className="flex items-center gap-1.5 cursor-pointer"
-                    onClick={() => {
-                      if (selectedVideo) setSelectedVideo(null);
-                      setActiveCategory('All');
-                      setSearchQuery('');
-                    }}
-                  >
-                    <div className="w-7 h-5 sm:w-8 sm:h-5.5 bg-[#FF0000] rounded-[6px] flex items-center justify-center shadow-xs">
-                      <Play size={11} className="fill-white text-white ml-0.5" />
-                    </div>
-                    <span className="text-[19px] font-bold tracking-tighter text-[#0f0f0f] dark:text-white font-sans">
-                      Raftaar
-                    </span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsProfileDrawerOpen(true)}
+                      className="relative py-0.5 shrink-0 cursor-pointer focus:outline-none rounded-full active:scale-95 transition-transform"
+                      aria-label="Open profile menu"
+                    >
+                      <div className="w-9 h-9 rounded-full bg-[#00897b] text-white flex items-center justify-center text-[15px] font-normal uppercase shadow-xs ring-2 ring-slate-100 dark:ring-slate-800">
+                        {firstName.charAt(0)}
+                      </div>
+                      <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col items-center justify-center gap-[2px]">
+                        <span className="w-[7px] h-[1.3px] rounded-full bg-slate-800 dark:bg-slate-200" />
+                        <span className="w-[7px] h-[1.3px] rounded-full bg-slate-800 dark:bg-slate-200" />
+                        <span className="w-[7px] h-[1.3px] rounded-full bg-slate-800 dark:bg-slate-200" />
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedVideo) setSelectedVideo(null);
+                        setActiveCategory('All');
+                        setSearchQuery('');
+                        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="text-left min-w-0 cursor-pointer focus:outline-none"
+                    >
+                      <span
+                        className="text-[13px] font-medium tracking-[-0.01em] text-[#0f0f0f] dark:text-white truncate block max-w-[160px] leading-none"
+                        style={{
+                          fontFamily: '"Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, sans-serif'
+                        }}
+                      >
+                        Hii, <span className="font-semibold text-[#5b5ce6] dark:text-[#8e8dff]">{firstName}</span>
+                      </span>
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-4">
@@ -1570,24 +1655,10 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
             </div>
           </div>
 
-          {/* Category Filter Chips Row */}
-          <div className={`px-3 py-2 flex items-center gap-2 overflow-x-auto hide-scrollbar transition-all duration-300 ${
+          {/* Category Tabs Row: Boxless editorial tabs with distinct Outfit font (no Trending/Compass icon) */}
+          <div className={`px-3.5 py-2 flex items-center gap-5 overflow-x-auto hide-scrollbar transition-all duration-300 ${
             isHeaderVisible ? 'border-t border-neutral-100/60 dark:border-neutral-800/40' : ''
           }`}>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveCategory('All');
-                setSearchQuery('');
-                setSearchInput('');
-              }}
-              className="px-2.5 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white shrink-0 hover:bg-neutral-200 dark:hover:bg-neutral-700 active:scale-95 transition-all"
-              title="Explore all"
-            >
-              <Compass size={18} />
-            </button>
-            <div className="w-[1px] h-5 bg-neutral-200 dark:bg-neutral-800 shrink-0" />
-
             {CATEGORIES.map((cat) => {
               const isActive = activeCategory === cat && !searchQuery;
               return (
@@ -1599,13 +1670,19 @@ export const YouTubeHome: React.FC<{ navigate: any }> = ({ navigate }) => {
                     setSearchQuery('');
                     setSearchInput('');
                   }}
-                  className={`rounded-lg px-3 py-1.5 text-[14px] font-medium shrink-0 transition-colors whitespace-nowrap active:scale-95 ${
+                  style={{
+                    fontFamily: '"Outfit", "Noto Sans Devanagari", sans-serif'
+                  }}
+                  className={`relative pb-1 text-[13.5px] tracking-[0.01em] shrink-0 transition-colors whitespace-nowrap bg-transparent ${
                     isActive
-                      ? 'bg-[#0f0f0f] text-white dark:bg-white dark:text-[#0f0f0f]'
-                      : 'bg-neutral-100 text-[#0f0f0f] dark:bg-neutral-800 dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                      ? 'font-semibold text-[#0f0f0f] dark:text-white'
+                      : 'font-medium text-neutral-500 dark:text-neutral-400 hover:text-[#0f0f0f] dark:hover:text-white'
                   }`}
                 >
                   {cat}
+                  {isActive && (
+                    <span className="absolute left-0 right-0 bottom-0 h-[2px] rounded-full bg-[#00897b] dark:bg-teal-400" />
+                  )}
                 </button>
               );
             })}
