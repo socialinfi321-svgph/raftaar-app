@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, memo } from 'react';
-import { Volume2, VolumeX, Subtitles } from 'lucide-react';
+import { Volume2, VolumeX } from 'lucide-react';
 import { loadYouTubeIframeApi } from './CustomVideoPlayer';
 
 export interface InlinePreviewPlayerProps {
@@ -33,11 +33,9 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
   const currentTimeRef = useRef<number>(0);
   const isScrubbingRef = useRef<boolean>(false);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const ccCheckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
-  const [isCC, setIsCC] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(durationSeconds || 60);
@@ -73,9 +71,9 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
 
   useEffect(() => {
     let isCancelled = false;
+
     setIsPlaying(false);
     setIsMuted(true);
-    setIsCC(false);
     setIsScrubbing(false);
     isScrubbingRef.current = false;
     setCurrentTime(0);
@@ -190,10 +188,6 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
     return () => {
       isCancelled = true;
       stopPolling();
-      if (ccCheckTimerRef.current) {
-        clearTimeout(ccCheckTimerRef.current);
-        ccCheckTimerRef.current = null;
-      }
       if (playerRef.current && typeof playerRef.current.destroy === 'function') {
         try {
           playerRef.current.destroy();
@@ -218,69 +212,6 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
       }
     } catch (err) {
       console.warn('Mute toggle error:', err);
-    }
-  };
-
-  // Closed Captions (CC) toggle with Hindi -> English -> First track fallback
-  const handleToggleCC = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (ccCheckTimerRef.current) {
-      clearTimeout(ccCheckTimerRef.current);
-      ccCheckTimerRef.current = null;
-    }
-
-    if (!isCC) {
-      setIsCC(true);
-      try {
-        playerRef.current?.loadModule?.('captions');
-        playerRef.current?.setOption?.('captions', 'track', { languageCode: 'hi' });
-      } catch {}
-
-      ccCheckTimerRef.current = setTimeout(() => {
-        try {
-          const tracks = playerRef.current?.getOption?.('captions', 'tracklist');
-          if (!Array.isArray(tracks) || tracks.length === 0) {
-            setIsCC(false);
-            window.dispatchEvent(
-              new CustomEvent('raftaar:toast', {
-                detail: { message: 'Is video mein captions nahi hain' }
-              })
-            );
-            return;
-          }
-
-          const hiTrack = tracks.find((t: any) => {
-            const code = String(t?.languageCode || '').toLowerCase();
-            return code === 'hi' || code === 'hi-in';
-          });
-          const enTrack = tracks.find((t: any) => {
-            const code = String(t?.languageCode || '').toLowerCase();
-            return code === 'en' || code === 'en-us' || code === 'en-gb';
-          });
-          const chosen = hiTrack || enTrack || tracks[0];
-
-          if (chosen?.languageCode) {
-            playerRef.current?.setOption?.('captions', 'track', {
-              languageCode: chosen.languageCode
-            });
-          } else {
-            playerRef.current?.setOption?.('captions', 'track', chosen);
-          }
-        } catch {
-          setIsCC(false);
-          window.dispatchEvent(
-            new CustomEvent('raftaar:toast', {
-              detail: { message: 'Is video mein captions nahi hain' }
-            })
-          );
-        }
-      }, 600);
-    } else {
-      setIsCC(false);
-      try {
-        playerRef.current?.setOption?.('captions', 'track', {});
-        playerRef.current?.unloadModule?.('captions');
-      } catch {}
     }
   };
 
@@ -404,22 +335,8 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
         </span>
       </div>
 
-      {/* z-30: Bottom-right vertical column (CC on top, Mute below), 40x40 circles */}
+      {/* z-30: Bottom-right mute button (40x40 circle) */}
       <div className="absolute bottom-4 right-3 flex flex-col gap-2 pointer-events-auto z-30">
-        <button
-          type="button"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={handleToggleCC}
-          className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors active:scale-95 ${
-            isCC ? 'bg-white text-black' : 'text-white'
-          }`}
-          style={isCC ? undefined : { backgroundColor: 'rgba(38, 38, 38, 0.75)' }}
-          title={isCC ? 'Turn off captions' : 'Turn on captions'}
-          aria-label={isCC ? 'Turn off captions' : 'Turn on captions'}
-        >
-          <Subtitles size={18} />
-        </button>
-
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}

@@ -4,7 +4,7 @@ import {
   ArrowLeft, Search, X, ThumbsUp, ThumbsDown, Share2, 
   Bookmark, Bell, MoreVertical, MoreHorizontal, RotateCw, AlertTriangle, RefreshCw,
   FileText, Download, BookOpen, MessageSquare, Play, Check, ChevronRight, ChevronDown,
-  Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Subtitles, Send
+  Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Send
 } from 'lucide-react';
 import { Profile } from '../types';
 import { CustomVideoPlayer, CustomVideoPlayerRef, loadYouTubeIframeApi } from './CustomVideoPlayer';
