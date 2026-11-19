@@ -11,8 +11,6 @@ export interface SmartThumbnailProps {
   showPlayIcon?: boolean;
   priority?: boolean;
   flush?: boolean;
-  timerPosition?: 'bottom-left' | 'top-right';
-  onOpenChannel?: (e: React.MouseEvent) => void;
 }
 
 // Direct YouTube CDN URL hierarchy for maximum 1080p/HD fidelity with zero API quota consumption
@@ -30,7 +28,7 @@ const RESOLUTION_URLS = [
 /**
  * SmartThumbnail: High-performance, zero-quota 1080p HD YouTube thumbnail component.
  * Supports `flush` mode for full-bleed cards with zero corner rounding or shadows,
- * and configurable timer position (`bottom-left` or `top-right` matching InlinePreviewPlayer).
+ * and unified bottom-left plain timer styling matching InlinePreviewPlayer.
  */
 export const SmartThumbnail: React.FC<SmartThumbnailProps> = ({
   videoId,
@@ -42,9 +40,7 @@ export const SmartThumbnail: React.FC<SmartThumbnailProps> = ({
   roundedClassName = 'rounded-lg sm:rounded-[10px]',
   showPlayIcon = false,
   priority = false,
-  flush = false,
-  timerPosition = 'bottom-left',
-  onOpenChannel
+  flush = false
 }) => {
   const [fallbackIndex, setFallbackIndex] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -114,50 +110,18 @@ export const SmartThumbnail: React.FC<SmartThumbnailProps> = ({
         </div>
       )}
 
-      {/* Optional bottom-left channel tag icon matching social feed style */}
-      {onOpenChannel && isLoaded && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenChannel(e);
-          }}
-          className="absolute bottom-3 left-3 z-20 w-7 h-7 rounded-full bg-black/65 text-white flex items-center justify-center active:scale-95 transition-transform"
-          aria-label="Open channel"
-          title="Open channel"
-        >
-          <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v1.2c0 .7.5 1.2 1.2 1.2h16.8c.7 0 1.2-.5 1.2-1.2v-1.2c0-3.2-6.4-4.8-9.6-4.8z" />
-          </svg>
-        </button>
-      )}
-
-      {/* Duration badge: top-right clean white overlay for home feed, or compact bottom-left pill elsewhere */}
+      {/* Unified Bottom-Left Compact Timer Pill (matches InlinePreviewPlayer position with zero jump) */}
       {duration && isLoaded && (
-        timerPosition === 'top-right' ? (
-          <div className="absolute top-2.5 right-3 pointer-events-none z-20">
-            <span
-              className={`text-[13px] font-medium tabular-nums text-white leading-none ${badgeClassName}`}
-              style={{
-                fontFamily: "'Inter', sans-serif",
-                textShadow: '0 1px 3px rgba(0, 0, 0, 0.85)'
-              }}
-            >
-              {duration}
-            </span>
-          </div>
-        ) : (
-          <div className="absolute bottom-2 left-2.5 pointer-events-none z-20">
-            <span
-              className={`inline-flex items-center px-1.5 py-[3px] rounded-[4px] bg-black/65 text-white text-[11px] font-medium tabular-nums leading-none ${badgeClassName}`}
-              style={{
-                fontFamily: "'Inter', sans-serif"
-              }}
-            >
-              {duration}
-            </span>
-          </div>
-        )
+        <div className="absolute bottom-2 left-2.5 pointer-events-none z-20">
+          <span
+            className={`inline-flex items-center px-1.5 py-[3px] rounded-[4px] bg-black/65 text-white text-[11px] font-medium tabular-nums leading-none ${badgeClassName}`}
+            style={{
+              fontFamily: "'Inter', sans-serif"
+            }}
+          >
+            {duration}
+          </span>
+        </div>
       )}
     </div>
   );

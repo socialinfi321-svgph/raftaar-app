@@ -25,6 +25,7 @@ const formatCountdown = (seconds: number): string => {
 
 const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
   videoId,
+  title,
   durationStr,
   durationSeconds = 60,
   onSelect,
@@ -35,8 +36,11 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
   const currentTimeRef = useRef<number>(0);
   const isScrubbingRef = useRef<boolean>(false);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasRevealedRef = useRef<boolean>(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isVideoVisible, setIsVideoVisible] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -49,6 +53,23 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
     }
   };
 
+  const clearRevealTimer = () => {
+    if (revealTimerRef.current) {
+      clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+  };
+
+  const revealWhenFrameReady = () => {
+    if (hasRevealedRef.current) return;
+    clearRevealTimer();
+    // Brief frame-paint settle so the iframe never flashes a black frame before first video frame renders
+    revealTimerRef.current = setTimeout(() => {
+      hasRevealedRef.current = true;
+      setIsVideoVisible(true);
+    }, 180);
+  };
+
   const startPolling = () => {
     stopPolling();
     pollingIntervalRef.current = setInterval(() => {
@@ -59,6 +80,11 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
           if (typeof curr === 'number' && !isNaN(curr)) {
             currentTimeRef.current = curr;
             setCurrentTime(curr);
+            if (curr > 0.05 && !hasRevealedRef.current) {
+              clearRevealTimer();
+              hasRevealedRef.current = true;
+              setIsVideoVisible(true);
+            }
           }
           if (typeof playerRef.current.getDuration === 'function') {
             const dur = playerRef.current.getDuration();
@@ -68,13 +94,17 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
           }
         }
       } catch {}
-    }, 250);
+    }, 200);
   };
 
   useEffect(() => {
     let isCancelled = false;
+    clearRevealTimer();
+    stopPolling();
 
+    hasRevealedRef.current = false;
     setIsPlaying(false);
+    setIsVideoVisible(false);
     setIsMuted(true);
     setIsScrubbing(false);
     isScrubbingRef.current = false;
@@ -145,10 +175,12 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
                 }
               } catch {}
               try {
-                event.target.playVideo();
+                event.target.mute?.();
+                event.target.playVideo?.();
                 if (event.target?.getPlayerState?.() === 1) {
                   setIsPlaying(true);
                   startPolling();
+                  revealWhenFrameReady();
                 }
               } catch {}
             },
@@ -156,7 +188,7 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
               if (isCancelled) return;
               const state = event?.data;
               if (state === 1) {
-                // PLAYING
+                // PLAYING: video loaded in background, reveal seamlessly over thumbnail
                 setIsPlaying(true);
                 try {
                   const dur = event.target?.getDuration?.();
@@ -165,6 +197,7 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
                   }
                 } catch {}
                 startPolling();
+                revealWhenFrameReady();
               } else {
                 // PAUSED (2), BUFFERING (3), ENDED (0), CUED (5) -> stop polling
                 stopPolling();
@@ -191,6 +224,7 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
 
     return () => {
       isCancelled = true;
+      clearRevealTimer();
       stopPolling();
       if (playerRef.current && typeof playerRef.current.destroy === 'function') {
         try {
@@ -277,23 +311,30 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
   return (
     <div
       onClick={handleContainerClick}
-      className="relative w-full overflow-hidden bg-black cursor-pointer"
+      className={`relative w-full h-full overflow-hidden transition-opacity duration-200 ${
+        isVideoVisible
+          ? 'opacity-100 bg-black pointer-events-auto cursor-pointer'
+          : 'opacity-0 pointer-events-none'
+      }`}
       style={{ aspectRatio: '16 / 9' }}
     >
       {/* Fallback 16:9 spacer so height never derives from child iframe */}
       <div style={{ paddingTop: '56.25%' }} aria-hidden="true" />
 
-      {/* z-0: Absolute YouTube mount container overriding default 640x390 iframe sizing */}
+      {/* z-0: Absolute YouTube mount container preloading silently & playing seamlessly */}
       <div
         ref={mountRef}
-        className="absolute inset-0 w-full h-full pointer-events-auto z-0 [&>iframe]:!absolute [&>iframe]:!inset-0 [&>iframe]:!w-full [&>iframe]:!h-full [&>iframe]:!border-0"
+        className="absolute inset-0 w-full h-full pointer-events-none z-0 [&>iframe]:!absolute [&>iframe]:!inset-0 [&>iframe]:!w-full [&>iframe]:!h-full [&>iframe]:!border-0"
       />
 
-      {/* z-10: Solid black screen overlay until PLAYING (state 1) so there is zero thumbnail flicker */}
+      {/* z-15: Full-surface tap target so clicking anywhere on video immediately opens the main watch player */}
       <div
-        className={`absolute inset-0 z-10 bg-black pointer-events-none ${
-          isPlaying ? 'opacity-0 invisible' : 'opacity-100'
-        }`}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleContainerClick();
+        }}
+        className="absolute inset-0 z-[15] cursor-pointer"
+        aria-label={`Play ${title}`}
       />
 
       {/* z-20: Bottom-edge progress line + 20px transparent touch scrub area */}

@@ -4,7 +4,7 @@ import {
   ArrowLeft, Search, X, ThumbsUp, ThumbsDown, Share2, 
   Bookmark, Bell, MoreVertical, MoreHorizontal, RotateCw, AlertTriangle, RefreshCw,
   FileText, Download, BookOpen, MessageSquare, Play, Check, ChevronRight, ChevronDown,
-  Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Send, Heart, MessageCircle, Repeat2
+  Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Send
 } from 'lucide-react';
 import { Profile } from '../types';
 import { CustomVideoPlayer, CustomVideoPlayerRef, loadYouTubeIframeApi } from './CustomVideoPlayer';
@@ -274,15 +274,7 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
   const [isFollowed, setIsFollowed] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Home Feed Card Social Interactions (persisted per user session/device)
-  const [feedLikedIds, setFeedLikedIds] = useState<Set<string>>(() => {
-    try {
-      const raw = localStorage.getItem('raftaar_feed_likes');
-      return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
+  // Home Feed Card Menu & Caption Expansion State
   const [feedSavedIds, setFeedSavedIds] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem('raftaar_feed_saved');
@@ -291,32 +283,8 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
       return new Set();
     }
   });
-  const [feedRepostedIds, setFeedRepostedIds] = useState<Set<string>>(() => {
-    try {
-      const raw = localStorage.getItem('raftaar_feed_reposts');
-      return raw ? new Set(JSON.parse(raw)) : new Set();
-    } catch {
-      return new Set();
-    }
-  });
-  const [feedShareCounts, setFeedShareCounts] = useState<Record<string, number>>({});
   const [expandedCaptionIds, setExpandedCaptionIds] = useState<Set<string>>(() => new Set());
   const [openCardMenuId, setOpenCardMenuId] = useState<string | null>(null);
-
-  const toggleFeedLike = (vidId: string) => {
-    setFeedLikedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(vidId)) {
-        next.delete(vidId);
-      } else {
-        next.add(vidId);
-      }
-      try {
-        localStorage.setItem('raftaar_feed_likes', JSON.stringify(Array.from(next)));
-      } catch {}
-      return next;
-    });
-  };
 
   const toggleFeedSave = (vidId: string) => {
     setFeedSavedIds(prev => {
@@ -336,27 +304,8 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
     });
   };
 
-  const toggleFeedRepost = (vidId: string) => {
-    setFeedRepostedIds(prev => {
-      const next = new Set(prev);
-      const willRepost = !next.has(vidId);
-      if (willRepost) {
-        next.add(vidId);
-        showToast('Added to Quick Revision');
-      } else {
-        next.delete(vidId);
-        showToast('Removed from Quick Revision');
-      }
-      try {
-        localStorage.setItem('raftaar_feed_reposts', JSON.stringify(Array.from(next)));
-      } catch {}
-      return next;
-    });
-  };
-
   const handleFeedShare = (vid: VideoItem) => {
     const shareUrl = `https://youtu.be/${vid.id}`;
-    setFeedShareCounts(prev => ({ ...prev, [vid.id]: (prev[vid.id] || 0) + 1 }));
     if (navigator.share) {
       navigator.share({
         title: decodeHtml(vid.title),
@@ -560,8 +509,8 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
     const currentActive = activePreviewVideoIdRef.current;
     if (currentActive) {
       const currentRatio = visibilityRatiosRef.current.get(currentActive) ?? 0;
-      // Keep current video playing continuously until user slides at least 50% off screen
-      if (currentRatio >= 0.5) {
+      // Keep current video active strictly while at least 60% visible
+      if (currentRatio >= 0.6) {
         return;
       }
       setActivePreviewVideoId(null);
@@ -962,30 +911,33 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
     lastScrollY.current = scrollTop;
     lastScrollTimeRef.current = Date.now();
 
-    const activeId = activePreviewVideoIdRef.current;
-    if (activeId) {
-      const activeEl = cardElementsRef.current.get(activeId);
-      const rootEl = scrollContainerRef.current;
-      if (activeEl && rootEl) {
-        const elRect = activeEl.getBoundingClientRect();
-        const rootRect = rootEl.getBoundingClientRect();
+    const rootEl = scrollContainerRef.current;
+    if (rootEl) {
+      const rootRect = rootEl.getBoundingClientRect();
+      cardElementsRef.current.forEach((el, id) => {
+        if (!el) return;
+        const elRect = el.getBoundingClientRect();
         const visibleTop = Math.max(elRect.top, rootRect.top);
         const visibleBottom = Math.min(elRect.bottom, rootRect.bottom);
         const visibleH = Math.max(0, visibleBottom - visibleTop);
         const liveRatio = elRect.height > 0 ? visibleH / elRect.height : 0;
-        visibilityRatiosRef.current.set(activeId, liveRatio);
-
-        // Only stop active video and switch once user slides at least 50% off screen
-        if (liveRatio < 0.5) {
-          setActivePreviewVideoId(null);
-          const nextBest = pickBestCandidate();
-          schedulePreviewActivation(nextBest);
-        }
-        return;
-      }
+        visibilityRatiosRef.current.set(id, liveRatio);
+      });
     }
 
-    // No active preview currently playing: schedule best visible card once scroll settles
+    const activeId = activePreviewVideoIdRef.current;
+    if (activeId) {
+      const liveRatio = visibilityRatiosRef.current.get(activeId) ?? 0;
+      // Stop active video and switch whenever visibility drops below 60%
+      if (liveRatio < 0.6) {
+        setActivePreviewVideoId(null);
+        const nextBest = pickBestCandidate();
+        schedulePreviewActivation(nextBest);
+      }
+      return;
+    }
+
+    // No active preview currently playing: schedule best >=60% visible card once scroll settles
     const bestCandidate = pickBestCandidate();
     schedulePreviewActivation(bestCandidate);
   };
@@ -2257,16 +2209,7 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
                       </div>
                     </div>
                     <div className="w-full aspect-video bg-neutral-200 dark:bg-neutral-800" />
-                    <div className="px-3 pt-2.5 pb-1.5 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="h-5 w-12 bg-neutral-200 dark:bg-neutral-800 rounded" />
-                        <div className="h-5 w-5 bg-neutral-200 dark:bg-neutral-800 rounded-full" />
-                        <div className="h-5 w-8 bg-neutral-200 dark:bg-neutral-800 rounded" />
-                        <div className="h-5 w-8 bg-neutral-200 dark:bg-neutral-800 rounded" />
-                      </div>
-                      <div className="h-5 w-5 bg-neutral-200 dark:bg-neutral-800 rounded" />
-                    </div>
-                    <div className="px-3 pt-1 pb-4 space-y-2">
+                    <div className="px-3 pt-2.5 pb-4 space-y-2">
                       <div className="h-3.5 bg-neutral-200 dark:bg-neutral-800 rounded w-11/12" />
                       <div className="h-2.5 bg-neutral-200 dark:bg-neutral-800 rounded w-2/5" />
                     </div>
@@ -2275,16 +2218,9 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
               ) : videos.length > 0 ? (
                 videos.map((vid, idx) => {
                   const isInlineActive = activePreviewVideoId === vid.id;
-                  const isFeedLiked = feedLikedIds.has(vid.id);
                   const isFeedSaved = feedSavedIds.has(vid.id);
-                  const isFeedReposted = feedRepostedIds.has(vid.id);
                   const isCaptionExpanded = expandedCaptionIds.has(vid.id);
                   const isMenuOpen = openCardMenuId === vid.id;
-
-                  const baseLikes = typeof vid.likeCount === 'number' ? vid.likeCount : 0;
-                  const displayLikes = baseLikes + (isFeedLiked ? 1 : 0);
-                  const displayReposts = isFeedReposted ? 1 : 0;
-                  const displayShares = feedShareCounts[vid.id] || 0;
 
                   const decodedTitle = decodeHtml(vid.title);
                   const decodedDesc = decodeHtml(vid.description);
@@ -2430,150 +2366,39 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
                           if (el) cardElementsRef.current.set(vid.id, el);
                           else cardElementsRef.current.delete(vid.id);
                         }}
-                        className="w-full relative"
+                        onClick={() => handleSelectVideo(vid)}
+                        className="w-full relative aspect-video bg-black overflow-hidden cursor-pointer"
                       >
-                        {isInlineActive ? (
-                          <InlinePreviewPlayer
-                            videoId={vid.id}
-                            title={vid.title}
-                            thumbnailUrl={vid.thumbnail}
-                            durationStr={vid.duration}
-                            durationSeconds={vid.durationSeconds}
-                            onSelect={(currentTime) => handleSelectVideo(vid, null, currentTime)}
-                            onOpenChannel={vid.channelId ? openChannelHandler : undefined}
-                          />
-                        ) : (
-                          <div
-                            onClick={() => handleSelectVideo(vid)}
-                            className="w-full cursor-pointer"
-                          >
-                            <SmartThumbnail
+                        {/* Always-visible HD Thumbnail: stays continuously displayed while YouTube loads in background */}
+                        <SmartThumbnail
+                          videoId={vid.id}
+                          title={vid.title}
+                          duration={vid.duration}
+                          priority={idx < 3}
+                          flush
+                          timerPosition="top-right"
+                          onOpenChannel={vid.channelId ? openChannelHandler : undefined}
+                          imgClassName="rounded-none"
+                        />
+
+                        {/* Background YouTube Preview Player: activates strictly at >=60% visibility, loads invisibly and fades in once playing */}
+                        {isInlineActive && (
+                          <div className="absolute inset-0 z-30">
+                            <InlinePreviewPlayer
                               videoId={vid.id}
                               title={vid.title}
-                              duration={vid.duration}
-                              priority={idx < 3}
-                              flush
-                              timerPosition="top-right"
+                              thumbnailUrl={vid.thumbnail}
+                              durationStr={vid.duration}
+                              durationSeconds={vid.durationSeconds}
+                              onSelect={(currentTime) => handleSelectVideo(vid, null, currentTime)}
                               onOpenChannel={vid.channelId ? openChannelHandler : undefined}
-                              imgClassName="rounded-none"
                             />
                           </div>
                         )}
                       </div>
 
-                      {/* 3. ENGAGEMENT ACTION ROW (Heart + count, Comment, Repost, Send, right-aligned Bookmark) */}
-                      <div className="px-3 pt-2 pb-1 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          {/* Like / Heart */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFeedLike(vid.id);
-                            }}
-                            className="min-h-[36px] flex items-center gap-1.5 text-[#0f0f0f] dark:text-white active:scale-90 transition-transform"
-                            aria-label={isFeedLiked ? 'Unlike video' : 'Like video'}
-                          >
-                            <Heart
-                              size={22}
-                              strokeWidth={1.9}
-                              className={
-                                isFeedLiked
-                                  ? 'fill-[#ff3040] text-[#ff3040]'
-                                  : 'text-[#0f0f0f] dark:text-white'
-                              }
-                            />
-                            {displayLikes > 0 && (
-                              <span
-                                className="text-[13px] font-semibold tabular-nums leading-none"
-                                style={{ fontFamily: "'Inter', sans-serif" }}
-                              >
-                                {formatCount(displayLikes)}
-                              </span>
-                            )}
-                          </button>
-
-                          {/* Comment -> opens watch screen with comments open */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSelectVideo(vid);
-                              setIsCommentsOpen(true);
-                            }}
-                            className="min-h-[36px] min-w-[32px] flex items-center justify-center text-[#0f0f0f] dark:text-white active:scale-90 transition-transform"
-                            aria-label="Open comments"
-                          >
-                            <MessageCircle size={21} strokeWidth={1.9} />
-                          </button>
-
-                          {/* Repost / Quick Revision */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFeedRepost(vid.id);
-                            }}
-                            className={`min-h-[36px] flex items-center gap-1.5 active:scale-90 transition-transform ${
-                              isFeedReposted
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-[#0f0f0f] dark:text-white'
-                            }`}
-                            aria-label={isFeedReposted ? 'Remove from quick revision' : 'Add to quick revision'}
-                          >
-                            <Repeat2 size={22} strokeWidth={1.9} />
-                            {displayReposts > 0 && (
-                              <span
-                                className="text-[13px] font-semibold tabular-nums leading-none"
-                                style={{ fontFamily: "'Inter', sans-serif" }}
-                              >
-                                {displayReposts}
-                              </span>
-                            )}
-                          </button>
-
-                          {/* Share / Send */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFeedShare(vid);
-                            }}
-                            className="min-h-[36px] flex items-center gap-1.5 text-[#0f0f0f] dark:text-white active:scale-90 transition-transform"
-                            aria-label="Share video"
-                          >
-                            <Send size={20} strokeWidth={1.9} />
-                            {displayShares > 0 && (
-                              <span
-                                className="text-[13px] font-semibold tabular-nums leading-none"
-                                style={{ fontFamily: "'Inter', sans-serif" }}
-                              >
-                                {displayShares}
-                              </span>
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Bookmark / Save */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFeedSave(vid.id);
-                          }}
-                          className="min-h-[36px] min-w-[36px] -mr-1.5 flex items-center justify-center text-[#0f0f0f] dark:text-white active:scale-90 transition-transform"
-                          aria-label={isFeedSaved ? 'Remove bookmark' : 'Bookmark video'}
-                        >
-                          <Bookmark
-                            size={21}
-                            strokeWidth={1.9}
-                            className={isFeedSaved ? 'fill-current' : ''}
-                          />
-                        </button>
-                      </div>
-
-                      {/* 4. INLINE CAPTION / TITLE (Bold channel handle + title + inline '... more') */}
-                      <div className="px-3 pb-1">
+                      {/* 3. INLINE CAPTION / TITLE (Bold channel handle + title + inline '... more') */}
+                      <div className="px-3 pt-2.5 pb-1">
                         <p
                           style={{
                             fontFamily:
