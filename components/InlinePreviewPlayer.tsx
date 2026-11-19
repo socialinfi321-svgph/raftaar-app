@@ -9,6 +9,7 @@ export interface InlinePreviewPlayerProps {
   durationStr?: string;
   durationSeconds?: number;
   onSelect: (currentTime: number) => void;
+  onOpenChannel?: (e: React.MouseEvent) => void;
 }
 
 const formatCountdown = (seconds: number): string => {
@@ -26,7 +27,8 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
   videoId,
   durationStr,
   durationSeconds = 60,
-  onSelect
+  onSelect,
+  onOpenChannel
 }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -119,10 +121,12 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
           playerVars: {
             autoplay: 1,
             mute: 1,
-            controls: 0,
+            controls: 1,
             playsinline: 1,
             fs: 0,
             rel: 0,
+            cc_lang_pref: 'hi',
+            hl: 'hi',
             disablekb: 1,
             iv_load_policy: 3,
             enablejsapi: 1,
@@ -282,7 +286,7 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
       {/* z-0: Absolute YouTube mount container overriding default 640x390 iframe sizing */}
       <div
         ref={mountRef}
-        className="absolute inset-0 w-full h-full pointer-events-none z-0 [&>iframe]:!absolute [&>iframe]:!inset-0 [&>iframe]:!w-full [&>iframe]:!h-full [&>iframe]:!border-0"
+        className="absolute inset-0 w-full h-full pointer-events-auto z-0 [&>iframe]:!absolute [&>iframe]:!inset-0 [&>iframe]:!w-full [&>iframe]:!h-full [&>iframe]:!border-0"
       />
 
       {/* z-10: Solid black screen overlay until PLAYING (state 1) so there is zero thumbnail flicker */}
@@ -323,30 +327,51 @@ const InlinePreviewPlayerComponent: React.FC<InlinePreviewPlayerProps> = ({
         </div>
       </div>
 
-      {/* z-30: Bottom-left compact timer badge positioned low with subtle transparent black pill */}
-      <div className="absolute bottom-2 left-2.5 pointer-events-none z-30">
+      {/* z-30: Top-right crisp white countdown timer matching reference image */}
+      <div className="absolute top-2.5 right-3 pointer-events-none z-30">
         <span
-          className="inline-flex items-center px-1.5 py-[3px] rounded-[4px] bg-black/65 text-white text-[11px] font-medium tabular-nums leading-none"
+          className="text-[13px] font-medium tabular-nums text-white leading-none"
           style={{
-            fontFamily: "'Inter', sans-serif"
+            fontFamily: "'Inter', sans-serif",
+            textShadow: '0 1px 3px rgba(0, 0, 0, 0.85)'
           }}
         >
           {badgeText}
         </span>
       </div>
 
-      {/* z-30: Bottom-right mute button (40x40 circle) */}
-      <div className="absolute bottom-4 right-3 flex flex-col gap-2 pointer-events-auto z-30">
+      {/* z-30: Bottom-left subtle channel tag circle matching reference image */}
+      {onOpenChannel && (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenChannel(e);
+          }}
+          className="absolute bottom-3 left-3 w-7 h-7 rounded-full flex items-center justify-center text-white pointer-events-auto z-30 active:scale-95 transition-transform"
+          style={{ backgroundColor: 'rgba(20, 20, 20, 0.72)' }}
+          title="Open channel"
+          aria-label="Open channel"
+        >
+          <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v1.2c0 .7.5 1.2 1.2 1.2h16.8c.7 0 1.2-.5 1.2-1.2v-1.2c0-3.2-6.4-4.8-9.6-4.8z" />
+          </svg>
+        </button>
+      )}
+
+      {/* z-30: Bottom-right mute button (sleek dark circle matching reference image) */}
+      <div className="absolute bottom-3 right-3 flex flex-col gap-2 pointer-events-auto z-30">
         <button
           type="button"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={handleToggleMute}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-white transition-colors active:scale-95"
-          style={{ backgroundColor: 'rgba(38, 38, 38, 0.75)' }}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-white transition-colors active:scale-95"
+          style={{ backgroundColor: 'rgba(20, 20, 20, 0.78)' }}
           title={isMuted ? 'Unmute' : 'Mute'}
           aria-label={isMuted ? 'Unmute' : 'Mute'}
         >
-          {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
         </button>
       </div>
     </div>

@@ -4,7 +4,7 @@ import {
   ArrowLeft, Search, X, ThumbsUp, ThumbsDown, Share2, 
   Bookmark, Bell, MoreVertical, MoreHorizontal, RotateCw, AlertTriangle, RefreshCw,
   FileText, Download, BookOpen, MessageSquare, Play, Check, ChevronRight, ChevronDown,
-  Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Send
+  Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Send, Heart, MessageCircle, Repeat2
 } from 'lucide-react';
 import { Profile } from '../types';
 import { CustomVideoPlayer, CustomVideoPlayerRef, loadYouTubeIframeApi } from './CustomVideoPlayer';
@@ -118,6 +118,26 @@ const timeAgo = (dateString?: string): string => {
   if (months < 12) return `${months}mo ago`;
   const years = Math.floor(months / 12);
   return `${years}y ago`;
+};
+
+// Helper: Full human-readable relative time (e.g. "20 hours ago")
+const timeAgoLong = (dateString?: string): string => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '';
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (seconds < 60) return 'Just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+  const years = Math.floor(months / 12);
+  return `${years} ${years === 1 ? 'year' : 'years'} ago`;
 };
 
 // Helper: Parse timestamp (e.g. "15:30" or "1:05:20") into total seconds
@@ -253,6 +273,110 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
   const [isDescOpen, setIsDescOpen] = useState(false);
   const [isFollowed, setIsFollowed] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Home Feed Card Social Interactions (persisted per user session/device)
+  const [feedLikedIds, setFeedLikedIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('raftaar_feed_likes');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  const [feedSavedIds, setFeedSavedIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('raftaar_feed_saved');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  const [feedRepostedIds, setFeedRepostedIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('raftaar_feed_reposts');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  const [feedShareCounts, setFeedShareCounts] = useState<Record<string, number>>({});
+  const [expandedCaptionIds, setExpandedCaptionIds] = useState<Set<string>>(() => new Set());
+  const [openCardMenuId, setOpenCardMenuId] = useState<string | null>(null);
+
+  const toggleFeedLike = (vidId: string) => {
+    setFeedLikedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(vidId)) {
+        next.delete(vidId);
+      } else {
+        next.add(vidId);
+      }
+      try {
+        localStorage.setItem('raftaar_feed_likes', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
+  const toggleFeedSave = (vidId: string) => {
+    setFeedSavedIds(prev => {
+      const next = new Set(prev);
+      const willSave = !next.has(vidId);
+      if (willSave) {
+        next.add(vidId);
+        showToast('Saved to Watch Later');
+      } else {
+        next.delete(vidId);
+        showToast('Removed from Saved');
+      }
+      try {
+        localStorage.setItem('raftaar_feed_saved', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
+  const toggleFeedRepost = (vidId: string) => {
+    setFeedRepostedIds(prev => {
+      const next = new Set(prev);
+      const willRepost = !next.has(vidId);
+      if (willRepost) {
+        next.add(vidId);
+        showToast('Added to Quick Revision');
+      } else {
+        next.delete(vidId);
+        showToast('Removed from Quick Revision');
+      }
+      try {
+        localStorage.setItem('raftaar_feed_reposts', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
+  const handleFeedShare = (vid: VideoItem) => {
+    const shareUrl = `https://youtu.be/${vid.id}`;
+    setFeedShareCounts(prev => ({ ...prev, [vid.id]: (prev[vid.id] || 0) + 1 }));
+    if (navigator.share) {
+      navigator.share({
+        title: decodeHtml(vid.title),
+        text: `Watch ${decodeHtml(vid.title)} on Raftaar`,
+        url: shareUrl
+      }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(shareUrl);
+      showToast('Video link copied');
+    }
+  };
+
+  const toggleExpandCaption = (vidId: string) => {
+    setExpandedCaptionIds(prev => {
+      const next = new Set(prev);
+      if (next.has(vidId)) next.delete(vidId);
+      else next.add(vidId);
+      return next;
+    });
+  };
 
   // Active Playlist Context for Watch Screen (when watching video from a playlist)
   const [activePlaylistContext, setActivePlaylistContext] = useState<{
@@ -2114,58 +2238,98 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
               </div>
             )}
 
-            {/* Video Cards Grid: Full-bleed on mobile, spaced sharp grid on desktop */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-2 sm:gap-4 sm:p-4 pt-1.5">
+            {/* Video Cards Grid: Instagram-style full-bleed feed on mobile, structured multi-column grid on desktop */}
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-0 sm:gap-5 sm:p-4 pt-1"
+              onClick={() => {
+                if (openCardMenuId) setOpenCardMenuId(null);
+              }}
+            >
               {loading && videos.length === 0 ? (
-                /* Skeleton loader matching Header -> Full-bleed Media -> Title */
+                /* Skeleton loader matching Header -> Full-bleed Media -> Action Row -> Caption & Time */
                 Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="flex flex-col w-full animate-pulse">
-                    <div className="px-3.5 py-2.5 flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-800 shrink-0" />
+                  <div key={i} className="flex flex-col w-full animate-pulse border-b border-neutral-100 dark:border-neutral-900 sm:border sm:rounded-xl sm:overflow-hidden">
+                    <div className="px-3 py-2.5 flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 shrink-0" />
                       <div className="flex-1 min-w-0 space-y-1.5">
                         <div className="h-3.5 bg-neutral-200 dark:bg-neutral-800 rounded w-1/3" />
-                        <div className="h-3 bg-neutral-200 dark:bg-neutral-800 rounded w-1/4" />
+                        <div className="h-2.5 bg-neutral-200 dark:bg-neutral-800 rounded w-1/5" />
                       </div>
                     </div>
                     <div className="w-full aspect-video bg-neutral-200 dark:bg-neutral-800" />
-                    <div className="px-3.5 pt-2.5 pb-4 space-y-2">
-                      <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-full" />
-                      <div className="h-4 bg-neutral-200 dark:bg-neutral-800 rounded w-3/4" />
+                    <div className="px-3 pt-2.5 pb-1.5 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-5 w-12 bg-neutral-200 dark:bg-neutral-800 rounded" />
+                        <div className="h-5 w-5 bg-neutral-200 dark:bg-neutral-800 rounded-full" />
+                        <div className="h-5 w-8 bg-neutral-200 dark:bg-neutral-800 rounded" />
+                        <div className="h-5 w-8 bg-neutral-200 dark:bg-neutral-800 rounded" />
+                      </div>
+                      <div className="h-5 w-5 bg-neutral-200 dark:bg-neutral-800 rounded" />
+                    </div>
+                    <div className="px-3 pt-1 pb-4 space-y-2">
+                      <div className="h-3.5 bg-neutral-200 dark:bg-neutral-800 rounded w-11/12" />
+                      <div className="h-2.5 bg-neutral-200 dark:bg-neutral-800 rounded w-2/5" />
                     </div>
                   </div>
                 ))
               ) : videos.length > 0 ? (
                 videos.map((vid, idx) => {
                   const isInlineActive = activePreviewVideoId === vid.id;
+                  const isFeedLiked = feedLikedIds.has(vid.id);
+                  const isFeedSaved = feedSavedIds.has(vid.id);
+                  const isFeedReposted = feedRepostedIds.has(vid.id);
+                  const isCaptionExpanded = expandedCaptionIds.has(vid.id);
+                  const isMenuOpen = openCardMenuId === vid.id;
+
+                  const baseLikes = typeof vid.likeCount === 'number' ? vid.likeCount : 0;
+                  const displayLikes = baseLikes + (isFeedLiked ? 1 : 0);
+                  const displayReposts = isFeedReposted ? 1 : 0;
+                  const displayShares = feedShareCounts[vid.id] || 0;
+
+                  const decodedTitle = decodeHtml(vid.title);
+                  const decodedDesc = decodeHtml(vid.description);
+                  const shouldTruncate = decodedTitle.length > 62 || Boolean(decodedDesc);
+                  const previewTitle =
+                    !isCaptionExpanded && decodedTitle.length > 62
+                      ? decodedTitle.slice(0, 62).trimEnd()
+                      : decodedTitle;
+
+                  const headerSubtitle = vid.subject
+                    ? vid.viewCount !== undefined
+                      ? `${vid.subject} · ${formatViews(vid.viewCount)}`
+                      : vid.subject
+                    : vid.viewCount !== undefined
+                    ? formatViews(vid.viewCount)
+                    : 'Study Lecture';
+
+                  const openChannelHandler = (e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    if (vid.channelId) handleOpenChannel(vid.channelId);
+                  };
 
                   return (
-                    <div
+                    <article
                       key={`${vid.id}-${idx}`}
-                      className="flex flex-col w-full"
+                      className="flex flex-col w-full bg-white dark:bg-[#0f0f0f] border-b border-neutral-100 dark:border-neutral-900 sm:border sm:border-neutral-200/80 sm:dark:border-neutral-800/80 sm:rounded-xl sm:overflow-hidden"
                     >
-                      {/* 1. HEADER ROW (Above Video): Avatar (lg) + Channel & Views•Time + MoreHorizontal */}
-                      <div className="px-3.5 py-2.5 flex items-center gap-3">
+                      {/* 1. POST HEADER: Avatar + Bold Channel & Subtitle + Minimal 2-line Menu */}
+                      <div className="px-3 py-2.5 flex items-center gap-2.5 relative">
                         <ChannelAvatar
                           avatar={vid.channelAvatar}
                           title={vid.channelTitle}
-                          size="lg"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (vid.channelId) handleOpenChannel(vid.channelId);
-                          }}
+                          size="md"
+                          className="ring-1 ring-black/10 dark:ring-white/15"
+                          onClick={openChannelHandler}
                         />
 
                         <div className="flex-1 min-w-0">
                           <div
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (vid.channelId) handleOpenChannel(vid.channelId);
-                            }}
+                            onClick={openChannelHandler}
                             style={{
                               fontFamily:
                                 '"Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
                             }}
-                            className="font-semibold text-[13px] tracking-[-0.012em] text-[#0f0f0f] dark:text-white truncate cursor-pointer hover:underline leading-[1.2]"
+                            className="font-semibold text-[13.5px] tracking-[-0.012em] text-[#0f0f0f] dark:text-white truncate cursor-pointer hover:underline leading-[1.2]"
                           >
                             {vid.channelTitle}
                           </div>
@@ -2174,28 +2338,92 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
                               fontFamily:
                                 '"Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
                             }}
-                            className="text-[11px] font-normal tracking-[-0.005em] text-[#737373] dark:text-neutral-400 truncate mt-0.5 leading-[1.2]"
+                            className="text-[11.5px] font-normal tracking-[-0.005em] text-[#262626] dark:text-neutral-300 truncate mt-[2px] leading-[1.2]"
                           >
-                            {vid.viewCount !== undefined
-                              ? `${formatViews(vid.viewCount)} • ${timeAgo(vid.publishedAt)}`
-                              : timeAgo(vid.publishedAt)}
+                            {headerSubtitle}
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            showToast('Options: Share & Save');
-                          }}
-                          className="w-6 h-6 flex items-center justify-center text-[#0f0f0f] dark:text-white shrink-0 rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
-                          aria-label="More options"
-                        >
-                          <MoreHorizontal size={20} />
-                        </button>
+                        {/* Minimal two-bar menu icon matching reference image */}
+                        <div className="relative shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenCardMenuId(isMenuOpen ? null : vid.id);
+                            }}
+                            className="w-9 h-9 -mr-1.5 flex items-center justify-center text-[#0f0f0f] dark:text-white rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
+                            aria-label="More options"
+                            aria-expanded={isMenuOpen}
+                          >
+                            <svg
+                              width="19"
+                              height="19"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.1"
+                              strokeLinecap="round"
+                              aria-hidden="true"
+                            >
+                              <line x1="4" y1="8.5" x2="20" y2="8.5" />
+                              <line x1="4" y1="15.5" x2="14.5" y2="15.5" />
+                            </svg>
+                          </button>
+
+                          {isMenuOpen && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 top-9 z-40 w-44 rounded-xl bg-white dark:bg-[#1e1e1e] border border-neutral-200 dark:border-neutral-800 shadow-xl py-1 text-[13px] font-medium text-[#0f0f0f] dark:text-neutral-100"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenCardMenuId(null);
+                                  handleSelectVideo(vid);
+                                }}
+                                className="w-full px-3.5 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                              >
+                                Watch lecture
+                              </button>
+                              {vid.channelId && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenCardMenuId(null);
+                                    handleOpenChannel(vid.channelId);
+                                  }}
+                                  className="w-full px-3.5 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                                >
+                                  Open channel
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenCardMenuId(null);
+                                  toggleFeedSave(vid.id);
+                                }}
+                                className="w-full px-3.5 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                              >
+                                {isFeedSaved ? 'Remove from Saved' : 'Save video'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenCardMenuId(null);
+                                  handleFeedShare(vid);
+                                }}
+                                className="w-full px-3.5 py-2 text-left hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                              >
+                                Share link
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
-                      {/* 2. MEDIA (Full-Bleed 16:9, Zero Rounding, Zero Shadow; IntersectionObserver target) */}
+                      {/* 2. MEDIA (Full-Bleed 16:9, Top-Right Timer, Bottom-Left Channel Tag, Bottom-Right Mute) */}
                       <div
                         data-video-id={vid.id}
                         ref={(el) => {
@@ -2212,6 +2440,7 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
                             durationStr={vid.duration}
                             durationSeconds={vid.durationSeconds}
                             onSelect={(currentTime) => handleSelectVideo(vid, null, currentTime)}
+                            onOpenChannel={vid.channelId ? openChannelHandler : undefined}
                           />
                         ) : (
                           <div
@@ -2224,28 +2453,210 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
                               duration={vid.duration}
                               priority={idx < 3}
                               flush
+                              timerPosition="top-right"
+                              onOpenChannel={vid.channelId ? openChannelHandler : undefined}
                               imgClassName="rounded-none"
                             />
                           </div>
                         )}
                       </div>
 
-                      {/* 3. TITLE (Below Video): Small crisp slightly-bold text matching reference image for both English & Hindi */}
-                      <div
-                        onClick={() => handleSelectVideo(vid)}
-                        className="px-3.5 pt-2.5 pb-4 cursor-pointer"
-                      >
-                        <h3
+                      {/* 3. ENGAGEMENT ACTION ROW (Heart + count, Comment, Repost, Send, right-aligned Bookmark) */}
+                      <div className="px-3 pt-2 pb-1 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          {/* Like / Heart */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFeedLike(vid.id);
+                            }}
+                            className="min-h-[36px] flex items-center gap-1.5 text-[#0f0f0f] dark:text-white active:scale-90 transition-transform"
+                            aria-label={isFeedLiked ? 'Unlike video' : 'Like video'}
+                          >
+                            <Heart
+                              size={22}
+                              strokeWidth={1.9}
+                              className={
+                                isFeedLiked
+                                  ? 'fill-[#ff3040] text-[#ff3040]'
+                                  : 'text-[#0f0f0f] dark:text-white'
+                              }
+                            />
+                            {displayLikes > 0 && (
+                              <span
+                                className="text-[13px] font-semibold tabular-nums leading-none"
+                                style={{ fontFamily: "'Inter', sans-serif" }}
+                              >
+                                {formatCount(displayLikes)}
+                              </span>
+                            )}
+                          </button>
+
+                          {/* Comment -> opens watch screen with comments open */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectVideo(vid);
+                              setIsCommentsOpen(true);
+                            }}
+                            className="min-h-[36px] min-w-[32px] flex items-center justify-center text-[#0f0f0f] dark:text-white active:scale-90 transition-transform"
+                            aria-label="Open comments"
+                          >
+                            <MessageCircle size={21} strokeWidth={1.9} />
+                          </button>
+
+                          {/* Repost / Quick Revision */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFeedRepost(vid.id);
+                            }}
+                            className={`min-h-[36px] flex items-center gap-1.5 active:scale-90 transition-transform ${
+                              isFeedReposted
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-[#0f0f0f] dark:text-white'
+                            }`}
+                            aria-label={isFeedReposted ? 'Remove from quick revision' : 'Add to quick revision'}
+                          >
+                            <Repeat2 size={22} strokeWidth={1.9} />
+                            {displayReposts > 0 && (
+                              <span
+                                className="text-[13px] font-semibold tabular-nums leading-none"
+                                style={{ fontFamily: "'Inter', sans-serif" }}
+                              >
+                                {displayReposts}
+                              </span>
+                            )}
+                          </button>
+
+                          {/* Share / Send */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFeedShare(vid);
+                            }}
+                            className="min-h-[36px] flex items-center gap-1.5 text-[#0f0f0f] dark:text-white active:scale-90 transition-transform"
+                            aria-label="Share video"
+                          >
+                            <Send size={20} strokeWidth={1.9} />
+                            {displayShares > 0 && (
+                              <span
+                                className="text-[13px] font-semibold tabular-nums leading-none"
+                                style={{ fontFamily: "'Inter', sans-serif" }}
+                              >
+                                {displayShares}
+                              </span>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Bookmark / Save */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFeedSave(vid.id);
+                          }}
+                          className="min-h-[36px] min-w-[36px] -mr-1.5 flex items-center justify-center text-[#0f0f0f] dark:text-white active:scale-90 transition-transform"
+                          aria-label={isFeedSaved ? 'Remove bookmark' : 'Bookmark video'}
+                        >
+                          <Bookmark
+                            size={21}
+                            strokeWidth={1.9}
+                            className={isFeedSaved ? 'fill-current' : ''}
+                          />
+                        </button>
+                      </div>
+
+                      {/* 4. INLINE CAPTION / TITLE (Bold channel handle + title + inline '... more') */}
+                      <div className="px-3 pb-1">
+                        <p
                           style={{
                             fontFamily:
                               '"Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
                           }}
-                          className="text-[13px] font-medium tracking-[-0.01em] leading-[1.35] line-clamp-2 text-[#0f0f0f] dark:text-neutral-100 break-words"
+                          className="text-[13px] leading-[1.38] tracking-[-0.01em] text-[#0f0f0f] dark:text-neutral-100 break-words"
                         >
-                          {decodeHtml(vid.title)}
-                        </h3>
+                          <span
+                            onClick={openChannelHandler}
+                            className="font-semibold text-[#0f0f0f] dark:text-white mr-1.5 cursor-pointer hover:underline"
+                          >
+                            {vid.channelTitle}
+                          </span>
+                          <span
+                            onClick={() => handleSelectVideo(vid)}
+                            className="font-normal cursor-pointer"
+                          >
+                            {previewTitle}
+                          </span>
+                          {shouldTruncate && !isCaptionExpanded && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpandCaption(vid.id);
+                              }}
+                              className="text-[#737373] dark:text-neutral-400 font-normal ml-0.5 hover:text-[#0f0f0f] dark:hover:text-neutral-200"
+                            >
+                              ... more
+                            </button>
+                          )}
+                        </p>
+
+                        {isCaptionExpanded && (
+                          <div className="mt-1 space-y-1">
+                            {decodedDesc && (
+                              <p
+                                style={{
+                                  fontFamily:
+                                    '"Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+                                }}
+                                className="text-[12.5px] leading-[1.4] text-[#404040] dark:text-neutral-300 line-clamp-4 break-words"
+                              >
+                                {decodedDesc}
+                              </p>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpandCaption(vid.id);
+                              }}
+                              className="text-[12px] text-[#737373] dark:text-neutral-400 hover:text-[#0f0f0f] dark:hover:text-neutral-200"
+                            >
+                              Show less
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    </div>
+
+                      {/* 5. FOOTER TIMESTAMP & WATCH ACTION (matching "20 hours ago • See translation") */}
+                      <div
+                        style={{
+                          fontFamily:
+                            '"Inter", "Noto Sans Devanagari", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
+                        }}
+                        className="px-3 pt-0.5 pb-4 flex items-center gap-1.5 text-[11.5px] leading-[1.25]"
+                      >
+                        <span className="text-[#737373] dark:text-neutral-400">
+                          {timeAgoLong(vid.publishedAt) || 'Recently uploaded'}
+                        </span>
+                        <span className="text-[#737373] dark:text-neutral-400" aria-hidden="true">
+                          •
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectVideo(vid)}
+                          className="font-medium text-[#0f0f0f] dark:text-neutral-200 hover:underline"
+                        >
+                          Watch lecture
+                        </button>
+                      </div>
+                    </article>
                   );
                 })
               ) : !hasApiError ? (
