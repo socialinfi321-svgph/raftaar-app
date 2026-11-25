@@ -15,6 +15,7 @@ import {
 
 export interface CustomVideoPlayerRef {
   seekTo: (seconds: number) => void;
+  getDuration: () => number;
 }
 
 export interface CustomVideoPlayerProps {
@@ -132,8 +133,19 @@ const CustomVideoPlayerComponent = forwardRef<CustomVideoPlayerRef, CustomVideoP
       }
     };
 
+    const getDuration = (): number => {
+      try {
+        if (playerInstanceRef.current && typeof playerInstanceRef.current.getDuration === 'function') {
+          const d = Number(playerInstanceRef.current.getDuration());
+          if (Number.isFinite(d) && d > 0) return Math.round(d);
+        }
+      } catch {}
+      return 0;
+    };
+
     useImperativeHandle(ref, () => ({
-      seekTo
+      seekTo,
+      getDuration
     }), []);
 
     useEffect(() => {

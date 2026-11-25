@@ -1,0 +1,1903 @@
+/* =====================================================================
+ * Raftaar - AI Lecture Notes & Quiz Engine        (src/VideoNotesMVP.tsx)
+ *
+ * Pipeline (1-3 ghante ke lectures ke liye):
+ *   1. ANALYZE : video ko 10-min chunks mein todo, parallel (bounded) Gemini
+ *                calls, har chunk ka concept-wise "digest" (verbatim nahi)
+ *   2. OUTLINE : digests se chapters (text-only, halka)
+ *   3. NOTES   : har chapter ke student-style notes + mind map + MCQs (parallel)
+ *   4. IMAGES  : board ke important diagrams, video clip dekh kar AI se (optional)
+ *
+ * Har step ka result IndexedDB mein cache hota hai -> beech mein fail/refresh
+ * ho toh dobara Generate dabane par wahin se resume hota hai.
+ * ===================================================================== */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { GoogleGenAI, Type } from '@google/genai';
+
+/* ===================== CONFIG (yahin se tune karo) ===================== */
+const CONFIG = {
+  // Apne AI Studio ke model list se exact active names rakhna
+  MODELS: ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-2.5-flash-lite'],
+  IMAGE_MODEL: 'gemini-2.5-flash-image',
+  CHUNK_SEC: 600, // 10 minute ka chunk
+  CONCURRENCY: 4, // ek saath kitne video chunks (429 aaye toh 2-3 karo)
+  CHAPTER_CONCURRENCY: 3,
+  IMAGE_CONCURRENCY: 2,
+  MAX_VISUALS: 20, // ek video mein max AI diagrams
+  VIDEO_RES: 'MEDIA_RESOLUTION_LOW', // lecture mein awaaz zyada zaroori hai
+  // Image ke andar labels: Hindi galat aaye toh 'english' kar do
+  IMAGE_LABELS: 'original' as 'original' | 'english',
+  CACHE_V: 'raftaar:v7',
+};
+
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+
+/* ============================== Types ============================== */
+interface Segment {
+  t: number;
+  title: string;
+  summary: string;
+  definition?: string;
+  intuition?: string;
+  examples?: string[];
+  formulas?: string[];
+  important?: string;
+}
+interface BoardItem {
+  id: string;
+  t: number;
+  best_t: number;
+  title: string;
+  kind: string;
+  description: string;
+  importance: number;
+}
+type Medium = 'english' | 'hindi' | 'hinglish';
+interface LangMeta { detected_medium: Medium; detected_subject: string; detected_board: string }
+interface ChunkDigest { segments: Segment[]; board: BoardItem[]; meta?: LangMeta }
+type LangMode = 'auto' | 'english' | 'hindi';
+type SubjectHint = 'auto' | 'english' | 'science' | 'social';
+interface LangProfile { medium: Medium; pureEnglish: boolean; subject: string; board: string; key: string }
+interface UILabels { mind: string; def: string; intu: string; ex: string; imp: string; terms: string; rev: string }
+interface Chapter { title: string; start_sec: number; end_sec: number }
+interface NoteSection {
+  heading: string;
+  start_sec: number;
+  definition?: string;
+  intuition?: string;
+  points: string[];
+  examples?: string[];
+  formulas?: string[];
+  exam_tip?: string;
+}
+interface Term { term: string; meaning: string }
+interface MindMapData { center: string; branches: { label: string; children: string[] }[] }
+interface ChapterContent {
+  intro?: string;
+  sections: NoteSection[];
+  terms: Term[];
+  important_points: string[];
+  quick_revision: string[];
+  mindmap?: MindMapData;
+}
+interface ChapterNotes extends ChapterContent, Chapter { board_visuals: BoardItem[] }
+interface MCQ {
+  id: string;
+  question: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
+  timestamp_seconds: number;
+  chapter: string;
+}
+interface VisualPlan { needs_image: boolean; reason: string; image_prompt: string; labels: string[] }
+interface GeneratedVisual { kind: 'img' | 'svg'; content: string; caption: string }
+type CachedVisual = GeneratedVisual | { skip: true };
+type ChunkState = 'pending' | 'running' | 'done' | 'cached' | 'failed';
+type Phase = 'idle' | 'analyze' | 'outline' | 'notes' | 'images' | 'done';
+
+/* ============================ Utilities ============================ */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function extractVideoId(url: string): string | null {
+  const m = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function fmt(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
+  return `${h > 0 ? h + ':' : ''}${mm}:${String(r).padStart(2, '0')}`;
+}
+
+function parseJson(text: string | undefined) {
+  const clean = (text || '').replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+function tokenSet(s: string): Set<string> {
+  return new Set(
+    s
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 1)
+  );
+}
+function isSimilar(a: Set<string>, b: Set<string>): boolean {
+  if (!a.size || !b.size) return false;
+  let inter = 0;
+  a.forEach((w) => {
+    if (b.has(w)) inter++;
+  });
+  return inter / (a.size + b.size - inter) > 0.72;
+}
+
+function sanitizeSvg(raw: string): string | null {
+  const clean = raw
+    .replace(/```svg|```html|```/gi, '')
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+    .replace(/\son\w+="[^"]*"/gi, '')
+    .trim();
+  const match = clean.match(/<svg[\s\S]*<\/svg>/i);
+  return match ? match[0] : null;
+}
+
+/* ================= Language / medium / subject logic ================= */
+const DEFAULT_META: LangMeta = { detected_medium: 'hinglish', detected_subject: 'General', detected_board: 'Unknown' };
+
+function slug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24) || 'general';
+}
+
+// Notes ki bhasha: teacher ka asli medium + subject + user ka choice
+function resolveLang(mode: LangMode, subjHint: SubjectHint, meta: LangMeta): LangProfile {
+  const subject =
+    subjHint === 'english'
+      ? 'English'
+      : subjHint === 'science'
+      ? 'Science / Maths'
+      : subjHint === 'social'
+      ? 'Social Science / Other'
+      : meta.detected_subject || 'General';
+  const pureEnglish =
+    subjHint === 'english' || (subjHint === 'auto' && /english/i.test(meta.detected_subject) && !/hindi/i.test(meta.detected_subject));
+  let medium: Medium;
+  if (pureEnglish) medium = 'english';
+  else if (mode === 'english') medium = 'english';
+  else if (mode === 'hindi') medium = 'hindi';
+  else medium = meta.detected_medium;
+  return { medium, pureEnglish, subject, board: meta.detected_board || 'Unknown', key: `${medium}:${slug(subject)}` };
+}
+
+function languageRules(l: LangProfile): string {
+  const base = `LANGUAGE RULES (very important):
+- Subject: ${l.subject}. Board: ${l.board}. Language of the notes: ${l.medium.toUpperCase()}.
+- Whatever definition, term or line the teacher said in a particular language, write it in that same language. If he said it in English, keep it in English - never convert it into Hinglish or Hindi.
+- Keep formulas, symbols, units and numbers exactly as they are.`;
+  if (l.pureEnglish) {
+    return `${base}
+- This is an English-language subject (grammar, prose, poetry, writing etc.). Write EVERYTHING in clear English: headings, definitions, points, intuition, examples, terms, mind map and MCQs (question, options, explanation). No Hindi, no Hinglish, no Devanagari.`;
+  }
+  if (l.medium === 'english') {
+    return `${base}
+- ENGLISH MEDIUM: headings, definitions, formulas, keywords, key points, mind map labels and ALL MCQ text (question, options, explanation) must be strictly in English.
+- Only in "intuition" and "examples": if the teacher explained in simple Hinglish (Roman script), you may keep that casual Hinglish phrasing so it stays natural for the student, but the key terms stay in English. Never use Devanagari.`;
+  }
+  if (l.medium === 'hindi') {
+    return `${base}
+- HINDI MEDIUM: write in Hindi (Devanagari script) only - headings, definitions, points, intuition, examples and MCQs (question, options, explanation). No Roman-script Hindi.
+- Whenever the teacher used an English term (e.g. Force, Velocity, Noun), keep it next to the Hindi word in brackets, like: बल (Force), so the student can connect both.
+- If the teacher spoke a definition or sentence in English, write that sentence in English.`;
+  }
+  return `${base}
+- HINGLISH: write simple Hindi in Roman script mixed with English technical words, the way the teacher speaks. Definitions or terms the teacher said in English stay in English. MCQs should also be in the same easy Hinglish, with technical terms in English.`;
+}
+
+const UI: Record<Medium, UILabels> = {
+  english: { mind: 'Mind Map', def: 'Definition', intu: 'Understand it like this', ex: 'Example', imp: 'Teacher said: Remember this!', terms: 'Keywords', rev: 'Quick Revision' },
+  hindi: { mind: 'माइंड मैप', def: 'परिभाषा', intu: 'ऐसे समझो', ex: 'उदाहरण', imp: 'शिक्षक ने कहा: याद रखो!', terms: 'मुख्य शब्द', rev: 'त्वरित दोहराव' },
+  hinglish: { mind: 'Mind Map', def: 'Definition', intu: 'Aise samjho', ex: 'Example', imp: 'Teacher ne bola: Yaad rakho!', terms: 'Keywords', rev: 'Quick Revision' },
+};
+const MEDIUM_NAME: Record<Medium, string> = { english: 'English', hindi: 'Hindi (Devanagari)', hinglish: 'Hinglish' };
+
+// Video ka title (best-effort; fail ho toh khali). Language/board pehchanne mein madad karta hai.
+async function fetchTitle(videoId: string): Promise<string> {
+  try {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), 4000);
+    const r = await fetch(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}&format=json`,
+      { signal: ctl.signal }
+    );
+    clearTimeout(to);
+    if (!r.ok) return '';
+    const j = await r.json();
+    return String(j.title || '');
+  } catch {
+    return '';
+  }
+}
+
+function metaPrompt(): string {
+  return `
+
+LANGUAGE / SUBJECT DETECTION (sirf is pehle hisse ke liye, "meta" field mein):
+- "detected_medium": teacher kis bhasha mein padha raha hai - "english" (zyadatar English), "hindi" (zyadatar Hindi, English terms kam) ya "hinglish" (Hindi + English ka mix).
+- "detected_subject": subject ka naam 1-3 shabd mein (jaise English, Physics, Chemistry, Maths, History, Civics).
+- "detected_board": "BSEB", "CBSE", "NCERT", "Other" ya "Unknown" - video, title, slides ya board ke hisaab se.`;
+}
+
+/* ---------- IndexedDB cache (3 ghante ke data ke liye localStorage kam padta hai) ---------- */
+function idbOpen(): Promise<IDBDatabase> {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('raftaar-cache', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function cget<T>(k: string): Promise<T | null> {
+  try {
+    const db = await idbOpen();
+    return await new Promise<T | null>((res) => {
+      const q = db.transaction('kv').objectStore('kv').get(k);
+      q.onsuccess = () => res((q.result as T) ?? null);
+      q.onerror = () => res(null);
+    });
+  } catch {
+    return null;
+  }
+}
+async function cset(k: string, v: unknown) {
+  try {
+    const db = await idbOpen();
+    await new Promise<void>((res) => {
+      const tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(v, k);
+      tx.oncomplete = () => res();
+      tx.onerror = () => res();
+    });
+  } catch {
+    /* cache fail hua toh bhi kaam chalta rahe */
+  }
+}
+async function cclear() {
+  try {
+    const db = await idbOpen();
+    await new Promise<void>((res) => {
+      const tx = db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').clear();
+      tx.oncomplete = () => res();
+      tx.onerror = () => res();
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+/* ---------- Bounded concurrency pool ---------- */
+type Stop = { current: boolean };
+async function runPool<T>(items: T[], limit: number, worker: (item: T, i: number) => Promise<void>, stop: Stop) {
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (!stop.current) {
+      const i = next++;
+      if (i >= items.length) return;
+      await worker(items[i], i);
+    }
+  });
+  await Promise.all(runners);
+}
+
+/* ---------- Gemini call: shared cooldown + retry + model fallback ---------- */
+let pauseUntil = 0; // 429/503 par saare workers ek saath ruk jaate hain
+async function callGemini(contents: any, config: any, stop: Stop, models: string[] = CONFIG.MODELS) {
+  const waits = [3000, 8000, 16000];
+  let lastError: any;
+  for (const model of models) {
+    for (let i = 0; i <= waits.length; i++) {
+      if (stop.current) throw new Error('CANCELLED');
+      const w = pauseUntil - Date.now();
+      if (w > 0) await sleep(w);
+      try {
+        return await ai.models.generateContent({ model, contents, config });
+      } catch (e: any) {
+        lastError = e;
+        const msg = String(e?.message || '');
+        if (/404|NOT_FOUND/.test(msg)) break; // model band, agla model
+        const retryable = /503|UNAVAILABLE|429|RESOURCE_EXHAUSTED|500|INTERNAL|fetch failed|Failed to fetch/i.test(msg);
+        if (!retryable) throw e;
+        if (i < waits.length) {
+          const wait = waits[i] + Math.random() * 1500;
+          pauseUntil = Math.max(pauseUntil, Date.now() + wait);
+          continue;
+        }
+        break; // is model par retries khatam, agla model
+      }
+    }
+  }
+  throw lastError;
+}
+
+/* ============================== Schemas ============================== */
+const S = Type.STRING;
+const strArr = { type: Type.ARRAY, items: { type: S } };
+
+const digestSchema = {
+  type: Type.OBJECT,
+  properties: {
+    segments: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          t: { type: Type.INTEGER },
+          title: { type: S },
+          summary: { type: S },
+          definition: { type: S },
+          intuition: { type: S },
+          examples: strArr,
+          formulas: strArr,
+          important: { type: S },
+        },
+        required: ['t', 'title', 'summary'],
+      },
+    },
+    board: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          t: { type: Type.INTEGER },
+          best_t: { type: Type.INTEGER },
+          title: { type: S },
+          kind: { type: S },
+          description: { type: S },
+          importance: { type: Type.INTEGER },
+        },
+        required: ['t', 'best_t', 'title', 'description'],
+      },
+    },
+  },
+  required: ['segments', 'board'],
+};
+
+const metaSchema = {
+  type: Type.OBJECT,
+  properties: {
+    detected_medium: { type: S, enum: ['english', 'hindi', 'hinglish'] },
+    detected_subject: { type: S },
+    detected_board: { type: S },
+  },
+  required: ['detected_medium', 'detected_subject', 'detected_board'],
+};
+const digestSchemaWithMeta = {
+  ...digestSchema,
+  properties: { ...digestSchema.properties, meta: metaSchema },
+  required: [...digestSchema.required, 'meta'],
+};
+
+const outlineSchema = {
+  type: Type.OBJECT,
+  properties: {
+    chapters: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: S },
+          start_sec: { type: Type.INTEGER },
+          end_sec: { type: Type.INTEGER },
+        },
+        required: ['title', 'start_sec', 'end_sec'],
+      },
+    },
+  },
+  required: ['chapters'],
+};
+
+const chapterSchema = {
+  type: Type.OBJECT,
+  properties: {
+    intro: { type: S },
+    sections: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          heading: { type: S },
+          start_sec: { type: Type.INTEGER },
+          definition: { type: S },
+          intuition: { type: S },
+          points: strArr,
+          examples: strArr,
+          formulas: strArr,
+          exam_tip: { type: S },
+        },
+        required: ['heading', 'start_sec', 'points'],
+      },
+    },
+    terms: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: { term: { type: S }, meaning: { type: S } },
+        required: ['term', 'meaning'],
+      },
+    },
+    important_points: strArr,
+    quick_revision: strArr,
+    mindmap: {
+      type: Type.OBJECT,
+      properties: {
+        center: { type: S },
+        branches: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: { label: { type: S }, children: strArr },
+            required: ['label', 'children'],
+          },
+        },
+      },
+      required: ['center', 'branches'],
+    },
+    mcqs: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: S },
+          options: strArr,
+          correct_index: { type: Type.INTEGER },
+          explanation: { type: S },
+          timestamp_seconds: { type: Type.INTEGER },
+        },
+        required: ['question', 'options', 'correct_index', 'explanation'],
+      },
+    },
+  },
+  required: ['sections', 'mcqs'],
+};
+
+const planSchema = {
+  type: Type.OBJECT,
+  properties: {
+    needs_image: { type: Type.BOOLEAN },
+    reason: { type: S },
+    image_prompt: { type: S },
+    labels: strArr,
+  },
+  required: ['needs_image', 'reason', 'image_prompt', 'labels'],
+};
+
+/* =================== STEP 1: chunk digest (video dekhta hai) =================== */
+function normalizeDigest(data: any, start: number, end: number): ChunkDigest {
+  const len = end - start;
+  const m = data.meta;
+  const meta: LangMeta | undefined = m
+    ? {
+        detected_medium: (['english', 'hindi', 'hinglish'] as Medium[]).includes(m.detected_medium) ? m.detected_medium : 'hinglish',
+        detected_subject: String(m.detected_subject || 'General'),
+        detected_board: String(m.detected_board || 'Unknown'),
+      }
+    : undefined;
+  const segs: Segment[] = (data.segments || []).filter((s: Segment) => s && s.title && s.summary);
+  const board: BoardItem[] = (data.board || []).filter((b: BoardItem) => b && b.title);
+  let maxT = 0;
+  segs.forEach((s) => (maxT = Math.max(maxT, s.t || 0)));
+  board.forEach((b) => (maxT = Math.max(maxT, b.t || 0, b.best_t || 0)));
+  // Gemini kabhi clip-relative, kabhi absolute seconds deta hai
+  const off = start > 0 && maxT > len + 5 ? 0 : start;
+  const fix = (v: number) => clamp(Math.round((v || 0) + off), start, end);
+  return {
+    meta,
+    segments: segs.map((s) => ({ ...s, t: fix(s.t) })),
+    board: board.map((b) => {
+      const bt = fix(b.best_t || b.t);
+      return {
+        ...b,
+        id: `b${bt}`,
+        t: fix(b.t),
+        best_t: bt,
+        kind: b.kind || 'diagram',
+        importance: clamp(Math.round(b.importance || 2), 1, 3),
+      };
+    }),
+  };
+}
+
+async function fetchDigest(
+  videoUrl: string,
+  start: number,
+  end: number,
+  stop: Stop,
+  opts: { title: string; withMeta: boolean },
+  depth = 0
+): Promise<ChunkDigest> {
+  const prompt = `Tum ek dhyaan se padhne wale topper student ho. Is lecture ke ${fmt(start)} se ${fmt(end)} wale hisse ko dhyan se SUNO aur DEKHO.${opts.title ? `\nVideo title (hint): ${opts.title}` : ''}
+
+Is hisse ko concept-wise "segments" mein todo (har segment = ek topic/concept/example, lagbhag 1-3 minute). Har segment mein:
+- "t": segment shuru hone ka time SECONDS mein, is clip ke shuru se (clip start = 0).
+- "title": chhota topic naam.
+- "summary": teacher ne jo samjhaya uska 3-5 vakya ka poora saar. Koi important baat skip mat karo. Word-by-word copy mat karo, samajh kar likho.
+- "definition": agar teacher ne koi definition/meaning boli, ek saaf vakya mein, usi bhasha mein jisme teacher ne boli (English boli toh English mein). Nahi boli toh "".
+- "intuition": teacher ne use aasaan bhasha mein kaise samjhaya (analogy, kahani, roz ki misaal, tarkeeb). Nahi hai toh "".
+- "examples": teacher ne jo examples/numericals karaye (chhote). Nahi hai toh [].
+- "formulas": jo formula/equation bola ya likha (symbols ke saath). Nahi hai toh [].
+- "important": SIRF tab, jab teacher khud kahe ki ye important hai / yaad rakho / likh lo / exam mein aata hai / dhyan do. Uski baat ek line mein. Warna "".
+
+Board/screen par jab koi asli drawing bane (circuit, diagram, graph, figure, flowchart, table), usse "board" mein daalo:
+- "title", "kind" (diagram/circuit/graph/table/flowchart/figure), "description" (kya shape hai, kaun si labels/values hain, sirf jo dikh raha hai)
+- "t": jab banana shuru kare, "best_t": jab POORA bana ho aur saari labels likhi hon (clip-relative seconds)
+- "importance": 3 = concept samajhne ke liye zaroori, 2 = madadgaar, 1 = chhoti/saadharan cheez.
+Sirf asli drawings daalo. Sirf text/heading ho toh board khali rakho.
+
+BHASHA: teacher jis bhasha mein bole usi mein likho - Hindi bole toh Devanagari Hindi, English bole toh English, mixed bole toh mixed. Technical terms aur definitions waise hi jaise teacher ne boli (English term English mein).
+
+STRICT: sirf video mein jo hai wahi likho, bahar ki jaankari mat jodo. Intro, advertisement, "like subscribe" jaisi cheezein chhod do.${opts.withMeta ? metaPrompt() : ''}`;
+
+  try {
+    const res = await callGemini(
+      [
+        {
+          role: 'user',
+          parts: [
+            { fileData: { fileUri: videoUrl }, videoMetadata: { startOffset: `${start}s`, endOffset: `${end}s` } },
+            { text: prompt },
+          ],
+        },
+      ],
+      {
+        responseMimeType: 'application/json',
+        responseSchema: opts.withMeta ? digestSchemaWithMeta : digestSchema,
+        mediaResolution: CONFIG.VIDEO_RES as any,
+        maxOutputTokens: 12000,
+      },
+      stop
+    );
+    return normalizeDigest(parseJson(res?.text), start, end);
+  } catch (e: any) {
+    const msg = String(e?.message || '');
+    if (msg === 'CANCELLED' || /API key|PERMISSION_DENIED|INVALID_ARGUMENT|private|unsupported/i.test(msg)) throw e;
+    // output kat gaya / JSON toota / baar baar fail: chunk ko aadha karke dobara
+    if (depth < 1 && end - start >= 240) {
+      const mid = start + Math.floor((end - start) / 2);
+      const a = await fetchDigest(videoUrl, start, mid, stop, opts, depth + 1);
+      const b = await fetchDigest(videoUrl, mid, end, stop, { ...opts, withMeta: false }, depth + 1);
+      return { meta: a.meta, segments: [...a.segments, ...b.segments], board: [...a.board, ...b.board] };
+    }
+    throw e;
+  }
+}
+
+/* =================== STEP 2: outline (sirf text, halka) =================== */
+function uniformOutline(durationSec: number): Chapter[] {
+  const out: Chapter[] = [];
+  for (let s = 0, i = 1; s < durationSec; s += 600, i++) {
+    out.push({ title: `Part ${i}`, start_sec: s, end_sec: Math.min(s + 600, durationSec) });
+  }
+  return out;
+}
+
+async function buildOutline(segments: Segment[], durationSec: number, lang: LangProfile, stop: Stop): Promise<Chapter[]> {
+  const list = segments.map((s) => `[${fmt(s.t)}] ${s.title}`).join('\n');
+  const short = durationSec < 20 * 60;
+  const prompt = `Neeche ek class lecture ke topics ki list hai (format: [mm:ss] topic). Inhe chapters mein baanto, jaise teacher board par heading likhta hai.
+Rules:
+- ${short ? '2 se 4 chapters' : 'Har chapter lagbhag 8-15 minute ka, kul 4 se 16 chapters'}.
+- Pehle chapter ka start_sec = 0, har agle ka start_sec = pichle ka end_sec, aakhri ka end_sec = ${durationSec}.
+- Ek concept ko beech se mat todo.
+- Chapter titles ko neeche ke LANGUAGE RULES ke hisaab se likho.
+
+${languageRules(lang)}
+
+TOPICS:
+${list}`;
+
+  try {
+    const res = await callGemini(
+      [{ role: 'user', parts: [{ text: prompt }] }],
+      { responseMimeType: 'application/json', responseSchema: outlineSchema, maxOutputTokens: 4096 },
+      stop
+    );
+    let chapters: Chapter[] = (parseJson(res?.text).chapters || [])
+      .filter((c: Chapter) => c && c.title)
+      .sort((a: Chapter, b: Chapter) => a.start_sec - b.start_sec);
+    if (chapters.length === 0) return uniformOutline(durationSec);
+    chapters[0].start_sec = 0;
+    for (let i = 0; i < chapters.length - 1; i++) chapters[i].end_sec = chapters[i + 1].start_sec;
+    chapters[chapters.length - 1].end_sec = durationSec;
+    chapters = chapters.filter((c) => c.end_sec > c.start_sec);
+    return chapters.length ? chapters : uniformOutline(durationSec);
+  } catch (e: any) {
+    if (String(e?.message) === 'CANCELLED') throw e;
+    return uniformOutline(durationSec);
+  }
+}
+
+/* =================== STEP 3: student-style notes + mind map + MCQs =================== */
+function segmentsToText(segs: Segment[]): string {
+  return segs
+    .map((s) => {
+      const lines = [`[${fmt(s.t)}]${s.important ? ' ★' : ''} ${s.title}`, `Saar: ${s.summary}`];
+      if (s.definition) lines.push(`Teacher ki definition: ${s.definition}`);
+      if (s.intuition) lines.push(`Teacher ne aise samjhaya: ${s.intuition}`);
+      if (s.examples?.length) lines.push(`Examples: ${s.examples.join(' | ')}`);
+      if (s.formulas?.length) lines.push(`Formulas: ${s.formulas.join(' | ')}`);
+      if (s.important) lines.push(`Teacher ne bola (important): ${s.important}`);
+      return lines.join('\n');
+    })
+    .join('\n\n');
+}
+
+async function buildChapter(ch: Chapter, allSegs: Segment[], lang: LangProfile, stop: Stop): Promise<{ notes: ChapterContent; mcqs: MCQ[] }> {
+  const segs = allSegs.filter((s) => s.t >= ch.start_sec && s.t < ch.end_sec);
+  if (segs.length === 0) return { notes: { sections: [], terms: [], important_points: [], quick_revision: [] }, mcqs: [] };
+
+  const mins = (ch.end_sec - ch.start_sec) / 60;
+  const mcqCount = clamp(Math.round(mins / 1.5), 5, 14);
+
+  const prompt = `Tum ek topper student ho jo class ke baad apni notebook mein saaf, samajhdaar notes banata hai. Neeche chapter "${ch.title}" ke teacher-segments hain (★ = teacher ne khud important bola).
+
+${languageRules(lang)}
+
+A) NOTES (notebook style):
+Har concept ke liye ek "section":
+- "heading": jaise board par likhte hain.
+- "start_sec": segment ka time (seconds, poore video ke hisaab se, jahan se ye concept shuru hua).
+- "definition": clear, saaf vakya mein "X kya hai". Agar teacher ne definition aur explanation dono di hain, toh pehle definition yahan likho.
+- "intuition": teacher ne use kaise aasaan bhasha mein samjhaya (analogy/roz ki misaal) - student ke samajhne ke liye. Dono ko naturally mila kar likho, bas teacher ke shabdon ki copy nahi.
+- "points": 3-6 chhote, crisp points (max 12 shabd), keywords ke saath, jaise student shortcut mein likhta hai.
+- "examples": teacher ke diye real-life examples / numericals.
+- "formulas": "V = I × R  (matlab: ...)" is tarah, symbols ke saath.
+- "exam_tip": sirf agar teacher ne exam/yaad rakhne ki baat boli ho.
+Jo field teacher ne nahi di, usse "" ya [] rakho. Kuch bhi apni taraf se mat gadho.
+
+Chapter-level:
+- "intro": 1 line.
+- "terms": important shabd + chhota matlab.
+- "important_points": ★ wali baaton se, student ki tarah chhote vakya mein. Nahi hai toh [].
+- "quick_revision": 4-7 one-line takeaways, exam se pehle padhne ke liye.
+- "mindmap": center = chapter naam, 3-6 branches, har ek ke 2-4 children (1-3 shabd).
+
+B) MCQs - exactly ${mcqCount}, exam-level aur concept-based (question, options aur explanation ki bhasha upar ke LANGUAGE RULES ke hisaab se):
+- "Teacher ne kya kaha" type sawaal nahi, concept/application type. Har concept se alag sawaal, repeat nahi.
+- 4 options, sirf 1 sahi (correct_index 0-3), galat options believable hon.
+- "explanation": 1-2 line, kyun sahi hai.
+- "timestamp_seconds": us concept ka time.
+
+STRICT: sirf neeche diye segments ki jaankari use karo. Bahar ka kuch mat jodo.
+
+SEGMENTS:
+${segmentsToText(segs)}`;
+
+  const res = await callGemini(
+    [{ role: 'user', parts: [{ text: prompt }] }],
+    { responseMimeType: 'application/json', responseSchema: chapterSchema, maxOutputTokens: 14000 },
+    stop
+  );
+  const data = parseJson(res?.text);
+
+  const sections: NoteSection[] = (data.sections || []).map((s: NoteSection) => ({
+    ...s,
+    start_sec: clamp(Math.round(s.start_sec || ch.start_sec), ch.start_sec, ch.end_sec),
+    points: s.points || [],
+  }));
+
+  const mcqs: MCQ[] = (data.mcqs || [])
+    .filter(
+      (q: any) =>
+        q?.question &&
+        Array.isArray(q.options) &&
+        q.options.length === 4 &&
+        Number.isInteger(q.correct_index) &&
+        q.correct_index >= 0 &&
+        q.correct_index < 4
+    )
+    .map((q: any, k: number) => {
+      const correctText = q.options[q.correct_index];
+      const opts = shuffle<string>(q.options);
+      return {
+        id: `${ch.start_sec}-${k}`,
+        question: q.question,
+        options: opts,
+        correct_index: opts.indexOf(correctText),
+        explanation: q.explanation || '',
+        timestamp_seconds: clamp(Math.round(q.timestamp_seconds || ch.start_sec), ch.start_sec, ch.end_sec),
+        chapter: ch.title,
+      } as MCQ;
+    });
+
+  return {
+    notes: {
+      intro: data.intro,
+      sections,
+      terms: data.terms || [],
+      important_points: data.important_points || [],
+      quick_revision: data.quick_revision || [],
+      mindmap: data.mindmap,
+    },
+    mcqs,
+  };
+}
+
+/* =================== STEP 4: board diagram -> AI image =================== */
+async function planBoardVisual(videoUrl: string, item: BoardItem, lang: LangProfile, stop: Stop): Promise<VisualPlan> {
+  const start = Math.max(0, item.best_t - 8);
+  const end = item.best_t + 8;
+  const labelRule =
+    CONFIG.IMAGE_LABELS === 'english'
+      ? 'Saari labels ko chhote saaf English/Roman shabdon mein likho.'
+      : 'Labels waise hi likho jaise board par likhe hain (Hindi ho toh Devanagari, symbols/numbers waise ke waise).';
+
+  const prompt = `Is clip (${fmt(start)}-${fmt(end)}) mein teacher ne board/screen par "${item.title}" (${item.kind}) banaya hai. Pehle ka note: ${item.description}
+
+Clip ko dhyan se dekho aur decide karo:
+- "needs_image" = true agar yahan asli drawing hai (circuit, diagram, graph, ray/geometry figure, structure, flowchart, table) jo samajhne ke liye visual maangti hai. Sirf heading/word/simple line ho toh false.
+- "reason": 1 line mein, ye image kya dikhati hai (caption), language: ${MEDIUM_NAME[lang.medium]}.
+- "labels": board par jo bhi text/labels/values/symbols dikh rahe hain. ${labelRule}
+- "image_prompt": ENGLISH mein bahut detailed instruction: kaun si shapes/components kahan hain (left/right/top/bottom), kaun kisse kaise juda hai, arrows ki direction, har label kis jagah hai, axes/values (graph ho toh curve ka shape). Sirf wahi jo video mein dikh raha hai.`;
+
+  const res = await callGemini(
+    [
+      {
+        role: 'user',
+        parts: [
+          { fileData: { fileUri: videoUrl }, videoMetadata: { startOffset: `${start}s`, endOffset: `${end}s` } },
+          { text: prompt },
+        ],
+      },
+    ],
+    {
+      responseMimeType: 'application/json',
+      responseSchema: planSchema,
+      mediaResolution: 'MEDIA_RESOLUTION_HIGH' as any,
+      maxOutputTokens: 2048,
+    },
+    stop
+  );
+  const p = parseJson(res?.text) as VisualPlan;
+  return { ...p, labels: p.labels || [] };
+}
+
+async function generateAiVisual(plan: VisualPlan, item: BoardItem, stop: Stop): Promise<GeneratedVisual | null> {
+  const labelsLine = plan.labels.length ? `Write ONLY these labels, spelled exactly, nothing else: ${plan.labels.join(' | ')}.` : '';
+  try {
+    const imgRes = await callGemini(
+      [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `Draw this exactly as described, like a neat hand-drawn diagram in a student's notebook.
+${plan.image_prompt}
+${labelsLine}
+Style: plain white paper background (NOT black, NOT a blackboard, no texture, no shadows), dark blue/black pen lines, small touches of red and green for emphasis, large readable labels, flat 2D, no watermark. Do not add anything that is not described.`,
+            },
+          ],
+        },
+      ],
+      { responseModalities: ['IMAGE', 'TEXT'] as any },
+      stop,
+      [CONFIG.IMAGE_MODEL]
+    );
+    const parts = imgRes?.candidates?.[0]?.content?.parts || [];
+    for (const p of parts) {
+      const d = (p as any).inlineData;
+      if (d?.data) {
+        return { kind: 'img', content: `data:${d.mimeType || 'image/png'};base64,${d.data}`, caption: plan.reason || item.description };
+      }
+    }
+  } catch (e: any) {
+    if (String(e?.message) === 'CANCELLED') throw e;
+    console.warn('Image model fail, SVG fallback:', e);
+  }
+
+  try {
+    const svgRes = await callGemini(
+      [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: `Create a clean, well-labeled educational diagram as inline <svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg"> on a white background with clear text labels.
+Subject: ${item.title}
+Details: ${plan.image_prompt}
+${labelsLine}
+Return ONLY the <svg>...</svg> markup, no markdown fences.`,
+            },
+          ],
+        },
+      ],
+      { maxOutputTokens: 3500 },
+      stop
+    );
+    const svg = sanitizeSvg(svgRes?.text || '');
+    if (svg) return { kind: 'svg', content: svg, caption: plan.reason || item.description };
+  } catch (e: any) {
+    if (String(e?.message) === 'CANCELLED') throw e;
+    console.warn('SVG fallback fail:', e);
+  }
+  return null;
+}
+
+/* =================== Helpers: chunks, board selection, placement =================== */
+function makeChunks(durationSec: number): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = [];
+  for (let s = 0; s < durationSec; s += CONFIG.CHUNK_SEC) out.push({ start: s, end: Math.min(s + CONFIG.CHUNK_SEC, durationSec) });
+  return out;
+}
+
+function selectBoard(all: BoardItem[]): BoardItem[] {
+  const sorted = [...all].sort((a, b) => a.best_t - b.best_t);
+  const kept: BoardItem[] = [];
+  const seenId = new Set<string>();
+  for (const b of sorted) {
+    const dup = kept.some((k) => k.title.trim().toLowerCase() === b.title.trim().toLowerCase() && Math.abs(k.best_t - b.best_t) < 90);
+    if (dup || seenId.has(b.id)) continue;
+    seenId.add(b.id);
+    kept.push(b);
+  }
+  return kept
+    .filter((b) => b.importance >= 2)
+    .sort((a, b) => b.importance - a.importance || a.best_t - b.best_t)
+    .slice(0, CONFIG.MAX_VISUALS)
+    .sort((a, b) => a.best_t - b.best_t);
+}
+
+function sectionIndexFor(ch: ChapterNotes, b: BoardItem): number {
+  const n = ch.sections.length;
+  if (n === 0) return -1;
+  let idx = 0;
+  ch.sections.forEach((s, i) => {
+    if (s.start_sec <= b.best_t + 5) idx = i;
+  });
+  return idx;
+}
+
+function dedupeMcqs(chapterMcqs: MCQ[][]): MCQ[] {
+  const out: MCQ[] = [];
+  const sets: Set<string>[] = [];
+  for (const list of chapterMcqs) {
+    for (const q of list || []) {
+      const ts = tokenSet(q.question);
+      if (sets.some((s) => isSimilar(s, ts))) continue;
+      sets.push(ts);
+      out.push(q);
+    }
+  }
+  return out;
+}
+
+/* =================== YouTube IFrame API (player + duration + seek) =================== */
+function loadYT(): Promise<any> {
+  const w = window as any;
+  if (w.YT?.Player) return Promise.resolve(w.YT);
+  return new Promise((res) => {
+    const prev = w.onYouTubeIframeAPIReady;
+    w.onYouTubeIframeAPIReady = () => {
+      prev?.();
+      res(w.YT);
+    };
+    if (!document.getElementById('yt-iframe-api')) {
+      const s = document.createElement('script');
+      s.id = 'yt-iframe-api';
+      s.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(s);
+    }
+  });
+}
+
+function useYouTube(videoId: string | null, mountRef: React.RefObject<HTMLDivElement | null>) {
+  const playerRef = useRef<any>(null);
+  const [duration, setDuration] = useState(0);
+
+  useEffect(() => {
+    if (!videoId) return;
+    let cancelled = false;
+    let poll: number | undefined;
+    setDuration(0);
+    loadYT().then((YT) => {
+      const host = mountRef.current;
+      if (cancelled || !host) return;
+      host.innerHTML = '';
+      const el = document.createElement('div');
+      host.appendChild(el);
+      playerRef.current = new YT.Player(el, {
+        videoId,
+        width: '100%',
+        height: '100%',
+        playerVars: { rel: 0, modestbranding: 1, playsinline: 1 },
+        events: {
+          onReady: () => {
+            let tries = 0;
+            poll = window.setInterval(() => {
+              const d = playerRef.current?.getDuration?.() || 0;
+              if (d > 0 || ++tries > 20) {
+                window.clearInterval(poll);
+                if (d > 0 && !cancelled) setDuration(Math.round(d));
+              }
+            }, 500);
+          },
+        },
+      });
+    });
+    return () => {
+      cancelled = true;
+      if (poll) window.clearInterval(poll);
+      try {
+        playerRef.current?.destroy();
+      } catch {
+        /* ignore */
+      }
+      playerRef.current = null;
+    };
+  }, [videoId, mountRef]);
+
+  const seek = useCallback((s: number) => {
+    const p = playerRef.current;
+    if (p?.seekTo) {
+      p.seekTo(Math.max(0, s), true);
+      p.playVideo?.();
+    }
+  }, []);
+
+  return { duration, seek };
+}
+
+/* ============================== Mind map ============================== */
+const MM_COLORS = ['#dc2626', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#db2777'];
+
+function wrap(s: string, n: number): string[] {
+  const words = s.split(' ');
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    if ((cur + ' ' + w).trim().length > n) {
+      if (cur) lines.push(cur);
+      cur = w;
+    } else cur = (cur + ' ' + w).trim();
+  }
+  if (cur) lines.push(cur);
+  return lines.slice(0, 3);
+}
+
+function MMNode({ x, y, text, color, big }: { x: number; y: number; text: string; color: string; big?: boolean }) {
+  const lines = wrap(text, big ? 16 : 14);
+  const fs = big ? 22 : 17;
+  const w = Math.max(...lines.map((l) => l.length), 1) * fs * 0.62 + 20;
+  const h = lines.length * (fs + 4) + 12;
+  return (
+    <g>
+      <rect x={x - w / 2} y={y - h / 2} width={w} height={h} rx={big ? 18 : 12} fill={big ? color : '#ffffff'} stroke={color} strokeWidth={2.5} />
+      {lines.map((l, i) => (
+        <text
+          key={i}
+          x={x}
+          y={y - h / 2 + 8 + (i + 1) * (fs + 4) - 4}
+          textAnchor="middle"
+          fontSize={fs}
+          fontWeight={big ? 700 : 400}
+          fill={big ? '#fff' : color}
+          style={{ fontFamily: "'Kalam', cursive" }}
+        >
+          {l}
+        </text>
+      ))}
+    </g>
+  );
+}
+
+function MindMap({ data }: { data: MindMapData }) {
+  const W = 900;
+  const H = 560;
+  const cx = W / 2;
+  const cy = H / 2;
+  const n = data.branches.length;
+  if (n === 0) return null;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ background: '#fff', border: '2px solid #cbd5e1', borderRadius: 12 }}>
+      {data.branches.map((b, i) => {
+        const a = (2 * Math.PI * i) / n - Math.PI / 2;
+        const color = MM_COLORS[i % MM_COLORS.length];
+        const bx = cx + 190 * Math.cos(a);
+        const by = cy + 125 * Math.sin(a);
+        return (
+          <g key={i}>
+            <line x1={cx} y1={cy} x2={bx} y2={by} stroke={color} strokeWidth={3} />
+            {(b.children || []).slice(0, 4).map((c, k, arr) => {
+              const ca = a + (k - (arr.length - 1) / 2) * 0.3;
+              const kx = cx + 345 * Math.cos(ca);
+              const ky = cy + 232 * Math.sin(ca);
+              return (
+                <g key={k}>
+                  <line x1={bx} y1={by} x2={kx} y2={ky} stroke={color} strokeWidth={1.5} strokeDasharray="4 3" />
+                  <MMNode x={kx} y={ky} text={c} color={color} />
+                </g>
+              );
+            })}
+            <MMNode x={bx} y={by} text={b.label} color={color} />
+          </g>
+        );
+      })}
+      <MMNode x={cx} y={cy} text={data.center} color="#111827" big />
+    </svg>
+  );
+}
+
+/* ============================ Notebook view ============================ */
+function NotesDoc({
+  chapters,
+  visuals,
+  regenId,
+  labels = UI.hinglish,
+  onJump,
+  onRegen,
+}: {
+  chapters: ChapterNotes[];
+  visuals: Record<string, GeneratedVisual>;
+  regenId?: string | null;
+  labels?: UILabels;
+  onJump?: (s: number) => void;
+  onRegen?: (id: string) => void;
+}) {
+  const Jump = ({ s }: { s: number }) =>
+    onJump ? (
+      <button className="no-print nb-btn" onClick={() => onJump(s)}>
+        ▶ {fmt(s)}
+      </button>
+    ) : null;
+
+  const renderFigure = (b: BoardItem) => {
+    const vis = visuals[b.id];
+    if (!vis) return null;
+    return (
+      <figure key={b.id} className="nb-frame avoid-break">
+        {vis.kind === 'img' ? (
+          <img src={vis.content} alt={b.title} style={{ width: '100%', display: 'block', mixBlendMode: 'multiply' }} />
+        ) : (
+          <div style={{ width: '100%', overflowX: 'auto' }} dangerouslySetInnerHTML={{ __html: vis.content }} />
+        )}
+        <figcaption>
+          ✏️ <b>{b.title}</b> - {vis.caption}
+          <span style={{ marginLeft: 8 }}>
+            <Jump s={b.best_t} />
+          </span>
+          {onRegen && (
+            <button className="no-print nb-btn" style={{ marginLeft: 6, background: '#7c3aed' }} disabled={regenId === b.id} onClick={() => onRegen(b.id)}>
+              {regenId === b.id ? 'ban rahi hai...' : '🔄 Dobara banao'}
+            </button>
+          )}
+        </figcaption>
+      </figure>
+    );
+  };
+
+  return (
+    <div className="notebook">
+      {chapters.map((ch, ci) => {
+        const bySection: Record<number, BoardItem[]> = {};
+        ch.board_visuals.forEach((b) => {
+          const si = sectionIndexFor(ch, b);
+          (bySection[si] = bySection[si] || []).push(b);
+        });
+        return (
+          <section key={ci} id={`ch-${ci}`} style={{ marginBottom: 44 }}>
+            <h2 className="nb-title">
+              {ci + 1}. {ch.title}
+              <Jump s={ch.start_sec} />
+            </h2>
+            {ch.intro && <p className="nb-intro">{ch.intro}</p>}
+
+            {ch.mindmap && ch.mindmap.branches?.length > 0 && (
+              <div className="avoid-break" style={{ margin: '12px 0' }}>
+                <h3 className="nb-h3">🧠 {labels.mind}</h3>
+                <MindMap data={ch.mindmap} />
+              </div>
+            )}
+
+            {ch.sections.map((s, si) => (
+              <div key={si}>
+                <div className="avoid-break">
+                  <h3 className="nb-h3">
+                    {ci + 1}.{si + 1} {s.heading} <Jump s={s.start_sec} />
+                  </h3>
+                  {s.definition && (
+                    <div className="nb-def">
+                      <b>📖 {labels.def}:</b> {s.definition}
+                    </div>
+                  )}
+                  {s.intuition && (
+                    <div className="nb-intu">
+                      <b>💡 {labels.intu}:</b> {s.intuition}
+                    </div>
+                  )}
+                  <ul className="nb-ul">
+                    {s.points.map((p, pi) => (
+                      <li key={pi}>{p}</li>
+                    ))}
+                  </ul>
+                  {s.formulas?.map((f, fi) => (
+                    <div key={fi} className="nb-formula">
+                      ✎ {f}
+                    </div>
+                  ))}
+                  {s.examples?.map((e, ei) => (
+                    <div key={ei} className="nb-example">
+                      <b>🌍 {labels.ex}:</b> {e}
+                    </div>
+                  ))}
+                  {s.exam_tip && (
+                    <div className="nb-tip">
+                      <span className="nb-hl">⭐ {s.exam_tip}</span>
+                    </div>
+                  )}
+                </div>
+                {(bySection[si] || []).map(renderFigure)}
+              </div>
+            ))}
+            {(bySection[-1] || []).map(renderFigure)}
+
+            {ch.important_points.length > 0 && (
+              <div className="nb-imp avoid-break">
+                <div className="nb-imp-title">⭐ {labels.imp} ⭐</div>
+                <ul className="nb-ul">
+                  {ch.important_points.map((p, i) => (
+                    <li key={i}>
+                      <span className="nb-hl">{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {ch.terms.length > 0 && (
+              <div className="avoid-break">
+                <h3 className="nb-h3">📌 {labels.terms}</h3>
+                <table className="nb-table">
+                  <tbody>
+                    {ch.terms.map((t, ti) => (
+                      <tr key={ti}>
+                        <td style={{ color: '#dc2626', fontWeight: 700, width: '32%' }}>{t.term}</td>
+                        <td>{t.meaning}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {ch.quick_revision.length > 0 && (
+              <div className="nb-rev avoid-break">
+                <div className="nb-rev-title">⚡ {labels.rev}</div>
+                <ul className="nb-ul">
+                  {ch.quick_revision.map((p, i) => (
+                    <li key={i}>{p}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ============================== Main app ============================== */
+const STEPS: { key: Phase; label: string }[] = [
+  { key: 'analyze', label: 'Video analyse' },
+  { key: 'outline', label: 'Chapters' },
+  { key: 'notes', label: 'Notes + Quiz' },
+  { key: 'images', label: 'Diagrams' },
+];
+const ORDER: Phase[] = ['idle', 'analyze', 'outline', 'notes', 'images', 'done'];
+
+export default function VideoNotesMVP() {
+  const [url, setUrl] = useState('');
+  const [manualMin, setManualMin] = useState('');
+  const [imagesOn, setImagesOn] = useState(true);
+  const [langMode, setLangMode] = useState<LangMode>('auto');
+  const [subjectHint, setSubjectHint] = useState<SubjectHint>('auto');
+  const [videoTitle, setVideoTitle] = useState('');
+  const [lang, setLang] = useState<LangProfile | null>(null);
+
+  const playerHost = useRef<HTMLDivElement | null>(null);
+  const videoId = useMemo(() => extractVideoId(url.trim()), [url]);
+  const { duration: detected, seek } = useYouTube(videoId, playerHost);
+  const durationSec = manualMin ? Math.round(Number(manualMin) * 60) : detected;
+
+  useEffect(() => {
+    setVideoTitle('');
+    if (!videoId) return;
+    let alive = true;
+    fetchTitle(videoId).then((t) => {
+      if (alive) setVideoTitle(t);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [videoId]);
+
+  const stop = useRef<Stop>({ current: false });
+
+  const [running, setRunning] = useState(false);
+  const [phase, setPhase] = useState<Phase>('idle');
+  const [chunkStates, setChunkStates] = useState<ChunkState[]>([]);
+  const [chaptersTotal, setChaptersTotal] = useState(0);
+  const [chaptersDone, setChaptersDone] = useState(0);
+  const [imagesTotal, setImagesTotal] = useState(0);
+  const [imagesDone, setImagesDone] = useState(0);
+  const [error, setError] = useState('');
+
+  const [chapters, setChapters] = useState<ChapterNotes[]>([]);
+  const [visuals, setVisuals] = useState<Record<string, GeneratedVisual>>({});
+  const [regenId, setRegenId] = useState<string | null>(null);
+  const [mcqs, setMcqs] = useState<MCQ[]>([]);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [quizChapter, setQuizChapter] = useState('all');
+  const [tab, setTab] = useState<'notes' | 'quiz'>('notes');
+  const [printMode, setPrintMode] = useState<'notes' | 'quiz' | null>(null);
+
+  const jump = (s: number) => {
+    seek(s);
+    playerHost.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const setCS = (i: number, st: ChunkState) =>
+    setChunkStates((prev) => {
+      const n = [...prev];
+      n[i] = st;
+      return n;
+    });
+
+  const doPrint = (mode: 'notes' | 'quiz') => {
+    setPrintMode(mode);
+    setTimeout(() => {
+      window.print();
+      setPrintMode(null);
+    }, 900);
+  };
+
+  const run = async () => {
+    if (!videoId) return setError('Sahi YouTube URL paste karo.');
+    if (!durationSec) return setError('Video ki length detect nahi hui. "Length (min)" box mein khud daalo.');
+
+    const stopObj: Stop = stop.current;
+    stopObj.current = false;
+
+    setError('');
+    setRunning(true);
+    setChapters([]);
+    setMcqs([]);
+    setVisuals({});
+    setAnswers({});
+    setImagesDone(0);
+    setImagesTotal(0);
+    setChaptersDone(0);
+    setChaptersTotal(0);
+    setLang(null);
+
+    const base = `${CONFIG.CACHE_V}:${videoId}:${CONFIG.CHUNK_SEC}`;
+    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+
+    try {
+      let title = videoTitle;
+      if (!title) {
+        title = await fetchTitle(videoId);
+        setVideoTitle(title);
+      }
+
+      /* ---- 1. ANALYZE ---- */
+      setPhase('analyze');
+      const chunks = makeChunks(durationSec);
+      setChunkStates(chunks.map(() => 'pending'));
+      const digests: (ChunkDigest | undefined)[] = new Array(chunks.length);
+      const failures: string[] = [];
+
+      await runPool(
+        chunks,
+        CONFIG.CONCURRENCY,
+        async (c, i) => {
+          const key = `${base}:dig:${c.start}-${c.end}`;
+          const hit = await cget<ChunkDigest>(key);
+          if (hit) {
+            digests[i] = hit;
+            setCS(i, 'cached');
+            return;
+          }
+          setCS(i, 'running');
+          try {
+            const d = await fetchDigest(videoUrl, c.start, c.end, stopObj, { title, withMeta: i === 0 });
+            digests[i] = d;
+            await cset(key, d);
+            setCS(i, 'done');
+          } catch (e: any) {
+            if (String(e?.message) === 'CANCELLED') throw e;
+            setCS(i, 'failed');
+            failures.push(`${fmt(c.start)}-${fmt(c.end)}: ${String(e?.message || e).slice(0, 120)}`);
+          }
+        },
+        stopObj
+      );
+      if (stopObj.current) throw new Error('CANCELLED');
+      if (failures.length) {
+        throw new Error(
+          `${failures.length} chunk fail hue (${failures[0]}). Dobara Generate dabao - jo ban chuka hai wo cache se aayega, sirf fail wale dobara chalenge.`
+        );
+      }
+
+      const allSegs = digests.flatMap((d) => d?.segments || []).sort((a, b) => a.t - b.t);
+      const allBoard = digests.flatMap((d) => d?.board || []);
+      if (allSegs.length === 0) throw new Error('Video se koi content nahi mila. Kya video public hai aur usme awaaz hai?');
+      const selected = imagesOn ? selectBoard(allBoard) : [];
+
+      // pehle chunk ke meta + user ke choice se notes ki bhasha tay hoti hai
+      const langP = resolveLang(langMode, subjectHint, digests[0]?.meta ?? DEFAULT_META);
+      setLang(langP);
+
+      /* ---- 2. OUTLINE ---- */
+      setPhase('outline');
+      const outKey = `${base}:${langP.key}:outline:${durationSec}`;
+      let outline = await cget<Chapter[]>(outKey);
+      if (!outline) {
+        outline = await buildOutline(allSegs, durationSec, langP, stopObj);
+        await cset(outKey, outline);
+      }
+
+      /* ---- 3. NOTES + MCQs ---- */
+      setPhase('notes');
+      setChaptersTotal(outline.length);
+      const results: ({ notes: ChapterContent; mcqs: MCQ[] } | undefined)[] = new Array(outline.length);
+      let done = 0;
+      const publish = () => {
+        const built: ChapterNotes[] = [];
+        outline!.forEach((ch, i) => {
+          const r = results[i];
+          if (!r) return;
+          built.push({
+            ...ch,
+            ...r.notes,
+            board_visuals: selected.filter((b) => b.best_t >= ch.start_sec && b.best_t < ch.end_sec + (i === outline!.length - 1 ? 1 : 0)),
+          });
+        });
+        setChapters(built);
+        setMcqs(dedupeMcqs(results.map((r) => r?.mcqs || [])));
+      };
+
+      await runPool(
+        outline,
+        CONFIG.CHAPTER_CONCURRENCY,
+        async (ch, i) => {
+          const key = `${base}:${langP.key}:ch:${ch.start_sec}-${ch.end_sec}`;
+          let r = await cget<{ notes: ChapterContent; mcqs: MCQ[] }>(key);
+          if (!r) {
+            r = await buildChapter(ch, allSegs, langP, stopObj);
+            await cset(key, r);
+          }
+          results[i] = r;
+          done++;
+          setChaptersDone(done);
+          publish();
+        },
+        stopObj
+      );
+      if (stopObj.current) throw new Error('CANCELLED');
+
+      /* ---- 4. IMAGES (progressive) ---- */
+      if (selected.length > 0) {
+        setPhase('images');
+        setImagesTotal(selected.length);
+        let imgDone = 0;
+        await runPool(
+          selected,
+          CONFIG.IMAGE_CONCURRENCY,
+          async (item) => {
+            const key = `${base}:${langP.key}:vis:${item.id}`;
+            try {
+              const cached = await cget<CachedVisual>(key);
+              if (cached) {
+                if ('kind' in cached) setVisuals((p) => ({ ...p, [item.id]: cached }));
+                return;
+              }
+              const plan = await planBoardVisual(videoUrl, item, langP, stopObj);
+              if (!plan.needs_image) {
+                await cset(key, { skip: true });
+                return;
+              }
+              const vis = await generateAiVisual(plan, item, stopObj);
+              if (vis) {
+                setVisuals((p) => ({ ...p, [item.id]: vis }));
+                await cset(key, vis);
+              }
+            } catch (e: any) {
+              if (String(e?.message) === 'CANCELLED') throw e;
+              console.warn('visual fail', item.id, e); // ek image fail hone se poora kaam nahi rukna chahiye
+            } finally {
+              imgDone++;
+              setImagesDone(imgDone);
+            }
+          },
+          stopObj
+        );
+      }
+
+      setPhase('done');
+    } catch (e: any) {
+      if (String(e?.message) === 'CANCELLED') {
+        setError('Rok diya gaya. Dobara Generate dabaoge toh wahin se resume hoga.');
+      } else {
+        console.error(e);
+        setError(String(e?.message || 'Kuch gadbad ho gayi.'));
+      }
+      setPhase('idle');
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const regenerate = async (id: string) => {
+    if (!videoId || !lang) return;
+    const item = chapters.flatMap((c) => c.board_visuals).find((b) => b.id === id);
+    if (!item) return;
+    const stopObj: Stop = { current: false };
+    setRegenId(id);
+    try {
+      const plan = await planBoardVisual(`https://www.youtube.com/watch?v=${videoId}`, item, lang, stopObj);
+      const vis = await generateAiVisual({ ...plan, needs_image: true }, item, stopObj);
+      if (vis) {
+        setVisuals((p) => ({ ...p, [id]: vis }));
+        await cset(`${CONFIG.CACHE_V}:${videoId}:${CONFIG.CHUNK_SEC}:${lang.key}:vis:${id}`, vis);
+      } else setError('Image dobara nahi ban payi. Thodi der baad try karo.');
+    } catch (e: any) {
+      setError(String(e?.message || 'Regenerate fail hua.'));
+    } finally {
+      setRegenId(null);
+    }
+  };
+
+  const clearCache = async () => {
+    await cclear();
+    setError('Cache clear ho gaya. Ab Generate naye sire se chalega.');
+  };
+
+  /* ---------- derived ---------- */
+  const phaseIdx = ORDER.indexOf(phase);
+  const chunksDone = chunkStates.filter((s) => s === 'done' || s === 'cached').length;
+  const pct = (() => {
+    if (phase === 'idle') return 0;
+    if (phase === 'done') return 100;
+    const a = chunkStates.length ? chunksDone / chunkStates.length : 0;
+    const c = chaptersTotal ? chaptersDone / chaptersTotal : 0;
+    const im = imagesTotal ? imagesDone / imagesTotal : 0;
+    return Math.round(a * 50 + (phaseIdx >= 3 ? 5 : 0) + c * 30 + im * 15);
+  })();
+
+  const quizList = quizChapter === 'all' ? mcqs : mcqs.filter((q) => q.chapter === quizChapter);
+  const quizChapters = Array.from(new Set(mcqs.map((q) => q.chapter)));
+  const attempted = quizList.filter((q) => answers[q.id] !== undefined).length;
+  const score = quizList.filter((q) => answers[q.id] === q.correct_index).length;
+  const hasContent = chapters.length > 0 || mcqs.length > 0;
+
+  const chipStyle: Record<ChunkState, string> = {
+    pending: 'bg-slate-200',
+    running: 'bg-amber-400 animate-pulse',
+    done: 'bg-emerald-500',
+    cached: 'bg-sky-400',
+    failed: 'bg-rose-500',
+  };
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@300;400;700&display=swap');
+        .print-only { display: none; }
+        .avoid-break { break-inside: avoid; }
+        .notebook {
+          font-family: 'Kalam', cursive; color: #1e3a8a; font-size: 18px; line-height: 32px;
+          background-color: #fffef8;
+          background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 31px, #cfe3f5 31px, #cfe3f5 32px);
+          padding: 20px 24px 20px 60px; border-left: 3px solid #f87171; border-radius: 12px;
+          -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+        .nb-title { font-size: 28px; line-height: 44px; font-weight: 700; color: #dc2626;
+          text-decoration: underline wavy #dc2626; text-underline-offset: 6px; margin-bottom: 8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+        .nb-intro { color: #475569; }
+        .nb-h3 { font-size: 21px; font-weight: 700; color: #1d4ed8; margin-top: 12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+          text-decoration: underline; text-decoration-color: #f59e0b; text-decoration-thickness: 3px; text-underline-offset: 5px; }
+        .nb-def { border-left: 4px solid #2563eb; background: #eff6ffcc; padding: 2px 12px; margin: 6px 0; color: #1e3a8a; }
+        .nb-intu { border-left: 4px solid #7c3aed; background: #f5f3ffcc; padding: 2px 12px; margin: 6px 0; color: #4c1d95; }
+        .nb-ul { list-style: none; padding: 0; margin: 0; }
+        .nb-ul li { padding-left: 26px; position: relative; }
+        .nb-ul li::before { content: '➤'; position: absolute; left: 0; color: #059669; }
+        .nb-formula { display: inline-block; border: 2px solid #16a34a; color: #15803d; background: #f0fdf4;
+          border-radius: 10px; padding: 0 14px; margin: 6px 8px 6px 0; font-weight: 700; }
+        .nb-example { border-left: 4px solid #ea580c; background: #fff7edcc; padding: 2px 12px; margin: 6px 0; color: #9a3412; }
+        .nb-tip { margin: 4px 0; color: #b91c1c; font-weight: 700; }
+        .nb-imp { background: #fef9c3; border: 2px dashed #dc2626; border-radius: 12px; padding: 6px 16px; margin: 14px 0; }
+        .nb-imp-title { color: #dc2626; font-weight: 700; font-size: 20px; }
+        .nb-rev { background: #ecfdf5; border: 2px solid #10b981; border-radius: 12px; padding: 6px 16px; margin: 14px 0; }
+        .nb-rev-title { color: #047857; font-weight: 700; font-size: 20px; }
+        .nb-hl { background: linear-gradient(transparent 35%, #fde047 35%); }
+        .nb-frame { margin: 16px 0; padding: 8px; border: 2px dashed #93c5fd; border-radius: 10px; background: transparent; }
+        .nb-frame figcaption { font-size: 16px; line-height: 24px; color: #6d28d9; margin-top: 6px; }
+        .nb-table { width: 100%; border-collapse: collapse; }
+        .nb-table td { border: 1px solid #93c5fd; padding: 0 10px; vertical-align: top; }
+        .nb-btn { font-family: system-ui, sans-serif; font-size: 12px; line-height: 1; background: #2563eb; color: #fff;
+          padding: 5px 8px; border-radius: 6px; cursor: pointer; border: 0; font-weight: 600; text-decoration: none; }
+        .nb-btn:disabled { opacity: .5; cursor: default; }
+        @page { margin: 12mm; }
+        @media print {
+          .screen-only, .no-print { display: none !important; }
+          .print-only { display: block !important; }
+        }
+      `}</style>
+
+      {/* ---------------- SCREEN ---------------- */}
+      <div className="screen-only min-h-screen bg-slate-50 text-slate-900" style={{ fontFamily: 'system-ui, sans-serif' }}>
+        <header className="bg-white border-b border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white grid place-items-center font-bold">R</div>
+            <div>
+              <h1 className="text-lg font-bold leading-tight">Raftaar Notes Studio</h1>
+              <p className="text-xs text-slate-500">YouTube lecture se student-style notes, diagrams aur quiz</p>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-7xl mx-auto px-4 py-6 grid lg:grid-cols-[380px_1fr] gap-6">
+          {/* -------- LEFT: input, player, chapters -------- */}
+          <aside className="space-y-4 lg:sticky lg:top-4 self-start">
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3">
+              <label className="text-sm font-semibold">YouTube lecture URL</label>
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+              />
+              {url && !videoId && <p className="text-xs text-rose-600">Ye sahi YouTube link nahi lag raha.</p>}
+
+              <div className="flex items-center gap-2 text-sm">
+                <div className="flex-1 bg-slate-100 rounded-lg px-3 py-2">
+                  {detected > 0 ? (
+                    <span>
+                      ⏱ Length: <b>{fmt(detected)}</b> · {makeChunks(durationSec || detected).length} chunks
+                    </span>
+                  ) : (
+                    <span className="text-slate-500">{videoId ? 'Length detect ho rahi hai...' : 'Length auto-detect hogi'}</span>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max="600"
+                  value={manualMin}
+                  onChange={(e) => setManualMin(e.target.value)}
+                  placeholder="min"
+                  title="Auto-detect fail ho toh yahan minutes daalo"
+                  className="w-20 border border-slate-300 rounded-lg px-2 py-2 text-sm outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={imagesOn} onChange={(e) => setImagesOn(e.target.checked)} />
+                Board ke diagrams AI se banao <span className="text-slate-400">(extra time + cost)</span>
+              </label>
+
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <label className="space-y-1">
+                  <span className="text-xs text-slate-500">Notes ki bhasha</span>
+                  <select
+                    value={langMode}
+                    onChange={(e) => setLangMode(e.target.value as LangMode)}
+                    disabled={running}
+                    className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white"
+                  >
+                    <option value="auto">Auto Detect</option>
+                    <option value="english">English Medium</option>
+                    <option value="hindi">Hindi Medium</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="text-xs text-slate-500">Subject</span>
+                  <select
+                    value={subjectHint}
+                    onChange={(e) => setSubjectHint(e.target.value as SubjectHint)}
+                    disabled={running}
+                    className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="english">English Subject</option>
+                    <option value="science">Science / Maths</option>
+                    <option value="social">Social Science / Other</option>
+                  </select>
+                </label>
+              </div>
+              <p className="text-xs text-slate-400">Bhasha badalne par video dobara analyse nahi hoti, sirf notes + quiz naye bante hain.</p>
+              {lang && (
+                <p className="text-xs bg-indigo-50 text-indigo-700 rounded-lg px-3 py-2">
+                  🌐 Detected: <b>{lang.subject}</b> · {lang.board} · Notes: <b>{MEDIUM_NAME[lang.medium]}</b>
+                  {lang.pureEnglish ? ' (English subject)' : ''}
+                </p>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={run}
+                  disabled={running || !videoId}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg py-2.5 text-sm font-semibold cursor-pointer"
+                >
+                  {running ? 'Processing...' : hasContent ? 'Resume / Dobara Generate' : 'Generate Notes + Quiz'}
+                </button>
+                {running && (
+                  <button
+                    onClick={() => {
+                      stop.current.current = true;
+                    }}
+                    className="px-4 rounded-lg border border-slate-300 text-sm hover:bg-slate-100 cursor-pointer"
+                  >
+                    Stop
+                  </button>
+                )}
+              </div>
+              <button onClick={clearCache} className="text-xs text-slate-500 underline cursor-pointer">
+                Cache clear (naye sire se banana ho toh)
+              </button>
+            </div>
+
+            {videoId && (
+              <div className="bg-black rounded-2xl overflow-hidden border border-slate-200 shadow-sm aspect-video">
+                <div ref={playerHost} className="w-full h-full" />
+              </div>
+            )}
+
+            {chapters.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-3 shadow-sm">
+                <p className="text-sm font-semibold mb-2 px-1">Chapters</p>
+                <div className="max-h-72 overflow-y-auto space-y-1">
+                  {chapters.map((c, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm hover:bg-slate-50 rounded-lg px-2 py-1.5">
+                      <button
+                        className="flex-1 text-left truncate cursor-pointer"
+                        onClick={() => {
+                          setTab('notes');
+                          setTimeout(() => document.getElementById(`ch-${i}`)?.scrollIntoView({ behavior: 'smooth' }), 50);
+                        }}
+                      >
+                        {i + 1}. {c.title}
+                      </button>
+                      <button onClick={() => jump(c.start_sec)} className="text-xs text-indigo-600 font-semibold cursor-pointer">
+                        ▶ {fmt(c.start_sec)}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </aside>
+
+          {/* -------- RIGHT: progress + content -------- */}
+          <section className="min-w-0 space-y-4">
+            {error && <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-xl p-3 text-sm">{error}</div>}
+
+            {(running || phase === 'done') && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex flex-wrap gap-2">
+                    {STEPS.map((s) => {
+                      const idx = ORDER.indexOf(s.key);
+                      const state = phaseIdx > idx ? 'done' : phaseIdx === idx ? 'active' : 'todo';
+                      return (
+                        <span
+                          key={s.key}
+                          className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                            state === 'done'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : state === 'active'
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : 'bg-slate-100 text-slate-400'
+                          }`}
+                        >
+                          {state === 'done' ? '✓ ' : ''}
+                          {s.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  <span className="text-sm font-semibold text-slate-600">{pct}%</span>
+                </div>
+                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-2 bg-indigo-600 transition-all" style={{ width: `${pct}%` }} />
+                </div>
+                <div className="mt-3 text-xs text-slate-500 space-y-2">
+                  {chunkStates.length > 0 && (
+                    <div>
+                      <p className="mb-1">
+                        Video chunks: {chunksDone}/{chunkStates.length}{' '}
+                        <span className="text-slate-400">(hara = naya, neela = cache se, peela = chal raha)</span>
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {chunkStates.map((s, i) => (
+                          <span key={i} className={`w-3 h-3 rounded-sm ${chipStyle[s]}`} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {chaptersTotal > 0 && (
+                    <p>
+                      Chapters ke notes: {chaptersDone}/{chaptersTotal}
+                    </p>
+                  )}
+                  {imagesTotal > 0 && (
+                    <p>
+                      Diagrams: {imagesDone}/{imagesTotal} <span className="text-slate-400">(notes tab mein aate jaate hain)</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {!hasContent && !running && (
+              <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-500">
+                <p className="text-lg font-semibold text-slate-700 mb-2">Kaise kaam karta hai</p>
+                <p className="text-sm max-w-md mx-auto">
+                  Lecture ka link paste karo. Video 10-10 minute ke hisson mein parallel analyse hota hai, phir chapter-wise
+                  student-style notes, mind map, diagrams aur quiz banta hai. Beech mein ruk jaye toh dobara dabane par wahin se chalega.
+                </p>
+              </div>
+            )}
+
+            {hasContent && (
+              <>
+                <div className="flex flex-wrap items-center gap-2 border-b border-slate-200">
+                  {(['notes', 'quiz'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setTab(t)}
+                      className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px cursor-pointer ${
+                        tab === t ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500'
+                      }`}
+                    >
+                      {t === 'notes' ? `Notes (${chapters.length} chapters)` : `Quiz (${mcqs.length} MCQs)`}
+                    </button>
+                  ))}
+                  <div className="ml-auto flex gap-2 pb-1">
+                    <button onClick={() => doPrint('notes')} className="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-lg cursor-pointer">
+                      ⬇ Notes PDF
+                    </button>
+                    <button onClick={() => doPrint('quiz')} className="text-xs bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-lg cursor-pointer">
+                      ⬇ Quiz PDF
+                    </button>
+                  </div>
+                </div>
+
+                {tab === 'notes' && <NotesDoc chapters={chapters} visuals={visuals} regenId={regenId} labels={UI[lang?.medium ?? 'hinglish']} onJump={jump} onRegen={regenerate} />}
+
+                {tab === 'quiz' && (
+                  <div className="space-y-4">
+                    <div className="sticky top-0 z-10 bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-wrap items-center gap-3 text-sm">
+                      <select
+                        value={quizChapter}
+                        onChange={(e) => setQuizChapter(e.target.value)}
+                        className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm max-w-[220px]"
+                      >
+                        <option value="all">Saare chapters ({mcqs.length})</option>
+                        {quizChapters.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                      <span>
+                        Attempted: <b>{attempted}</b>/{quizList.length}
+                      </span>
+                      <span className="font-semibold text-emerald-600">
+                        Score: {score}/{attempted}
+                        {attempted > 0 && ` (${Math.round((score / attempted) * 100)}%)`}
+                      </span>
+                      <button onClick={() => setAnswers({})} className="ml-auto text-xs underline text-slate-500 cursor-pointer">
+                        Test reset
+                      </button>
+                    </div>
+
+                    {quizList.map((q, qi) => {
+                      const chosen = answers[q.id];
+                      const answered = chosen !== undefined;
+                      return (
+                        <div key={q.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                          <div className="flex justify-between items-start gap-3 mb-3">
+                            <p className="font-semibold text-sm">
+                              Q{qi + 1}. {q.question}
+                            </p>
+                            <button onClick={() => jump(q.timestamp_seconds)} className="shrink-0 text-xs text-indigo-600 font-semibold cursor-pointer">
+                              ▶ {fmt(q.timestamp_seconds)}
+                            </button>
+                          </div>
+                          <div className="grid sm:grid-cols-2 gap-2">
+                            {q.options.map((opt, oi) => {
+                              let style = 'bg-white border-slate-300 hover:border-indigo-400 hover:bg-indigo-50';
+                              if (answered) {
+                                if (oi === q.correct_index) style = 'bg-emerald-50 border-emerald-500 text-emerald-800';
+                                else if (oi === chosen) style = 'bg-rose-50 border-rose-500 text-rose-800';
+                                else style = 'bg-slate-50 border-slate-200 text-slate-400';
+                              }
+                              return (
+                                <button
+                                  key={oi}
+                                  disabled={answered}
+                                  onClick={() => setAnswers((p) => ({ ...p, [q.id]: oi }))}
+                                  className={`text-left text-sm p-2.5 rounded-lg border transition ${answered ? '' : 'cursor-pointer'} ${style}`}
+                                >
+                                  <b>{String.fromCharCode(65 + oi)}.</b> {opt}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {answered && (
+                            <div className="mt-3 text-sm bg-slate-50 border border-slate-200 rounded-lg p-3">
+                              <p className={chosen === q.correct_index ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>
+                                {chosen === q.correct_index
+                                  ? '✓ Sahi jawab!'
+                                  : `✗ Galat. Sahi answer: ${String.fromCharCode(65 + q.correct_index)}. ${q.options[q.correct_index]}`}
+                              </p>
+                              <p className="mt-1 text-slate-600">
+                                <b className="text-indigo-600">Explanation: </b>
+                                {q.explanation}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        </main>
+      </div>
+
+      {/* ---------------- PRINT (PDF) ---------------- */}
+      <div className="print-only">
+        {printMode === 'notes' && <NotesDoc chapters={chapters} visuals={visuals} labels={UI[lang?.medium ?? 'hinglish']} />}
+        {printMode === 'quiz' && (
+          <div style={{ color: '#000', background: '#fff', padding: 16 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>Quiz - Answer Key ke saath</h1>
+            {mcqs.map((q, i) => (
+              <div key={q.id} className="avoid-break" style={{ marginBottom: 14, fontSize: 14 }}>
+                <p style={{ fontWeight: 600 }}>
+                  Q{i + 1}. {q.question} <span style={{ color: '#64748b', fontWeight: 400 }}>[{q.chapter} · {fmt(q.timestamp_seconds)}]</span>
+                </p>
+                {q.options.map((o, oi) => (
+                  <p key={oi} style={{ marginLeft: 16 }}>
+                    {String.fromCharCode(65 + oi)}. {o}
+                  </p>
+                ))}
+                <p style={{ marginLeft: 16, marginTop: 4 }}>
+                  <b>Answer: {String.fromCharCode(65 + q.correct_index)}</b> - {q.explanation}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
