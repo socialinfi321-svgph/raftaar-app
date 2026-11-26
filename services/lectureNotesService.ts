@@ -452,9 +452,25 @@ async function postApi<T>(endpoint: string, body: unknown, signal?: AbortSignal)
     body: JSON.stringify(body),
     signal,
   });
-  const json = await res.json().catch(() => ({}));
+  const rawText = await res.text().catch(() => '');
+  let json: any = {};
+  if (rawText) {
+    try {
+      json = JSON.parse(rawText);
+    } catch {
+      json = {};
+    }
+  }
   if (!res.ok) {
-    throw new Error(json?.error || `Request failed (${res.status})`);
+    throw new Error(
+      json?.error ||
+        (res.status === 404
+          ? 'AI notes endpoint not found (404). Please verify API deployment.'
+          : `Request failed (${res.status})`)
+    );
+  }
+  if (!rawText || typeof json !== 'object' || json === null) {
+    throw new Error('Invalid response received from AI server.');
   }
   return json as T;
 }
@@ -542,7 +558,7 @@ export async function generateLectureNotesAndMcqs(params: {
   const allSegs = digests.flatMap((d) => d?.segments || []).sort((a, b) => a.t - b.t);
   const allBoard = digests.flatMap((d) => d?.board || []);
   if (allSegs.length === 0) {
-    throw new Error('Is video se notes content detect nahi ho paya.');
+    throw new Error(failures[0] || 'Is video se notes content detect nahi ho paya.');
   }
 
   const selectedBoard = selectBoard(allBoard);
@@ -553,9 +569,10 @@ export async function generateLectureNotesAndMcqs(params: {
   const outKey = `${base}:${langP.key}:outline:${durationSec}`;
   let outline = await cget<Chapter[]>(outKey);
   if (!outline) {
+    const outlineSegments = allSegs.slice(0, 250).map((s) => ({ t: s.t, title: s.title }));
     const outRes = await postApi<{ chapters: Chapter[] }>(
       '/api/ai-notes/outline',
-      { segments: allSegs, durationSec, lang: langP },
+      { segments: outlineSegments, durationSec, lang: langP },
       signal
     );
     outline = outRes.chapters;
@@ -605,9 +622,10 @@ export async function generateLectureNotesAndMcqs(params: {
       const key = `${base}:${langP.key}:ch:${ch.start_sec}-${ch.end_sec}`;
       let r = await cget<{ notes: ChapterContent; mcqs: MCQ[] }>(key);
       if (!r) {
+        const chapterSegments = allSegs.filter((s) => s.t >= ch.start_sec && s.t < ch.end_sec);
         r = await postApi<{ notes: ChapterContent; mcqs: MCQ[] }>(
           '/api/ai-notes/chapter',
-          { chapter: ch, segments: allSegs, lang: langP },
+          { chapter: ch, segments: chapterSegments, lang: langP },
           signal
         );
         await cset(key, r);
