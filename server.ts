@@ -7,6 +7,9 @@ import outlineHandler from './api/ai-notes/outline.ts';
 import chapterHandler from './api/ai-notes/chapter.ts';
 import visualHandler from './api/ai-notes/visual.ts';
 import healthHandler from './api/ai-notes/health.ts';
+import notesStartHandler from './api/notes/start.ts';
+import notesWorkHandler from './api/notes/work.ts';
+import notesStatusHandler from './api/notes/status.ts';
 import { sendJson } from './api/_lib/http.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,7 +21,16 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 async function startServer() {
   const app = express();
 
-  /* ---------------- AI Lecture Notes & MCQs Routes (Shared with Vercel) ---------------- */
+  /* ---------------- Server-Side Resumable Lecture Jobs & AI Routes ---------------- */
+  app.all('/api/notes/start', (req, res) => {
+    void notesStartHandler(req, res);
+  });
+  app.all('/api/notes/work', (req, res) => {
+    void notesWorkHandler(req, res);
+  });
+  app.all('/api/notes/status', (req, res) => {
+    void notesStatusHandler(req, res);
+  });
   app.all('/api/ai-notes/health', (req, res) => {
     healthHandler(req, res);
   });

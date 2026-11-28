@@ -1,3 +1,6 @@
+import DOMPurify from 'dompurify';
+import { supabase } from './supabase';
+
 export type Medium = 'english' | 'hindi' | 'hinglish';
 
 export interface LangMeta {
@@ -104,7 +107,8 @@ export interface MCQ {
 
 export interface GeneratedVisual {
   kind: 'img' | 'svg';
-  content: string;
+  content: string; // sanitized SVG markup or data URL or storage URL
+  url?: string; // Supabase Storage URL when stored on server
   caption: string;
 }
 
@@ -129,14 +133,15 @@ export interface GenerationProgress {
 export const PIPELINE_CONFIG = {
   CHUNK_SEC: 600,
   MIN_CHUNK_SEC: 150,
-  MAX_SPLIT_DEPTH: 2, // 600s -> 300s -> 150s
+  MAX_SPLIT_DEPTH: 2,
   MAX_RETRIES: 2,
-  CONCURRENCY: 2,
-  CHAPTER_CONCURRENCY: 2,
-  IMAGE_CONCURRENCY: 2,
+  CONCURRENCY: 4,
+  CHAPTER_CONCURRENCY: 4,
+  IMAGE_CONCURRENCY: 4,
   MAX_VISUALS: 8,
-  CACHE_V: 'raftaar:v9',
-  SCHEMA_V: 's2',
+  POLL_INTERVAL_MS: 2200,
+  CACHE_V: 'raftaar:v10',
+  SCHEMA_V: 's3',
   MAX_SVG_BYTES: 128 * 1024,
 } as const;
 
@@ -183,12 +188,15 @@ export const UI_LABELS: Record<Medium, UILabels> = {
 
 export class ApiHttpError extends Error {
   readonly status: number;
+  readonly rawMessage: string;
   readonly retryAfterSec?: number;
 
   constructor(status: number, message: string, retryAfterSec?: number) {
-    super(message);
+    const clean = message.replace(/^\[HTTP \d+\]\s*/i, '').trim();
+    super(`[HTTP ${status}] ${clean}`);
     this.name = 'ApiHttpError';
     this.status = status;
+    this.rawMessage = clean;
     this.retryAfterSec = retryAfterSec;
   }
 }
@@ -239,46 +247,85 @@ export function sectionIndexFor(ch: ChapterNotes, b: BoardItem): number {
   return idx;
 }
 
-export function sanitizeSvgForImg(raw: string): string | null {
-  let clean = (raw || '')
+export function sanitizeSvgWithDomPurify(raw: string): string | null {
+  const trimmed = (raw || '')
     .replace(/```svg|```html|```xml|```/gi, '')
     .replace(/<\?xml[\s\S]*?\?>/gi, '')
     .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
-    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
-    .replace(/<foreignObject[\s\S]*?>[\s\S]*?<\/foreignObject>/gi, '')
-    .replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, '')
-    .replace(/<object[\s\S]*?>[\s\S]*?<\/object>/gi, '')
-    .replace(/<embed[\s\S]*?>[\s\S]*?<\/embed>/gi, '')
-    .replace(/<embed[^>]*\/?>/gi, '')
-    .replace(/<image[\s\S]*?>[\s\S]*?<\/image>/gi, '')
-    .replace(/<image[^>]*\/?>/gi, '')
-    .replace(/<feImage[\s\S]*?>[\s\S]*?<\/feImage>/gi, '')
-    .replace(/<feImage[^>]*\/?>/gi, '')
-    .replace(/<style[\s\S]*?>([\s\S]*?)<\/style>/gi, (_m, css) => {
-      if (/@import|expression\s*\(|javascript:|url\s*\(\s*["']?\s*(?:https?:|data:|javascript:)/i.test(css)) {
-        return '';
-      }
-      return `<style>${css}</style>`;
-    })
-    .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-    .replace(/(?:href|xlink:href)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi, (m, dq, sq) => {
-      const val = String(dq ?? sq ?? '').trim();
-      if (val.startsWith('#')) return m;
-      return '';
+    .trim();
+
+  const svgMatch = trimmed.match(/<svg[\s\S]*<\/svg>/i);
+  if (!svgMatch) return null;
+
+  let cleanSvg = svgMatch[0];
+
+  if (typeof window !== 'undefined' && typeof DOMPurify?.sanitize === 'function') {
+    cleanSvg = DOMPurify.sanitize(cleanSvg, {
+      USE_PROFILES: { svg: true, svgFilters: true },
+      FORBID_TAGS: ['script', 'foreignObject', 'iframe', 'object', 'embed', 'image', 'feImage'],
+      FORBID_ATTR: ['onload', 'onerror', 'onclick', 'onmouseover', 'onfocus', 'onmouseenter'],
+      ALLOW_DATA_ATTR: false,
+    });
+  } else {
+    // Pure Node/SSR test fallback matching strict SVG rules
+    cleanSvg = cleanSvg
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+      .replace(/<foreignObject[\s\S]*?>[\s\S]*?<\/foreignObject>/gi, '')
+      .replace(/<iframe[\s\S]*?>[\s\S]*?<\/iframe>/gi, '')
+      .replace(/<object[\s\S]*?>[\s\S]*?<\/object>/gi, '')
+      .replace(/<embed[\s\S]*?>[\s\S]*?<\/embed>/gi, '')
+      .replace(/<embed[^>]*\/?>/gi, '')
+      .replace(/<image[\s\S]*?>[\s\S]*?<\/image>/gi, '')
+      .replace(/<image[^>]*\/?>/gi, '')
+      .replace(/<feImage[\s\S]*?>[\s\S]*?<\/feImage>/gi, '')
+      .replace(/<feImage[^>]*\/?>/gi, '')
+      .replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/(?:href|xlink:href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi, (m, dq, sq, uq) => {
+        const val = String(dq ?? sq ?? uq ?? '').trim();
+        return val.startsWith('#') ? m : '';
+      });
+  }
+
+  // Enforce no external hrefs even after DOMPurify
+  cleanSvg = cleanSvg
+    .replace(/(?:href|xlink:href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi, (m, dq, sq, uq) => {
+      const val = String(dq ?? sq ?? uq ?? '').trim();
+      return val.startsWith('#') ? m : '';
     })
     .trim();
 
-  const match = clean.match(/<svg[\s\S]*<\/svg>/i);
-  if (!match) return null;
-  let svg = match[0];
+  const finalMatch = cleanSvg.match(/<svg[\s\S]*<\/svg>/i);
+  if (!finalMatch) return null;
+  let finalSvg = finalMatch[0];
 
-  if (new Blob([svg]).size > PIPELINE_CONFIG.MAX_SVG_BYTES) {
+  const byteSize =
+    typeof Blob !== 'undefined' ? new Blob([finalSvg]).size : Buffer.byteLength(finalSvg, 'utf8');
+  if (byteSize > PIPELINE_CONFIG.MAX_SVG_BYTES) {
     return null;
   }
-  if (!/\bxmlns=/.test(svg)) {
-    svg = svg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+
+  if (!/\bxmlns=/.test(finalSvg)) {
+    finalSvg = finalSvg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
   }
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  return finalSvg;
+}
+
+export function sanitizeSvgForImg(raw: string): string | null {
+  if (!raw) return null;
+  if (raw.startsWith('data:image/svg+xml')) {
+    try {
+      const comma = raw.indexOf(',');
+      if (comma !== -1) {
+        const decoded = decodeURIComponent(raw.slice(comma + 1));
+        const clean = sanitizeSvgWithDomPurify(decoded);
+        return clean ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean)}` : null;
+      }
+    } catch {
+      return null;
+    }
+  }
+  const clean = sanitizeSvgWithDomPurify(raw);
+  return clean ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(clean)}` : null;
 }
 
 /* ---------------- LocalStorage Bundle Cache ---------------- */
@@ -363,7 +410,7 @@ export function saveMcqAnswers(videoId: string, answers: Record<string, number>)
   } catch {}
 }
 
-/* ---------------- IndexedDB Intermediate Chunk Cache (Resumable + Versioned) ---------------- */
+/* ---------------- IndexedDB Intermediate Cache ---------------- */
 function hasIndexedDb(): boolean {
   return typeof indexedDB !== 'undefined';
 }
@@ -404,31 +451,6 @@ async function cset(k: string, v: unknown): Promise<void> {
     await new Promise<void>((res) => {
       const tx = db.transaction('kv', 'readwrite');
       tx.objectStore('kv').put(v, k);
-      tx.oncomplete = () => res();
-      tx.onerror = () => res();
-    });
-  } catch {}
-}
-
-let legacyCleaned = false;
-async function cleanupLegacyCacheEntries(): Promise<void> {
-  if (legacyCleaned || !hasIndexedDb()) return;
-  legacyCleaned = true;
-  try {
-    const db = await idbOpen();
-    await new Promise<void>((res) => {
-      const tx = db.transaction('kv', 'readwrite');
-      const store = tx.objectStore('kv');
-      const req = store.openKeyCursor();
-      req.onsuccess = () => {
-        const cursor = req.result;
-        if (!cursor) return;
-        const keyStr = String(cursor.key || '');
-        if (keyStr.startsWith('raftaar:v7:') || keyStr.startsWith('raftaar:v8:')) {
-          store.delete(cursor.key);
-        }
-        cursor.continue();
-      };
       tx.oncomplete = () => res();
       tx.onerror = () => res();
     });
@@ -485,7 +507,10 @@ function resolveLang(meta: LangMeta): LangProfile {
   };
 }
 
-export function makeChunks(durationSec: number, chunkSec: number = PIPELINE_CONFIG.CHUNK_SEC): { start: number; end: number }[] {
+export function makeChunks(
+  durationSec: number,
+  chunkSec: number = PIPELINE_CONFIG.CHUNK_SEC
+): { start: number; end: number }[] {
   const safeDur = Math.max(60, Math.round(durationSec));
   const out: { start: number; end: number }[] = [];
   for (let s = 0; s < safeDur; s += chunkSec) {
@@ -500,7 +525,9 @@ function selectBoard(all: BoardItem[]): BoardItem[] {
   const seenId = new Set<string>();
   for (const b of sorted) {
     const dup = kept.some(
-      (k) => k.title.trim().toLowerCase() === b.title.trim().toLowerCase() && Math.abs(k.best_t - b.best_t) < 90
+      (k) =>
+        k.title.trim().toLowerCase() === b.title.trim().toLowerCase() &&
+        Math.abs(k.best_t - b.best_t) < 90
     );
     if (dup || seenId.has(b.id)) continue;
     seenId.add(b.id);
@@ -563,23 +590,28 @@ async function runPool<T>(
   await Promise.all(runners);
 }
 
-let rateLimitPauseUntil = 0;
-
-async function waitForSharedCooldown(signal?: AbortSignal): Promise<void> {
-  const remaining = rateLimitPauseUntil - Date.now();
-  if (remaining <= 0) return;
-  const waitMs = Math.min(8000, remaining);
-  if (signal?.aborted) throw new Error('CANCELLED');
-  await sleep(waitMs);
-  if (signal?.aborted) throw new Error('CANCELLED');
+async function getAuthToken(): Promise<string> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    if (token) return token;
+  } catch {}
+  throw new ApiHttpError(401, 'Notes generate karne ke liye login zaroori hai.');
 }
 
 function isFatalConfigurationOrContentError(err: unknown): boolean {
   if (err instanceof ApiHttpError) {
-    if (err.status === 400 || err.status === 404 || err.status === 422 || err.status === 503) {
+    if (
+      err.status === 400 ||
+      err.status === 401 ||
+      err.status === 403 ||
+      err.status === 404 ||
+      err.status === 422 ||
+      err.status === 503
+    ) {
       return true;
     }
-    if (err.status === 502 && /API key valid nahi|permission nahi/i.test(err.message)) {
+    if (err.status === 502 && /API key valid nahi|permission nahi/i.test(err.rawMessage)) {
       return true;
     }
   }
@@ -591,14 +623,22 @@ function isSplitEligibleError(err: unknown): boolean {
   if (err instanceof ApiHttpError) {
     return err.status === 504 || err.status === 502 || err.status === 500 || err.status === 429;
   }
-  return true; // Network/timeout failures can succeed when chunk window is smaller
+  return true;
 }
 
-async function postApi<T>(endpoint: string, body: unknown, signal?: AbortSignal): Promise<T> {
-  await waitForSharedCooldown(signal);
+async function postApi<T>(
+  endpoint: string,
+  body: unknown,
+  signal?: AbortSignal,
+  tokenOverride?: string
+): Promise<T> {
+  const token = tokenOverride ?? (await getAuthToken());
   const res = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify(body),
     signal,
   });
@@ -615,15 +655,11 @@ async function postApi<T>(endpoint: string, body: unknown, signal?: AbortSignal)
     const retryAfterHdr = Number(res.headers.get('Retry-After'));
     const retryAfterSec =
       Number.isFinite(retryAfterHdr) && retryAfterHdr > 0 ? retryAfterHdr : undefined;
-    if (res.status === 429) {
-      const pauseMs = Math.max(2000, (retryAfterSec || 4) * 1000);
-      rateLimitPauseUntil = Math.max(rateLimitPauseUntil, Date.now() + pauseMs);
-    }
     const msg =
       json?.error ||
       (res.status === 404
-        ? 'AI notes endpoint not found (404). Please verify API deployment.'
-        : `Request failed (${res.status})`);
+        ? 'AI notes endpoint not found. Please verify API deployment.'
+        : 'Request failed.');
     throw new ApiHttpError(res.status, msg, retryAfterSec);
   }
   if (!rawText || typeof json !== 'object' || json === null) {
@@ -632,11 +668,13 @@ async function postApi<T>(endpoint: string, body: unknown, signal?: AbortSignal)
   return json as T;
 }
 
-async function postWithBackoff<T>(
+// Per-request backoff on 429/transient errors — NO global cross-request pause
+async function postWithPerRequestBackoff<T>(
   endpoint: string,
   body: unknown,
   signal?: AbortSignal,
-  maxRetries: number = PIPELINE_CONFIG.MAX_RETRIES
+  maxRetries: number = PIPELINE_CONFIG.MAX_RETRIES,
+  tokenOverride?: string
 ): Promise<T> {
   const backoffs = [1500, 3500];
   let lastErr: unknown;
@@ -644,7 +682,7 @@ async function postWithBackoff<T>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (signal?.aborted) throw new Error('CANCELLED');
     try {
-      return await postApi<T>(endpoint, body, signal);
+      return await postApi<T>(endpoint, body, signal, tokenOverride);
     } catch (err: any) {
       if (signal?.aborted || err?.name === 'AbortError' || err?.message === 'CANCELLED') {
         throw new Error('CANCELLED');
@@ -655,9 +693,6 @@ async function postWithBackoff<T>(
       }
       const retrySec = err instanceof ApiHttpError && err.retryAfterSec ? err.retryAfterSec * 1000 : 0;
       const delayMs = Math.max(retrySec, backoffs[attempt] || 3500) + Math.round(Math.random() * 500);
-      if (err instanceof ApiHttpError && err.status === 429) {
-        rateLimitPauseUntil = Math.max(rateLimitPauseUntil, Date.now() + delayMs);
-      }
       await sleep(delayMs);
     }
   }
@@ -692,7 +727,7 @@ export async function fetchChunkWithSplitAndRetry(params: {
   const runFetch =
     params.fetcher ??
     ((body: Record<string, unknown>, sig?: AbortSignal) =>
-      postWithBackoff<ChunkDigest>('/api/ai-notes/digest', body, sig));
+      postWithPerRequestBackoff<ChunkDigest>('/api/ai-notes/digest', body, sig));
 
   if (signal?.aborted) throw new Error('CANCELLED');
 
@@ -724,7 +759,6 @@ export async function fetchChunkWithSplitAndRetry(params: {
       throw err;
     }
 
-    // Client-side chunk splitting fallback: 600s -> 300s -> 150s
     const mid = start + Math.floor(span / 2);
     const left = await fetchChunkWithSplitAndRetry({
       ...params,
@@ -750,53 +784,104 @@ export async function fetchChunkWithSplitAndRetry(params: {
   }
 }
 
-/* ---------------- Main Auto Pipeline ---------------- */
-export async function generateLectureNotesAndMcqs(params: {
+async function hydrateStorageVisualsWithDomPurify(
+  visuals: Record<string, GeneratedVisual>,
+  signal?: AbortSignal
+): Promise<Record<string, GeneratedVisual>> {
+  const hydrated: Record<string, GeneratedVisual> = {};
+  const entries = Object.entries(visuals || {});
+  await Promise.all(
+    entries.map(async ([id, vis]) => {
+      if (!vis) return;
+      if (vis.kind === 'img') {
+        hydrated[id] = vis;
+        return;
+      }
+      const rawContent = vis.url || vis.content || '';
+      if (rawContent.startsWith('data:image/svg+xml')) {
+        const sanitized = sanitizeSvgForImg(rawContent);
+        if (sanitized) hydrated[id] = { ...vis, content: sanitized };
+        return;
+      }
+      if (/^https?:\/\//i.test(rawContent)) {
+        try {
+          const res = await fetch(rawContent, { signal });
+          if (!res.ok) return;
+          const svgText = await res.text();
+          const sanitizedDataUri = sanitizeSvgForImg(svgText);
+          if (sanitizedDataUri) {
+            hydrated[id] = {
+              kind: 'svg',
+              content: sanitizedDataUri,
+              url: rawContent,
+              caption: vis.caption,
+            };
+          }
+        } catch {
+          // ignore transient visual load failure
+        }
+        return;
+      }
+      const sanitized = sanitizeSvgForImg(rawContent);
+      if (sanitized) {
+        hydrated[id] = { ...vis, content: sanitized };
+      }
+    })
+  );
+  return hydrated;
+}
+
+interface StartOrStatusResponse {
+  jobId: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  phase: string;
+  progress: number;
+  cached?: boolean;
+  errorStatus?: number | null;
+  error?: string | null;
+  bundle: LectureNotesBundle;
+}
+
+async function runDirectClientFallbackPipeline(params: {
   videoId: string;
   title: string;
   durationSec: number;
+  token: string;
   signal?: AbortSignal;
   onProgress?: (progress: GenerationProgress) => void;
   onPartialUpdate?: (bundle: LectureNotesBundle) => void;
 }): Promise<LectureNotesBundle> {
-  const { videoId, title, signal, onProgress, onPartialUpdate } = params;
+  const { videoId, title, token, signal, onProgress, onPartialUpdate } = params;
   const durationSec = Math.max(120, Math.round(params.durationSec || 600));
   const base = `${PIPELINE_CONFIG.CACHE_V}:${PIPELINE_CONFIG.SCHEMA_V}:${videoId}:${PIPELINE_CONFIG.CHUNK_SEC}`;
   const chunks = makeChunks(durationSec, PIPELINE_CONFIG.CHUNK_SEC);
 
-  void cleanupLegacyCacheEntries();
-
-  const estChapters = Math.max(2, Math.min(12, Math.ceil(durationSec / 720)));
-  const initialAnalyzeSec = Math.ceil(chunks.length / PIPELINE_CONFIG.CONCURRENCY) * 22;
-  const initialOutlineSec = 7;
-  const initialChapterSec = Math.ceil(estChapters / PIPELINE_CONFIG.CHAPTER_CONCURRENCY) * 14;
-  const initialVisualSec = 10;
-  let totalEstSec = initialAnalyzeSec + initialOutlineSec + initialChapterSec + initialVisualSec;
   const startedAt = Date.now();
+  const initialAnalyzeSec = Math.ceil(chunks.length / PIPELINE_CONFIG.CONCURRENCY) * 18;
+  const estChapters = Math.max(2, Math.min(12, Math.ceil(durationSec / 720)));
+  const initialChapterSec = Math.ceil(estChapters / PIPELINE_CONFIG.CHAPTER_CONCURRENCY) * 12;
+  const totalEstSec = initialAnalyzeSec + 7 + initialChapterSec + 8;
 
-  const report = (pct: number, remainingHintSec?: number) => {
-    const clampedPct = Math.max(1, Math.min(99, Math.round(pct)));
+  const report = (pct: number, remHint?: number) => {
     const elapsed = (Date.now() - startedAt) / 1000;
-    const computedEta =
-      typeof remainingHintSec === 'number'
-        ? Math.max(2, Math.round(remainingHintSec))
-        : Math.max(2, Math.round(totalEstSec - elapsed));
-    onProgress?.({ percent: clampedPct, etaSeconds: computedEta });
+    onProgress?.({
+      percent: Math.max(1, Math.min(99, Math.round(pct))),
+      etaSeconds: Math.max(2, Math.round(remHint ?? totalEstSec - elapsed)),
+    });
   };
 
   report(3, totalEstSec);
 
-  /* ---- 1. ANALYZE CHUNKS (Concurrency-2 + Backoff + Client Splitting) ---- */
   const digests: (ChunkDigest | undefined)[] = new Array(chunks.length);
   const failures: Error[] = [];
-  let fatalAbortErr: Error | null = null;
+  let fatalErr: Error | null = null;
   let chunksCompleted = 0;
 
   await runPool(
     chunks,
     PIPELINE_CONFIG.CONCURRENCY,
     async (c, i) => {
-      if (signal?.aborted || fatalAbortErr) return;
+      if (signal?.aborted || fatalErr) return;
       try {
         digests[i] = await fetchChunkWithSplitAndRetry({
           videoId,
@@ -806,6 +891,8 @@ export async function generateLectureNotesAndMcqs(params: {
           withMeta: i === 0,
           cacheBase: base,
           signal,
+          fetcher: (b, sig) =>
+            postWithPerRequestBackoff<ChunkDigest>('/api/ai-notes/digest', b, sig, 2, token),
         });
       } catch (e: any) {
         if (signal?.aborted || e?.name === 'AbortError' || e?.message === 'CANCELLED') {
@@ -814,100 +901,78 @@ export async function generateLectureNotesAndMcqs(params: {
         const errObj = e instanceof Error ? e : new Error(String(e || 'Chunk failed'));
         failures.push(errObj);
         if (isFatalConfigurationOrContentError(errObj)) {
-          fatalAbortErr = errObj;
+          fatalErr = errObj;
         }
       } finally {
         chunksCompleted++;
-        const frac = chunksCompleted / chunks.length;
-        const remChunks = chunks.length - chunksCompleted;
-        const remSec =
-          Math.ceil(remChunks / PIPELINE_CONFIG.CONCURRENCY) * 20 +
-          initialOutlineSec +
-          initialChapterSec +
-          initialVisualSec;
-        report(5 + frac * 45, remSec);
+        report(
+          5 + (chunksCompleted / chunks.length) * 45,
+          Math.ceil((chunks.length - chunksCompleted) / PIPELINE_CONFIG.CONCURRENCY) * 16 +
+            initialChapterSec +
+            10
+        );
       }
     },
     signal
   );
 
   if (signal?.aborted) throw new Error('CANCELLED');
-  if (fatalAbortErr && digests.every((d) => !d)) {
-    throw fatalAbortErr;
-  }
-  if (failures.length === chunks.length) {
-    throw failures[0] || new Error('Video analyze nahi ho paya.');
-  }
+  if (fatalErr && digests.every((d) => !d)) throw fatalErr;
+  if (failures.length === chunks.length) throw failures[0];
 
   const allSegs = digests.flatMap((d) => d?.segments || []).sort((a, b) => a.t - b.t);
   const allBoard = digests.flatMap((d) => d?.board || []);
   if (allSegs.length === 0) {
-    throw failures[0] || new Error('Is video se notes content detect nahi ho paya.');
+    throw failures[0] || new ApiHttpError(422, 'Is video se notes content detect nahi ho paya.');
   }
 
   const selectedBoard = selectBoard(allBoard);
-  const firstMeta = digests.find((d) => d?.meta)?.meta ?? DEFAULT_META;
-  const langP = resolveLang(firstMeta);
+  const langP = resolveLang(digests.find((d) => d?.meta)?.meta ?? DEFAULT_META);
 
-  /* ---- 2. OUTLINE ---- */
-  report(52, initialOutlineSec + initialChapterSec + (selectedBoard.length ? initialVisualSec : 0));
+  report(52, 7 + initialChapterSec + 8);
   const outKey = `${base}:${langP.key}:outline:${durationSec}`;
   let outline = await cget<Chapter[]>(outKey);
-  if (!outline || !Array.isArray(outline) || outline.length === 0) {
-    const outlineSegments = allSegs.slice(0, 250).map((s) => ({ t: s.t, title: s.title }));
-    const outRes = await postWithBackoff<{ chapters: Chapter[] }>(
+  if (!outline || !outline.length) {
+    const outRes = await postWithPerRequestBackoff<{ chapters: Chapter[] }>(
       '/api/ai-notes/outline',
-      { segments: outlineSegments, durationSec, lang: langP },
-      signal
+      { videoId, segments: allSegs.slice(0, 250).map((s) => ({ t: s.t, title: s.title })), durationSec, lang: langP },
+      signal,
+      2,
+      token
     );
     outline = outRes.chapters;
-    if (Array.isArray(outline) && outline.length > 0) {
-      await cset(outKey, outline);
-    }
+    if (outline?.length) await cset(outKey, outline);
   }
   if (signal?.aborted) throw new Error('CANCELLED');
-  if (!outline || outline.length === 0) {
-    throw new Error('Lecture chapters outline nahi ban payi.');
-  }
+  if (!outline?.length) throw new ApiHttpError(502, 'Lecture chapters outline nahi ban payi.');
 
-  /* ---- 3. NOTES + MCQs (Resumable per Chapter) ---- */
   const results: ({ notes: ChapterContent; mcqs: MCQ[] } | undefined)[] = new Array(outline.length);
   const visuals: Record<string, GeneratedVisual> = {};
   let chaptersDone = 0;
 
-  const buildCurrentBundle = (): LectureNotesBundle => {
-    const builtChapters: ChapterNotes[] = [];
-    outline!.forEach((ch, i) => {
-      const r = results[i];
-      if (!r) return;
-      builtChapters.push({
-        ...ch,
-        ...r.notes,
-        board_visuals: selectedBoard.filter(
-          (b) => b.best_t >= ch.start_sec && b.best_t < ch.end_sec + (i === outline!.length - 1 ? 1 : 0)
-        ),
-      });
-    });
-    return {
-      videoId,
-      title,
-      updatedAt: Date.now(),
-      lang: langP,
-      chapters: builtChapters,
-      mcqs: dedupeMcqs(results.map((r) => r?.mcqs || [])),
-      visuals: { ...visuals },
-      pipelineVersion: `${PIPELINE_CONFIG.CACHE_V}:${PIPELINE_CONFIG.SCHEMA_V}`,
-    };
-  };
+  const buildCurrent = (): LectureNotesBundle => ({
+    videoId,
+    title,
+    updatedAt: Date.now(),
+    lang: langP,
+    chapters: outline!
+      .map((ch, i) => {
+        const r = results[i];
+        if (!r) return null;
+        return {
+          ...ch,
+          ...r.notes,
+          board_visuals: selectedBoard.filter(
+            (b) => b.best_t >= ch.start_sec && b.best_t < ch.end_sec + (i === outline!.length - 1 ? 1 : 0)
+          ),
+        };
+      })
+      .filter((x): x is ChapterNotes => Boolean(x)),
+    mcqs: dedupeMcqs(results.map((r) => r?.mcqs || [])),
+    visuals: { ...visuals },
+    pipelineVersion: `${PIPELINE_CONFIG.CACHE_V}:${PIPELINE_CONFIG.SCHEMA_V}`,
+  });
 
-  const chapterEtaBase = Math.ceil(outline.length / PIPELINE_CONFIG.CHAPTER_CONCURRENCY) * 14;
-  const visualEtaBase = selectedBoard.length
-    ? Math.ceil(selectedBoard.length / PIPELINE_CONFIG.IMAGE_CONCURRENCY) * 8
-    : 0;
-  totalEstSec = (Date.now() - startedAt) / 1000 + chapterEtaBase + visualEtaBase;
-  report(56, chapterEtaBase + visualEtaBase);
-
-  const chapterFailures: Error[] = [];
   await runPool(
     outline,
     PIPELINE_CONFIG.CHAPTER_CONCURRENCY,
@@ -915,40 +980,26 @@ export async function generateLectureNotesAndMcqs(params: {
       if (signal?.aborted) throw new Error('CANCELLED');
       const key = `${base}:${langP.key}:ch:${ch.start_sec}-${ch.end_sec}`;
       let r = await cget<{ notes: ChapterContent; mcqs: MCQ[] }>(key);
-      if (!r || !Array.isArray(r.notes?.sections) || r.notes.sections.length === 0) {
-        const chapterSegments = allSegs.filter((s) => s.t >= ch.start_sec && s.t < ch.end_sec);
-        try {
-          r = await postWithBackoff<{ notes: ChapterContent; mcqs: MCQ[] }>(
-            '/api/ai-notes/chapter',
-            { chapter: ch, segments: chapterSegments, lang: langP },
-            signal
-          );
-          if (r?.notes?.sections?.length) {
-            await cset(key, r);
-          }
-        } catch (err: any) {
-          if (signal?.aborted || err?.message === 'CANCELLED') throw new Error('CANCELLED');
-          chapterFailures.push(err instanceof Error ? err : new Error(String(err || 'Chapter failed')));
-          return;
-        }
+      if (!r || !r.notes?.sections?.length) {
+        r = await postWithPerRequestBackoff<{ notes: ChapterContent; mcqs: MCQ[] }>(
+          '/api/ai-notes/chapter',
+          { videoId, chapter: ch, segments: allSegs.filter((s) => s.t >= ch.start_sec && s.t < ch.end_sec), lang: langP },
+          signal,
+          2,
+          token
+        );
+        if (r?.notes?.sections?.length) await cset(key, r);
       }
       results[i] = r;
       chaptersDone++;
-      const partial = buildCurrentBundle();
-      onPartialUpdate?.(partial);
-      const remCh = outline!.length - chaptersDone;
-      const remSec = Math.ceil(remCh / PIPELINE_CONFIG.CHAPTER_CONCURRENCY) * 12 + visualEtaBase;
-      report(56 + (chaptersDone / outline!.length) * 32, remSec);
+      onPartialUpdate?.(buildCurrent());
+      report(56 + (chaptersDone / outline!.length) * 32);
     },
     signal
   );
 
   if (signal?.aborted) throw new Error('CANCELLED');
-  if (chaptersDone === 0 && chapterFailures.length > 0) {
-    throw chapterFailures[0];
-  }
 
-  /* ---- 4. BOARD VISUALS (Clip-aware plan + sanitized inline SVG) ---- */
   if (selectedBoard.length > 0) {
     let visDone = 0;
     await runPool(
@@ -961,7 +1012,8 @@ export async function generateLectureNotesAndMcqs(params: {
           const cached = await cget<CachedVisual>(key);
           if (cached) {
             if ('kind' in cached) {
-              visuals[item.id] = cached;
+              const sanitized = cached.kind === 'svg' ? sanitizeSvgForImg(cached.content) : cached.content;
+              if (sanitized) visuals[item.id] = { ...cached, content: sanitized };
             }
           } else {
             const nearbySegs = allSegs
@@ -970,41 +1022,168 @@ export async function generateLectureNotesAndMcqs(params: {
               .map((s) => `${s.title}: ${s.summary}`)
               .join('\n')
               .slice(0, 900);
-
-            const visRes = await postWithBackoff<CachedVisual>(
+            const visRes = await postWithPerRequestBackoff<CachedVisual>(
               '/api/ai-notes/visual',
-              {
-                videoId,
-                item: { ...item, transcriptSnippet: nearbySegs },
-                lang: langP,
-              },
+              { videoId, item: { ...item, transcriptSnippet: nearbySegs }, lang: langP },
               signal,
-              1
+              1,
+              token
             );
             await cset(key, visRes);
             if (visRes && 'kind' in visRes) {
-              visuals[item.id] = visRes;
+              const sanitized = visRes.kind === 'svg' ? sanitizeSvgForImg(visRes.content) : visRes.content;
+              if (sanitized) visuals[item.id] = { ...visRes, content: sanitized };
             }
           }
         } catch {
-          // Graceful individual diagram skip without blocking lecture notes
+          // graceful skip
         } finally {
           visDone++;
-          const remV = selectedBoard.length - visDone;
-          report(
-            88 + (visDone / selectedBoard.length) * 11,
-            Math.ceil(remV / PIPELINE_CONFIG.IMAGE_CONCURRENCY) * 7
-          );
+          report(88 + (visDone / selectedBoard.length) * 11);
         }
       },
       signal
     );
   }
 
-  if (signal?.aborted) throw new Error('CANCELLED');
-
-  const finalBundle = buildCurrentBundle();
+  const finalBundle = buildCurrent();
   saveLectureBundleToLocalStorage(finalBundle);
   onProgress?.({ percent: 100, etaSeconds: 0 });
   return finalBundle;
+}
+
+/* ---------------- Main Job-Backed Pipeline ---------------- */
+export async function generateLectureNotesAndMcqs(params: {
+  videoId: string;
+  title: string;
+  durationSec: number;
+  signal?: AbortSignal;
+  onProgress?: (progress: GenerationProgress) => void;
+  onPartialUpdate?: (bundle: LectureNotesBundle) => void;
+}): Promise<LectureNotesBundle> {
+  const { videoId, title, signal, onProgress, onPartialUpdate } = params;
+  const durationSec = Math.max(120, Math.round(params.durationSec || 600));
+  const token = await getAuthToken();
+
+  const startedAt = Date.now();
+  const estTotalSec = Math.max(25, Math.ceil(durationSec / PIPELINE_CONFIG.CHUNK_SEC) * 18);
+
+  const report = (pct: number) => {
+    const clampedPct = Math.max(2, Math.min(99, Math.round(pct)));
+    const elapsed = (Date.now() - startedAt) / 1000;
+    const estFromPct =
+      clampedPct > 8 ? Math.max(2, Math.round((elapsed / clampedPct) * (100 - clampedPct))) : estTotalSec;
+    onProgress?.({ percent: clampedPct, etaSeconds: estFromPct });
+  };
+
+  report(3);
+
+  let startRes: StartOrStatusResponse;
+  try {
+    startRes = await postApi<StartOrStatusResponse>(
+      '/api/notes/start',
+      { videoId, title, durationSec, modeKey: 'auto' },
+      signal,
+      token
+    );
+  } catch (err: any) {
+    if (signal?.aborted || err?.name === 'AbortError' || err?.message === 'CANCELLED') {
+      throw new Error('CANCELLED');
+    }
+    // Fall back to direct authenticated /api/ai-notes/* pipeline ONLY if Supabase Service Role / migration tables are not configured yet
+    const msg = String(err?.message || '');
+    if (
+      (err instanceof ApiHttpError &&
+        err.status === 503 &&
+        /SUPABASE_SERVICE_ROLE_KEY/i.test(msg)) ||
+      /lecture_jobs|schema cache/i.test(msg)
+    ) {
+      return runDirectClientFallbackPipeline({
+        videoId,
+        title,
+        durationSec,
+        token,
+        signal,
+        onProgress,
+        onPartialUpdate,
+      });
+    }
+    throw err;
+  }
+
+  if (startRes.status === 'completed' && startRes.bundle?.chapters?.length > 0) {
+    const hydratedVisuals = await hydrateStorageVisualsWithDomPurify(startRes.bundle.visuals || {}, signal);
+    const doneBundle: LectureNotesBundle = {
+      ...startRes.bundle,
+      visuals: hydratedVisuals,
+      pipelineVersion: `${PIPELINE_CONFIG.CACHE_V}:${PIPELINE_CONFIG.SCHEMA_V}`,
+    };
+    saveLectureBundleToLocalStorage(doneBundle);
+    onProgress?.({ percent: 100, etaSeconds: 0 });
+    return doneBundle;
+  }
+
+  let lastChaptersCount = startRes.bundle?.chapters?.length || 0;
+  let lastVisualsCount = Object.keys(startRes.bundle?.visuals || {}).length;
+  if (lastChaptersCount > 0) {
+    const hydratedVisuals = await hydrateStorageVisualsWithDomPurify(startRes.bundle.visuals || {}, signal);
+    onPartialUpdate?.({ ...startRes.bundle, visuals: hydratedVisuals });
+  }
+  report(startRes.progress || 4);
+
+  // Poll status until job completes or fails (work runs persistently on server!)
+  while (!signal?.aborted) {
+    await sleep(PIPELINE_CONFIG.POLL_INTERVAL_MS);
+    if (signal?.aborted) throw new Error('CANCELLED');
+
+    const statusRes = await postWithPerRequestBackoff<StartOrStatusResponse>(
+      '/api/notes/status',
+      { videoId, modeKey: 'auto' },
+      signal,
+      2,
+      token
+    );
+
+    const chapCount = statusRes.bundle?.chapters?.length || 0;
+    const visCount = Object.keys(statusRes.bundle?.visuals || {}).length;
+
+    if (chapCount > lastChaptersCount || visCount > lastVisualsCount) {
+      lastChaptersCount = chapCount;
+      lastVisualsCount = visCount;
+      const hydratedVisuals = await hydrateStorageVisualsWithDomPurify(
+        statusRes.bundle.visuals || {},
+        signal
+      );
+      onPartialUpdate?.({
+        ...statusRes.bundle,
+        visuals: hydratedVisuals,
+        pipelineVersion: `${PIPELINE_CONFIG.CACHE_V}:${PIPELINE_CONFIG.SCHEMA_V}`,
+      });
+    }
+
+    report(statusRes.progress || 5);
+
+    if (statusRes.status === 'completed') {
+      const hydratedVisuals = await hydrateStorageVisualsWithDomPurify(
+        statusRes.bundle.visuals || {},
+        signal
+      );
+      const finalBundle: LectureNotesBundle = {
+        ...statusRes.bundle,
+        visuals: hydratedVisuals,
+        pipelineVersion: `${PIPELINE_CONFIG.CACHE_V}:${PIPELINE_CONFIG.SCHEMA_V}`,
+      };
+      saveLectureBundleToLocalStorage(finalBundle);
+      onProgress?.({ percent: 100, etaSeconds: 0 });
+      return finalBundle;
+    }
+
+    if (statusRes.status === 'failed') {
+      const errCode = statusRes.errorStatus || 502;
+      const errMsg = statusRes.error || 'Notes generate nahi ho paye.';
+      throw new ApiHttpError(errCode, errMsg);
+    }
+  }
+
+  throw new Error('CANCELLED');
 }

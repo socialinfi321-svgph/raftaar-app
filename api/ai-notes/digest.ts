@@ -1,8 +1,8 @@
 import { handleDigest } from '../_lib/aiNotesEngine.ts';
 import { withPostJsonHandler } from '../_lib/http.ts';
+import { verifyUserAndCatalogVideo } from '../_lib/supabaseServer.ts';
 
-export default withPostJsonHandler((body) => handleDigest(body), {
-  scope: 'ai-notes-digest',
-  limit: 60,
-  windowMs: 60_000,
+export default withPostJsonHandler(async (body, req) => {
+  await verifyUserAndCatalogVideo(req, body.videoId);
+  return handleDigest(body);
 });

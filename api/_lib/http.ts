@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-export const MAX_REQUEST_BYTES = 1024 * 1024; // 1 MB hard cap (well under Vercel's 4.5 MB limit)
+export const MAX_REQUEST_BYTES = 1024 * 1024; // 1 MB hard cap (under Vercel 4.5 MB limit)
 
 export interface ApiRequest extends IncomingMessage {
   body?: unknown;
@@ -26,11 +26,12 @@ export function sanitizePublicMessage(input: unknown, fallback = 'Request failed
   const text = String(input || '')
     .replace(/AIza[0-9A-Za-z_-]{12,}/g, '[REDACTED]')
     .replace(/AQ\.[0-9A-Za-z._-]{12,}/g, '[REDACTED]')
+    .replace(/eyJ[0-9A-Za-z_-]+\.[0-9A-Za-z_-]+\.[0-9A-Za-z_-]+/g, '[REDACTED]')
     .replace(/Bearer\s+[0-9A-Za-z._-]+/gi, 'Bearer [REDACTED]')
-    .replace(/([?&]key=)[^&\s"']+/gi, '$1[REDACTED]')
+    .replace(/([?&](?:key|token)=)[^&\s"']+/gi, '$1[REDACTED]')
     .trim();
   if (!text) return fallback;
-  return text.slice(0, 240);
+  return text.slice(0, 260);
 }
 
 export function sendJson(
@@ -65,77 +66,52 @@ export function requirePost(req: ApiRequest, res: ApiResponse): boolean {
   return false;
 }
 
-interface RateBucket {
-  count: number;
-  resetAt: number;
+export function extractBearerToken(req: ApiRequest): string {
+  const raw = req.headers.authorization || req.headers.Authorization;
+  const header = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof header !== 'string') return '';
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : '';
 }
 
-const rateBuckets = new Map<string, RateBucket>();
-const MAX_RATE_BUCKETS = 2000;
+export function resolveSelfOriginUrl(req?: ApiRequest): string | null {
+  const appUrl = (process.env.APP_URL || '').trim();
+  if (appUrl) {
+    try {
+      const u = new URL(appUrl);
+      if (u.protocol === 'https:' || u.protocol === 'http:') return u.origin;
+    } catch {
+      // ignore invalid env
+    }
+  }
 
-export function getClientIp(req: ApiRequest): string {
-  const xff = req.headers['x-forwarded-for'];
-  if (typeof xff === 'string' && xff.trim()) {
-    return xff.split(',')[0].trim().slice(0, 64);
+  const vercelUrl = (process.env.VERCEL_URL || '').trim();
+  if (vercelUrl && /^[a-zA-Z0-9.-]+$/.test(vercelUrl)) {
+    return `https://${vercelUrl}`;
   }
-  if (Array.isArray(xff) && xff.length > 0 && xff[0]) {
-    return String(xff[0]).split(',')[0].trim().slice(0, 64);
-  }
-  const realIp = req.headers['x-real-ip'];
-  if (typeof realIp === 'string' && realIp.trim()) {
-    return realIp.trim().slice(0, 64);
-  }
-  if (typeof req.ip === 'string' && req.ip.trim()) {
-    return req.ip.trim().slice(0, 64);
-  }
-  return String(req.socket?.remoteAddress || 'unknown').slice(0, 64);
-}
 
-export function enforceRateLimit(
-  req: ApiRequest,
-  res: ApiResponse,
-  opts: { limit?: number; windowMs?: number; scope?: string } = {}
-): boolean {
-  const limit = opts.limit ?? 60;
-  const windowMs = opts.windowMs ?? 60_000;
-  const scope = opts.scope ?? 'ai-notes';
-  const now = Date.now();
-  const key = `${scope}:${getClientIp(req)}`;
-
-  if (rateBuckets.size >= MAX_RATE_BUCKETS) {
-    for (const [bucketKey, bucket] of rateBuckets.entries()) {
-      if (bucket.resetAt <= now) {
-        rateBuckets.delete(bucketKey);
+  if (req) {
+    const fwdHost = req.headers['x-forwarded-host'];
+    const rawHost = Array.isArray(fwdHost) ? fwdHost[0] : fwdHost || req.headers.host;
+    if (typeof rawHost === 'string' && /^[a-zA-Z0-9.:-]+$/.test(rawHost)) {
+      const hostname = rawHost.split(':')[0].toLowerCase();
+      if (
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.endsWith('.vercel.app') ||
+        hostname.endsWith('.run.app')
+      ) {
+        const protoHeader = req.headers['x-forwarded-proto'];
+        const proto =
+          protoHeader === 'https' || hostname.endsWith('.vercel.app') || hostname.endsWith('.run.app')
+            ? 'https'
+            : 'http';
+        return `${proto}://${rawHost}`;
       }
     }
-    if (rateBuckets.size >= MAX_RATE_BUCKETS) {
-      rateBuckets.clear();
-    }
   }
 
-  let bucket = rateBuckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    bucket = { count: 0, resetAt: now + windowMs };
-    rateBuckets.set(key, bucket);
-  }
-
-  bucket.count += 1;
-  const remaining = Math.max(0, limit - bucket.count);
-  res.setHeader('X-RateLimit-Limit', String(limit));
-  res.setHeader('X-RateLimit-Remaining', String(remaining));
-
-  if (bucket.count > limit) {
-    const retryAfterSec = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
-    sendJson(
-      res,
-      429,
-      { error: 'Too many requests. Please wait a moment before retrying.' },
-      { 'Retry-After': String(retryAfterSec) }
-    );
-    return false;
-  }
-
-  return true;
+  return null;
 }
 
 export async function readJsonBody(
@@ -241,12 +217,11 @@ export async function readJsonBody(
 
 export function withPostJsonHandler(
   handler: (body: Record<string, unknown>, req: ApiRequest, res: ApiResponse) => Promise<unknown>,
-  options: { limit?: number; windowMs?: number; maxBytes?: number; scope?: string } = {}
+  options: { maxBytes?: number } = {}
 ) {
   return async (req: ApiRequest, res: ApiResponse): Promise<void> => {
     try {
       if (!requirePost(req, res)) return;
-      if (!enforceRateLimit(req, res, options)) return;
       const body = await readJsonBody(req, options.maxBytes ?? MAX_REQUEST_BYTES);
       const result = await handler(body, req, res);
       sendJson(res, 200, result);
@@ -255,12 +230,13 @@ export function withPostJsonHandler(
         sendJson(
           res,
           err.status,
-          { error: sanitizePublicMessage(err.message) },
+          { error: sanitizePublicMessage(err.message), status: err.status },
           err.headers
         );
         return;
       }
       sendJson(res, 500, {
+        status: 500,
         error: sanitizePublicMessage(
           (err as { message?: string })?.message,
           'Unexpected server error.'

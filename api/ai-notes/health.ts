@@ -1,5 +1,6 @@
-import { getServerGeminiKey } from '../_lib/aiNotesEngine.ts';
+import { getConfiguredGeminiModels, getServerGeminiKey } from '../_lib/aiNotesEngine.ts';
 import { sendJson, type ApiRequest, type ApiResponse } from '../_lib/http.ts';
+import { hasSupabaseAdminConfigured } from '../_lib/supabaseServer.ts';
 
 export default function handler(req: ApiRequest, res: ApiResponse): void {
   const method = (req.method || 'GET').toUpperCase();
@@ -10,5 +11,7 @@ export default function handler(req: ApiRequest, res: ApiResponse): void {
   sendJson(res, 200, {
     ok: true,
     envConfigured: Boolean(getServerGeminiKey()),
+    supabaseAdminConfigured: hasSupabaseAdminConfigured(),
+    models: getConfiguredGeminiModels(),
   });
 }

@@ -1,6 +1,10 @@
 import { GoogleGenAI, MediaResolution, ThinkingLevel, Type } from '@google/genai';
 import { ApiError, sanitizePublicMessage } from './http.ts';
-import { evaluateChunkTranscript, fetchVideoTranscript } from './transcriptService.ts';
+import {
+  evaluateChunkTranscript,
+  fetchVideoTranscript,
+  hasManagedTranscriptKey,
+} from './transcriptService.ts';
 import {
   clamp,
   sanitizeSvg,
@@ -12,6 +16,7 @@ import {
   VIDEO_ID_RE,
   type BoardItem,
   type Chapter,
+  type ChapterMCQ,
   type LangMeta,
   type LangProfile,
   type Medium,
@@ -19,11 +24,11 @@ import {
   type VisualPlan,
 } from './validators.ts';
 
-export const GEMINI_MODELS = ['gemini-4-hydrogen', 'gemini-3.1-flash-lite'] as const;
+export const DEFAULT_GEMINI_MODELS = ['gemini-4-hydrogen', 'gemini-3.1-flash-lite'] as const;
 export { VIDEO_ID_RE, sanitizeSvg };
 
-const PER_CALL_TIMEOUT_MS = 32_000;
-const CALL_BUDGET_MS = 48_000;
+export const PER_CALL_TIMEOUT_MS = 120_000;
+export const CALL_BUDGET_MS = 240_000;
 
 const MEDIUM_NAME: Record<Medium, string> = {
   english: 'English',
@@ -32,6 +37,29 @@ const MEDIUM_NAME: Record<Medium, string> = {
 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export function getConfiguredGeminiModels(): string[] {
+  const raw = (process.env.GEMINI_MODELS || '').trim();
+  if (!raw) return [...DEFAULT_GEMINI_MODELS];
+  const list = raw
+    .split(',')
+    .map((m) => m.trim())
+    .filter((m) => m.length > 0 && /^[a-zA-Z0-9._:-]+$/.test(m));
+  const unique = Array.from(new Set(list)).slice(0, 6);
+  return unique.length > 0 ? unique : [...DEFAULT_GEMINI_MODELS];
+}
+
+function thinkingConfigForModel(model: string): Record<string, unknown> {
+  // Gemini 4 series rejects thinkingBudget with 400 (uses thinkingLevel);
+  // Gemini 3.1 Flash Lite supports MINIMAL; Gemini 2.5 and others support thinkingBudget: 0.
+  if (/^gemini-4-/i.test(model)) {
+    return { thinkingLevel: ThinkingLevel.LOW };
+  }
+  if (/^gemini-3\./i.test(model) || /flash-lite/i.test(model)) {
+    return { thinkingLevel: ThinkingLevel.MINIMAL };
+  }
+  return { thinkingBudget: 0 };
+}
 
 function fmt(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
@@ -49,7 +77,6 @@ function tryParseJson(text: string | undefined): { ok: true; data: unknown } | {
   try {
     return { ok: true, data: JSON.parse(clean) };
   } catch {
-    // Attempt extracting outermost JSON object if wrapped in commentary
     const firstBrace = clean.indexOf('{');
     const lastBrace = clean.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace > firstBrace) {
@@ -67,7 +94,6 @@ function tryParseJson(text: string | undefined): { ok: true; data: unknown } | {
 }
 
 function logDiagnostic(stage: string, details: Record<string, string | number | boolean | undefined>) {
-  // Structured diagnostic log — never log API keys, tokens, or raw transcript/prompt payloads
   const safeFields: Record<string, string | number | boolean> = { stage };
   for (const [k, v] of Object.entries(details)) {
     if (v === undefined) continue;
@@ -193,7 +219,7 @@ export function toSafeApiError(err: unknown, fallback: string): ApiError {
   if (isVideoInaccessibleError(err)) {
     return new ApiError(
       422,
-      'Is video ka transcript aur public YouTube video stream access nahi ho paya (private, restricted, ya captions unavailable).'
+      'Is video ka public YouTube stream access nahi ho paya (private, restricted, ya unavailable).'
     );
   }
   if (status === 400 || /INVALID_ARGUMENT/i.test(raw)) {
@@ -203,10 +229,10 @@ export function toSafeApiError(err: unknown, fallback: string): ApiError {
     );
   }
   if (status === 404 || /NOT_FOUND/i.test(raw)) {
-    return new ApiError(502, 'Configured AI model unavailable hai.');
+    return new ApiError(502, 'Configured AI model unavailable hai. GEMINI_MODELS env check karein.');
   }
   if (/AbortError|TimeoutError|DEADLINE_EXCEEDED|timed out/i.test(raw)) {
-    return new ApiError(504, 'AI request timeout ho gayi. Chhote chunk ke saath dubara try karein.');
+    return new ApiError(504, 'AI request timeout ho gayi. Dobara try karein.');
   }
 
   const display = message ? `${message}${reason ? ` [${reason}]` : ''}` : raw || fallback;
@@ -247,13 +273,11 @@ function classifyGeminiFailure(err: unknown): 'model_not_found' | 'transient' | 
   return 'fatal';
 }
 
-let pauseUntil = 0;
-
 async function callGemini(
   contents: unknown,
   config: Record<string, unknown>,
   metaLog: { stage: string; videoId?: string },
-  models: readonly string[] = GEMINI_MODELS
+  modelsOverride?: readonly string[]
 ) {
   const rawKey = getServerGeminiKey();
   if (!rawKey) {
@@ -263,8 +287,9 @@ async function callGemini(
     );
   }
 
+  const models = modelsOverride && modelsOverride.length > 0 ? modelsOverride : getConfiguredGeminiModels();
   const endpointModes = rawKey.startsWith('AQ.') ? [true, false] : [false];
-  const waits = [1000, 2200];
+  const waits = [1200, 2800];
   const callStartedAt = Date.now();
   let lastError: unknown;
 
@@ -279,10 +304,7 @@ async function callGemini(
           throw toSafeApiError(lastError, 'AI request timeout budget exceeded.');
         }
 
-        const waitMs = Math.min(2000, pauseUntil - Date.now());
-        if (waitMs > 0) await sleep(waitMs);
-
-        const remainingBudget = Math.max(4000, CALL_BUDGET_MS - (Date.now() - callStartedAt));
+        const remainingBudget = Math.max(5000, CALL_BUDGET_MS - (Date.now() - callStartedAt));
         const attemptTimeout = Math.min(PER_CALL_TIMEOUT_MS, remainingBudget);
 
         try {
@@ -291,7 +313,8 @@ async function callGemini(
             contents: contents as any,
             config: {
               ...config,
-              thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+              mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
+              thinkingConfig: thinkingConfigForModel(model),
               abortSignal: AbortSignal.timeout(attemptTimeout),
             } as any,
           });
@@ -331,7 +354,6 @@ async function callGemini(
           }
           if (i < waits.length && Date.now() - callStartedAt + waits[i] < CALL_BUDGET_MS) {
             const backoff = waits[i] + Math.random() * 500;
-            pauseUntil = Math.max(pauseUntil, Date.now() + Math.min(2000, backoff));
             await sleep(backoff);
             continue;
           }
@@ -608,7 +630,7 @@ function segmentsToText(segs: Segment[]): string {
     .join('\n\n');
 }
 
-function sanitizeLangProfile(raw: any): LangProfile {
+export function sanitizeLangProfile(raw: any): LangProfile {
   const medium: Medium = (['english', 'hindi', 'hinglish'] as Medium[]).includes(raw?.medium)
     ? raw.medium
     : 'hinglish';
@@ -619,6 +641,77 @@ function sanitizeLangProfile(raw: any): LangProfile {
     board: String(raw?.board || 'Unknown').slice(0, 40),
     key: String(raw?.key || `${medium}:general`).slice(0, 80),
   };
+}
+
+function slug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24) || 'general';
+}
+
+export function resolveLangFromMeta(meta: LangMeta): LangProfile {
+  const subject = meta.detected_subject || 'General';
+  const pureEnglish = /english/i.test(subject) && !/hindi/i.test(subject);
+  const medium: Medium = pureEnglish ? 'english' : meta.detected_medium || 'hinglish';
+  return {
+    medium,
+    pureEnglish,
+    subject,
+    board: meta.detected_board || 'Unknown',
+    key: `${medium}:${slug(subject)}`,
+  };
+}
+
+export function selectBoardVisuals(all: BoardItem[], maxVisuals = 8): BoardItem[] {
+  const sorted = [...all].sort((a, b) => a.best_t - b.best_t);
+  const kept: BoardItem[] = [];
+  const seenId = new Set<string>();
+  for (const b of sorted) {
+    const dup = kept.some(
+      (k) =>
+        k.title.trim().toLowerCase() === b.title.trim().toLowerCase() &&
+        Math.abs(k.best_t - b.best_t) < 90
+    );
+    if (dup || seenId.has(b.id)) continue;
+    seenId.add(b.id);
+    kept.push(b);
+  }
+  return kept
+    .filter((b) => b.importance >= 2)
+    .sort((a, b) => b.importance - a.importance || a.best_t - b.best_t)
+    .slice(0, maxVisuals)
+    .sort((a, b) => a.best_t - b.best_t);
+}
+
+function tokenSet(s: string): Set<string> {
+  return new Set(
+    s
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 1)
+  );
+}
+
+function isSimilarQuestion(a: Set<string>, b: Set<string>): boolean {
+  if (!a.size || !b.size) return false;
+  let inter = 0;
+  a.forEach((w) => {
+    if (b.has(w)) inter++;
+  });
+  return inter / (a.size + b.size - inter) > 0.72;
+}
+
+export function dedupeChapterMcqs(chapterMcqs: ChapterMCQ[][]): ChapterMCQ[] {
+  const out: ChapterMCQ[] = [];
+  const sets: Set<string>[] = [];
+  for (const list of chapterMcqs) {
+    for (const q of list || []) {
+      const ts = tokenSet(q.question);
+      if (sets.some((s) => isSimilarQuestion(s, ts))) continue;
+      sets.push(ts);
+      out.push(q);
+    }
+  }
+  return out;
 }
 
 function buildTranscriptDigestPrompt(
@@ -710,49 +803,47 @@ export async function handleDigest(body: Record<string, unknown>) {
   const expectMeta = Boolean(withMeta);
   const activeSchema = expectMeta ? digestSchemaWithMeta : digestSchema;
 
-  // Step 1A: Best-effort stateless transcript retrieval first
-  const transcriptResult = await fetchVideoTranscript(videoId);
-  const transcriptSlice =
-    transcriptResult.status === 'ok'
-      ? evaluateChunkTranscript(transcriptResult.entries, floorStart, ceilEnd)
-      : { sufficient: false, reason: transcriptResult.reason, lines: [], text: '', wordCount: 0, coveredSeconds: 0 };
-
+  // Call transcript API ONLY when TRANSCRIPT_API_KEY is configured; never scrape YouTube HTML
   let sourceMode: 'transcript' | 'youtube_video' = 'youtube_video';
   let contents: unknown;
-  let config: Record<string, unknown> = {
-    responseMimeType: 'application/json',
-    responseSchema: activeSchema,
-    maxOutputTokens: 12000,
-  };
 
-  if (transcriptSlice.sufficient) {
-    sourceMode = 'transcript';
-    logDiagnostic('digest-source', {
-      videoId,
-      source: 'transcript',
-      lang: transcriptResult.language,
-      auto: transcriptResult.isAutoGenerated,
-      words: transcriptSlice.wordCount,
-    });
-    const prompt = buildTranscriptDigestPrompt(
-      transcriptSlice.text,
-      safeTitle,
-      floorStart,
-      ceilEnd,
-      expectMeta
-    );
-    contents = [{ role: 'user', parts: [{ text: prompt }] }];
-  } else {
-    // Step 1B: Multimodal Gemini YouTube URL fallback (never guess from title alone!)
+  if (hasManagedTranscriptKey()) {
+    const transcriptResult = await fetchVideoTranscript(videoId);
+    const slice =
+      transcriptResult.status === 'ok'
+        ? evaluateChunkTranscript(transcriptResult.entries, floorStart, ceilEnd)
+        : { sufficient: false, reason: transcriptResult.reason, lines: [], text: '', wordCount: 0, coveredSeconds: 0 };
+
+    if (slice.sufficient) {
+      sourceMode = 'transcript';
+      logDiagnostic('digest-source', {
+        videoId,
+        source: 'transcript',
+        words: slice.wordCount,
+      });
+      contents = [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: buildTranscriptDigestPrompt(
+                slice.text,
+                safeTitle,
+                floorStart,
+                ceilEnd,
+                expectMeta
+              ),
+            },
+          ],
+        },
+      ];
+    }
+  }
+
+  if (!contents) {
     sourceMode = 'youtube_video';
-    logDiagnostic('digest-source', {
-      videoId,
-      source: 'youtube_video',
-      transcriptStatus: transcriptResult.status,
-      reason: transcriptSlice.reason,
-    });
+    logDiagnostic('digest-source', { videoId, source: 'youtube_video', start: floorStart, end: ceilEnd });
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const prompt = buildVideoDigestPrompt(safeTitle, floorStart, ceilEnd, expectMeta);
     contents = [
       {
         role: 'user',
@@ -761,27 +852,36 @@ export async function handleDigest(body: Record<string, unknown>) {
             fileData: { fileUri: videoUrl, mimeType: 'video/*' },
             videoMetadata: { startOffset: `${floorStart}s`, endOffset: `${ceilEnd}s` },
           },
-          { text: prompt },
+          { text: buildVideoDigestPrompt(safeTitle, floorStart, ceilEnd, expectMeta) },
         ],
       },
     ];
-    config = {
-      ...config,
-      mediaResolution: MediaResolution.MEDIA_RESOLUTION_LOW,
-    };
   }
 
-  // Single bounded Gemini request on server (no recursive chunk splitting inside Vercel handler)
-  const res = await callGemini(contents, config, { stage: 'digest', videoId });
+  const res = await callGemini(
+    contents,
+    {
+      responseMimeType: 'application/json',
+      responseSchema: activeSchema,
+      maxOutputTokens: 12000,
+    },
+    { stage: 'digest', videoId }
+  );
+
   const rawText = res?.text || '';
   const parsed = tryParseJson(rawText);
 
   let validated =
     'data' in parsed
       ? validateDigestOutput(parsed.data, floorStart, ceilEnd, expectMeta)
-      : { valid: false, reason: parsed.error, segments: [] as Segment[], board: [] as BoardItem[], meta: undefined as LangMeta | undefined };
+      : {
+          valid: false,
+          reason: parsed.error,
+          segments: [] as Segment[],
+          board: [] as BoardItem[],
+          meta: undefined as LangMeta | undefined,
+        };
 
-  // At most 1 bounded repair attempt if JSON syntax or schema validation failed
   if (!validated.valid) {
     logDiagnostic('digest-repair-needed', { videoId, reason: validated.reason });
     const repaired = await repairJsonWithGemini(
@@ -912,7 +1012,6 @@ export async function handleChapter(body: Record<string, unknown>) {
 
   const langP = sanitizeLangProfile(lang);
   const mins = (ch.end_sec - ch.start_sec) / 60;
-  // Concept density aligned (~1 MCQ per 1.5m), capped sensibly by concept count so sparse segments aren't padded with filler
   const durationTarget = clamp(Math.round(mins / 1.5), 5, 14);
   const conceptTarget = clamp(segs.length * 3, 4, 14);
   const mcqCount = Math.max(4, Math.min(durationTarget, Math.max(5, conceptTarget)));
@@ -971,7 +1070,6 @@ ${segmentsToText(segs)}`;
       ? validateChapterOutput(parsed.data, ch, minRequiredMcqs)
       : { valid: false, reason: parsed.error };
 
-  // At most 1 bounded repair attempt on malformed JSON or schema violation
   if (!validated.valid) {
     logDiagnostic('chapter-repair-needed', { reason: validated.reason });
     const repaired = await repairJsonWithGemini(
@@ -1023,13 +1121,12 @@ export async function handleVisual(body: Record<string, unknown>) {
   const anchorT = Number.isFinite(tRaw) && tRaw >= 0 ? Math.floor(tRaw) : 0;
   const bestT = Number.isFinite(bestTRaw) && bestTRaw >= 0 ? Math.floor(bestTRaw) : anchorT;
 
-  // Dynamic clip window around drawing duration, clamped 12s..45s
   const clipStart = Math.max(0, Math.min(anchorT, bestT) - 4);
   const rawEnd = Math.max(bestT + 6, anchorT + 12);
   const clipEnd = Math.min(28800, Math.min(clipStart + 45, Math.max(clipStart + 12, rawEnd)));
 
   const clipPrompt = `Is clip (${fmt(clipStart)}-${fmt(clipEnd)}) mein teacher ne board/screen par "${safeTitle}" (${safeKind}) banaya hai.
-Step 1 note: ${safeDesc || '(none)'}${safeTranscriptSnippet ? `\nRelevant lecture notes/transcript:\n${safeTranscriptSnippet}` : ''}
+Step 1 note: ${safeDesc || '(none)'}${safeTranscriptSnippet ? `\nRelevant lecture notes:\n${safeTranscriptSnippet}` : ''}
 
 Clip ko dhyan se dekho aur decide karo:
 - "needs_image" = true SIRF agar yahan asli drawing hai (circuit, diagram, graph, ray/geometry figure, structure, flowchart, table) jo concept samajhne ke liye educational diagram maangti hai. Sirf plain text heading ho ya evidence kam ho toh false.
@@ -1057,7 +1154,6 @@ Clip ko dhyan se dekho aur decide karo:
       {
         responseMimeType: 'application/json',
         responseSchema: planSchema,
-        mediaResolution: MediaResolution.MEDIA_RESOLUTION_HIGH,
         maxOutputTokens: 2048,
       },
       { stage: 'visual-plan-clip', videoId }
@@ -1067,20 +1163,15 @@ Clip ko dhyan se dekho aur decide karo:
   } catch (err) {
     if (
       err instanceof ApiError &&
-      (err.status === 503 || err.status === 502 || err.status === 429) &&
-      !isVideoInaccessibleError(err)
+      (err.status === 503 || err.status === 429 || (err.status === 502 && /key/i.test(err.message)))
     ) {
-      // Only propagate fatal key/rate errors if NOT simple video unavailability
-      if (err.status === 503 || err.status === 429 || /key/i.test(err.message)) {
-        throw err;
-      }
+      throw err;
     }
-    // Fall back gracefully ONLY if Step 1 board description / transcript context has substantial real detail
     if (safeDesc.length >= 20 || safeTranscriptSnippet.length >= 30) {
       try {
         const textPlanPrompt = `Lecture segment "${safeTitle}" (${safeKind}) ke liye educational notebook diagram plan karo.
 Verified lecture board description: ${safeDesc}
-${safeTranscriptSnippet ? `Transcript/segment context:\n${safeTranscriptSnippet}` : ''}
+${safeTranscriptSnippet ? `Segment context:\n${safeTranscriptSnippet}` : ''}
 
 Decide karo:
 - "needs_image" = true sirf agar sufficient structural details hain diagram/circuit/graph/flowchart draw karne ke liye; warna false.
@@ -1145,7 +1236,7 @@ STRICT SECURITY & FORMAT: Return ONLY pure <svg>...</svg> markup with basic vect
     }
 
     return {
-      kind: 'svg',
+      kind: 'svg' as const,
       content: svg,
       caption: plan.reason || safeDesc || safeTitle,
     };

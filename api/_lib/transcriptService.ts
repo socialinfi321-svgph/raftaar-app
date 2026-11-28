@@ -2,9 +2,9 @@ import { VIDEO_ID_RE } from './validators.ts';
 
 export type TranscriptStatus =
   | 'ok'
+  | 'unconfigured'
   | 'unavailable'
   | 'rate_limited'
-  | 'blocked'
   | 'incomplete'
   | 'timeout';
 
@@ -31,56 +31,26 @@ export interface ChunkTranscriptSlice {
   coveredSeconds: number;
 }
 
-const TRANSCRIPT_TIMEOUT_MS = 6_000;
-const MAX_RESPONSE_BYTES = 1_500_000;
-const ALLOWED_YOUTUBE_HOSTS = new Set([
-  'www.youtube.com',
-  'youtube.com',
-  'm.youtube.com',
-  'video.google.com',
-]);
+const TRANSCRIPT_TIMEOUT_MS = 8_000;
 
-function isPrivateOrLoopbackHost(hostname: string): boolean {
-  const h = hostname.trim().toLowerCase().replace(/^\[|\]$/g, '');
-  if (!h) return true;
-  if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '0.0.0.0') return true;
-  if (h.endsWith('.local') || h.endsWith('.internal')) return true;
-  if (/^10\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h)) return true;
-  if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(h)) return true;
-  if (/^fc00:|^fe80:/i.test(h)) return true;
-  return false;
+export function getManagedTranscriptApiKey(): string {
+  return (process.env.TRANSCRIPT_API_KEY || process.env.SUPADATA_API_KEY || '').trim();
 }
 
-export function validateExternalTranscriptUrl(rawUrl: string, extraAllowedHosts: string[] = []): URL | null {
+export function hasManagedTranscriptKey(): boolean {
+  return Boolean(getManagedTranscriptApiKey());
+}
+
+export function validateExternalTranscriptUrl(rawUrl: string, allowedHosts: string[]): URL | null {
   try {
     const parsed = new URL(rawUrl);
     if (parsed.protocol !== 'https:') return null;
     const host = parsed.hostname.toLowerCase();
-    if (isPrivateOrLoopbackHost(host)) return null;
-    if (ALLOWED_YOUTUBE_HOSTS.has(host)) return parsed;
-    if (extraAllowedHosts.includes(host)) return parsed;
-    return null;
+    if (!allowedHosts.includes(host)) return null;
+    return parsed;
   } catch {
     return null;
   }
-}
-
-export function decodeHtmlEntities(input: string): string {
-  return input
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&#(\d+);/g, (_m, dec) => {
-      const code = Number(dec);
-      return Number.isFinite(code) && code > 0 && code < 0x10ffff ? String.fromCodePoint(code) : '';
-    })
-    .replace(/&#x([0-9a-f]+);/gi, (_m, hex) => {
-      const code = parseInt(hex, 16);
-      return Number.isFinite(code) && code > 0 && code < 0x10ffff ? String.fromCodePoint(code) : '';
-    });
 }
 
 function fmtSec(sec: number): string {
@@ -90,221 +60,6 @@ function fmtSec(sec: number): string {
   const r = s % 60;
   const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
   return `${h > 0 ? h + ':' : ''}${mm}:${String(r).padStart(2, '0')}`;
-}
-
-async function fetchBoundedText(
-  url: URL,
-  headers: Record<string, string> = {},
-  timeoutMs: number = TRANSCRIPT_TIMEOUT_MS
-): Promise<{ status: number; text: string }> {
-  const res = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      'Accept-Language': 'en-IN,en;q=0.9,hi-IN;q=0.8,hi;q=0.7',
-      'User-Agent':
-        'Mozilla/5.0 (compatible; RaftaarNotesBot/1.0; +https://raftaar-notes.vercel.app)',
-      ...headers,
-    },
-    redirect: 'manual',
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-
-  if (res.status >= 300 && res.status < 400) {
-    return { status: 403, text: '' };
-  }
-
-  const reader = res.body?.getReader();
-  if (!reader) {
-    const text = await res.text();
-    return { status: res.status, text: text.slice(0, MAX_RESPONSE_BYTES) };
-  }
-
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) {
-      total += value.byteLength;
-      if (total > MAX_RESPONSE_BYTES) {
-        await reader.cancel().catch(() => {});
-        break;
-      }
-      chunks.push(value);
-    }
-  }
-  const text = Buffer.concat(chunks).toString('utf8');
-  return { status: res.status, text };
-}
-
-interface RawCaptionTrack {
-  baseUrl?: string;
-  languageCode?: string;
-  kind?: string;
-  vssId?: string;
-}
-
-export function extractPlayerCaptionTracks(html: string): {
-  tracks: RawCaptionTrack[];
-  playabilityStatus: string;
-  playabilityReason: string;
-  botBlocked: boolean;
-} {
-  const botBlocked =
-    /detected unusual traffic|g-recaptcha|accounts\.google\.com\/ServiceLogin|Our systems have detected unusual traffic/i.test(
-      html
-    ) && !/captionTracks/i.test(html);
-
-  let playabilityStatus = '';
-  let playabilityReason = '';
-  const playMatch = html.match(/"playabilityStatus"\s*:\s*\{([\s\S]{1,1200}?)\}(?:,"|\})/);
-  if (playMatch) {
-    const statusM = playMatch[1].match(/"status"\s*:\s*"([^"]+)"/);
-    if (statusM) playabilityStatus = statusM[1];
-    const reasonM = playMatch[1].match(/"reason"\s*:\s*"([^"]+)"/);
-    if (reasonM) playabilityReason = reasonM[1];
-  }
-
-  const tracksMarker = '"captionTracks":[';
-  const idx = html.indexOf(tracksMarker);
-  if (idx === -1) {
-    return { tracks: [], playabilityStatus, playabilityReason, botBlocked };
-  }
-
-  const arrStart = idx + tracksMarker.length - 1;
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  let arrEnd = -1;
-
-  for (let i = arrStart; i < html.length && i < arrStart + 80_000; i++) {
-    const ch = html[i];
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (ch === '\\') {
-      escaped = true;
-      continue;
-    }
-    if (ch === '"') {
-      inString = !inString;
-      continue;
-    }
-    if (inString) continue;
-    if (ch === '[') depth += 1;
-    else if (ch === ']') {
-      depth -= 1;
-      if (depth === 0) {
-        arrEnd = i + 1;
-        break;
-      }
-    }
-  }
-
-  if (arrEnd === -1) {
-    return { tracks: [], playabilityStatus, playabilityReason, botBlocked };
-  }
-
-  try {
-    const parsed = JSON.parse(html.slice(arrStart, arrEnd));
-    if (!Array.isArray(parsed)) {
-      return { tracks: [], playabilityStatus, playabilityReason, botBlocked };
-    }
-    return {
-      tracks: parsed.filter((t): t is RawCaptionTrack => Boolean(t && typeof t === 'object')),
-      playabilityStatus,
-      playabilityReason,
-      botBlocked,
-    };
-  } catch {
-    return { tracks: [], playabilityStatus, playabilityReason, botBlocked };
-  }
-}
-
-export function selectPreferredTrack(tracks: RawCaptionTrack[]): RawCaptionTrack | null {
-  if (!tracks.length) return null;
-  const scoreTrack = (t: RawCaptionTrack): number => {
-    let score = 0;
-    const lang = String(t.languageCode || '').toLowerCase();
-    const isAsr = String(t.kind || '').toLowerCase() === 'asr';
-    if (!isAsr) score += 100; // Prefer human/manual captions over auto-generated
-    if (lang === 'en' || lang.startsWith('en-')) score += 40;
-    else if (lang === 'hi' || lang.startsWith('hi-')) score += 38;
-    else if (lang) score += 10;
-    return score;
-  };
-  return [...tracks].sort((a, b) => scoreTrack(b) - scoreTrack(a))[0] || null;
-}
-
-export function parseTimedTextPayload(raw: string): TranscriptEntry[] {
-  const trimmed = raw.trim();
-  if (!trimmed) return [];
-
-  // JSON3 timedtext format
-  if (trimmed.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(trimmed) as {
-        events?: Array<{
-          tStartMs?: number;
-          dDurationMs?: number;
-          segs?: Array<{ utf8?: string }>;
-        }>;
-      };
-      if (Array.isArray(parsed.events)) {
-        const out: TranscriptEntry[] = [];
-        for (const ev of parsed.events) {
-          if (!Array.isArray(ev.segs)) continue;
-          const rawText = ev.segs.map((s) => s.utf8 || '').join('');
-          const clean = decodeHtmlEntities(rawText.replace(/\s+/g, ' ')).trim();
-          if (!clean || /^\[?(music|applause|laughter)\]?$/i.test(clean)) continue;
-          const t = Math.max(0, Math.floor(Number(ev.tStartMs || 0) / 1000));
-          const dur = Math.max(1, Math.round(Number(ev.dDurationMs || 2000) / 1000));
-          out.push({ t, dur, text: clean });
-        }
-        return mergeCompactEntries(out);
-      }
-    } catch {
-      // fall through to XML parsing
-    }
-  }
-
-  // XML timedtext format (<text start="12.34" dur="3.45">...</text> or <p t="12340" d="3450">...</p>)
-  const entries: TranscriptEntry[] = [];
-  const textTagRe = /<text\s+[^>]*start="([0-9.]+)"(?:[^>]*dur="([0-9.]+)")?[^>]*>([\s\S]*?)<\/text>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = textTagRe.exec(trimmed)) !== null) {
-    const start = Number(m[1]);
-    const dur = Number(m[2] || '2');
-    const inner = decodeHtmlEntities(m[3].replace(/<[^>]+>/g, ' '))
-      .replace(/\s+/g, ' ')
-      .trim();
-    if (!Number.isFinite(start) || !inner || /^\[?(music|applause|laughter)\]?$/i.test(inner)) continue;
-    entries.push({
-      t: Math.max(0, Math.floor(start)),
-      dur: Number.isFinite(dur) ? Math.max(1, Math.round(dur)) : 2,
-      text: inner,
-    });
-  }
-
-  if (entries.length === 0) {
-    const srv3Re = /<p\s+[^>]*t="(\d+)"(?:[^>]*d="(\d+)")?[^>]*>([\s\S]*?)<\/p>/gi;
-    while ((m = srv3Re.exec(trimmed)) !== null) {
-      const startMs = Number(m[1]);
-      const durMs = Number(m[2] || '2000');
-      const inner = decodeHtmlEntities(m[3].replace(/<[^>]+>/g, ' '))
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (!Number.isFinite(startMs) || !inner || /^\[?(music|applause|laughter)\]?$/i.test(inner)) continue;
-      entries.push({
-        t: Math.max(0, Math.floor(startMs / 1000)),
-        dur: Number.isFinite(durMs) ? Math.max(1, Math.round(durMs / 1000)) : 2,
-        text: inner,
-      });
-    }
-  }
-
-  return mergeCompactEntries(entries);
 }
 
 function mergeCompactEntries(entries: TranscriptEntry[]): TranscriptEntry[] {
@@ -330,15 +85,43 @@ function mergeCompactEntries(entries: TranscriptEntry[]): TranscriptEntry[] {
   return merged;
 }
 
-async function fetchFromManagedTranscriptApi(
-  videoId: string,
-  apiKey: string
-): Promise<TranscriptFetchResult | null> {
+export async function fetchVideoTranscript(videoId: string): Promise<TranscriptFetchResult> {
+  if (!VIDEO_ID_RE.test(videoId)) {
+    return {
+      status: 'unavailable',
+      entries: [],
+      isAutoGenerated: false,
+      language: '',
+      reason: 'Invalid YouTube video ID.',
+    };
+  }
+
+  // Only call managed transcript provider when TRANSCRIPT_API_KEY / SUPADATA_API_KEY is configured.
+  // Direct YouTube HTML scraping is intentionally disabled; Gemini processes YouTube URL directly.
+  const apiKey = getManagedTranscriptApiKey();
+  if (!apiKey) {
+    return {
+      status: 'unconfigured',
+      entries: [],
+      isAutoGenerated: false,
+      language: '',
+      reason: 'TRANSCRIPT_API_KEY not configured.',
+    };
+  }
+
   const url = validateExternalTranscriptUrl(
     `https://api.supadata.ai/v1/youtube/transcript?videoId=${encodeURIComponent(videoId)}`,
     ['api.supadata.ai']
   );
-  if (!url) return null;
+  if (!url) {
+    return {
+      status: 'unavailable',
+      entries: [],
+      isAutoGenerated: false,
+      language: '',
+      reason: 'Invalid managed transcript URL.',
+    };
+  }
 
   try {
     const res = await fetch(url.toString(), {
@@ -356,45 +139,62 @@ async function fetchFromManagedTranscriptApi(
         entries: [],
         isAutoGenerated: false,
         language: '',
-        reason: 'Transcript API rate limited (429).',
+        reason: 'Managed transcript API rate limited (429).',
       };
     }
+
     if (!res.ok) {
-      return null;
+      return {
+        status: 'unavailable',
+        entries: [],
+        isAutoGenerated: false,
+        language: '',
+        reason: `Managed transcript API returned HTTP ${res.status}.`,
+      };
     }
+
     const payload = (await res.json()) as {
       lang?: string;
       content?: Array<{ text?: string; offset?: number; duration?: number }> | string;
     };
 
-    if (Array.isArray(payload?.content)) {
-      const entries = mergeCompactEntries(
-        payload.content
-          .map((item) => ({
-            t: Math.max(0, Math.floor(Number(item.offset || 0) / 1000)),
-            dur: Math.max(1, Math.round(Number(item.duration || 2000) / 1000)),
-            text: String(item.text || '').replace(/\s+/g, ' ').trim(),
-          }))
-          .filter((e) => e.text.length > 0)
-      );
-      if (!entries.length) {
-        return {
-          status: 'unavailable',
-          entries: [],
-          isAutoGenerated: false,
-          language: String(payload.lang || ''),
-          reason: 'Transcript provider returned empty segments.',
-        };
-      }
+    if (!Array.isArray(payload?.content)) {
       return {
-        status: 'ok',
-        entries,
+        status: 'unavailable',
+        entries: [],
         isAutoGenerated: false,
-        language: String(payload.lang || 'unknown'),
-        reason: 'ok',
+        language: String(payload?.lang || ''),
+        reason: 'Transcript provider returned unsupported payload format.',
       };
     }
-    return null;
+
+    const entries = mergeCompactEntries(
+      payload.content
+        .map((item) => ({
+          t: Math.max(0, Math.floor(Number(item.offset || 0) / 1000)),
+          dur: Math.max(1, Math.round(Number(item.duration || 2000) / 1000)),
+          text: String(item.text || '').replace(/\s+/g, ' ').trim(),
+        }))
+        .filter((e) => e.text.length > 0)
+    );
+
+    if (entries.length === 0) {
+      return {
+        status: 'incomplete',
+        entries: [],
+        isAutoGenerated: false,
+        language: String(payload.lang || ''),
+        reason: 'Transcript provider returned empty segments.',
+      };
+    }
+
+    return {
+      status: 'ok',
+      entries,
+      isAutoGenerated: false,
+      language: String(payload.lang || 'unknown'),
+      reason: 'ok',
+    };
   } catch (err: unknown) {
     const msg = String((err as { message?: unknown })?.message || err || '');
     if (/AbortError|TimeoutError|timed out/i.test(msg)) {
@@ -406,181 +206,14 @@ async function fetchFromManagedTranscriptApi(
         reason: 'Transcript provider timed out.',
       };
     }
-    return null;
-  }
-}
-
-export async function fetchVideoTranscript(videoId: string): Promise<TranscriptFetchResult> {
-  if (!VIDEO_ID_RE.test(videoId)) {
     return {
       status: 'unavailable',
       entries: [],
       isAutoGenerated: false,
       language: '',
-      reason: 'Invalid YouTube video ID.',
+      reason: 'Transcript provider unreachable.',
     };
   }
-
-  // Optional managed transcript provider when explicitly configured in environment variables
-  const managedKey = (process.env.TRANSCRIPT_API_KEY || process.env.SUPADATA_API_KEY || '').trim();
-  if (managedKey) {
-    const managedResult = await fetchFromManagedTranscriptApi(videoId, managedKey);
-    if (managedResult && managedResult.status === 'ok' && managedResult.entries.length > 0) {
-      return managedResult;
-    }
-  }
-
-  // Stateless best-effort direct fetch from allowlisted public YouTube hosts
-  const watchUrl = validateExternalTranscriptUrl(
-    `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}&hl=en`
-  );
-  if (!watchUrl) {
-    return {
-      status: 'unavailable',
-      entries: [],
-      isAutoGenerated: false,
-      language: '',
-      reason: 'Invalid transcript target host.',
-    };
-  }
-
-  let watchRes: { status: number; text: string };
-  try {
-    watchRes = await fetchBoundedText(watchUrl);
-  } catch (err: unknown) {
-    const msg = String((err as { message?: unknown })?.message || err || '');
-    return {
-      status: /AbortError|TimeoutError|timed out/i.test(msg) ? 'timeout' : 'blocked',
-      entries: [],
-      isAutoGenerated: false,
-      language: '',
-      reason: /AbortError|TimeoutError|timed out/i.test(msg)
-        ? 'Caption lookup timed out.'
-        : 'Caption endpoint could not be reached.',
-    };
-  }
-
-  if (watchRes.status === 429) {
-    return {
-      status: 'rate_limited',
-      entries: [],
-      isAutoGenerated: false,
-      language: '',
-      reason: 'YouTube caption page returned 429 rate limit.',
-    };
-  }
-
-  if (watchRes.status >= 400 || !watchRes.text) {
-    return {
-      status: 'blocked',
-      entries: [],
-      isAutoGenerated: false,
-      language: '',
-      reason: `YouTube caption lookup returned HTTP ${watchRes.status}.`,
-    };
-  }
-
-  const { tracks, playabilityStatus, playabilityReason, botBlocked } =
-    extractPlayerCaptionTracks(watchRes.text);
-
-  if (botBlocked) {
-    return {
-      status: 'blocked',
-      entries: [],
-      isAutoGenerated: false,
-      language: '',
-      reason: 'YouTube bot check prevented direct caption extraction.',
-    };
-  }
-
-  if (playabilityStatus && playabilityStatus !== 'OK' && tracks.length === 0) {
-    return {
-      status: 'unavailable',
-      entries: [],
-      isAutoGenerated: false,
-      language: '',
-      reason: playabilityReason || `Video playability status: ${playabilityStatus}`,
-    };
-  }
-
-  const chosen = selectPreferredTrack(tracks);
-  if (!chosen || !chosen.baseUrl) {
-    return {
-      status: 'unavailable',
-      entries: [],
-      isAutoGenerated: false,
-      language: '',
-      reason: 'No public caption tracks available for this video.',
-    };
-  }
-
-  const rawTrackUrl = String(chosen.baseUrl).replace(/\\u0026/g, '&');
-  const json3UrlString = rawTrackUrl.includes('fmt=') ? rawTrackUrl : `${rawTrackUrl}&fmt=json3`;
-  const trackUrl = validateExternalTranscriptUrl(json3UrlString);
-  if (!trackUrl) {
-    return {
-      status: 'blocked',
-      entries: [],
-      isAutoGenerated: false,
-      language: chosen.languageCode || '',
-      reason: 'Caption track URL failed host allowlist check.',
-    };
-  }
-
-  let capRes: { status: number; text: string };
-  try {
-    capRes = await fetchBoundedText(trackUrl);
-  } catch (err: unknown) {
-    const msg = String((err as { message?: unknown })?.message || err || '');
-    return {
-      status: /AbortError|TimeoutError|timed out/i.test(msg) ? 'timeout' : 'blocked',
-      entries: [],
-      isAutoGenerated: chosen.kind === 'asr',
-      language: chosen.languageCode || '',
-      reason: /AbortError|TimeoutError|timed out/i.test(msg)
-        ? 'Caption track download timed out.'
-        : 'Caption track fetch failed.',
-    };
-  }
-
-  if (capRes.status === 429) {
-    return {
-      status: 'rate_limited',
-      entries: [],
-      isAutoGenerated: chosen.kind === 'asr',
-      language: chosen.languageCode || '',
-      reason: 'Caption track returned 429 rate limit.',
-    };
-  }
-
-  if (capRes.status >= 400 || !capRes.text) {
-    return {
-      status: 'unavailable',
-      entries: [],
-      isAutoGenerated: chosen.kind === 'asr',
-      language: chosen.languageCode || '',
-      reason: `Caption track returned HTTP ${capRes.status}.`,
-    };
-  }
-
-  const entries = parseTimedTextPayload(capRes.text);
-  if (entries.length === 0) {
-    return {
-      status: 'incomplete',
-      entries: [],
-      isAutoGenerated: chosen.kind === 'asr',
-      language: chosen.languageCode || '',
-      reason: 'Caption track parsed with zero spoken entries.',
-    };
-  }
-
-  return {
-    status: 'ok',
-    entries,
-    isAutoGenerated: chosen.kind === 'asr',
-    language: chosen.languageCode || 'unknown',
-    reason: 'ok',
-  };
 }
 
 export function evaluateChunkTranscript(
@@ -610,7 +243,6 @@ export function evaluateChunkTranscript(
   const lastT = windowEntries[windowEntries.length - 1].t + windowEntries[windowEntries.length - 1].dur;
   const coveredSeconds = Math.max(0, lastT - firstT);
 
-  // Enforce minimal speech density so sparse/music/incomplete captions automatically fall back to Gemini YouTube URL
   const mins = chunkDur / 60;
   const minWords = chunkDur >= 90 ? Math.max(15, Math.round(mins * 10)) : 8;
   const coverageRatio = chunkDur > 120 ? coveredSeconds / chunkDur : 1;
@@ -626,7 +258,6 @@ export function evaluateChunkTranscript(
     };
   }
 
-  // Keep prompt bounded under ~22k chars while preserving full temporal span
   let joined = formattedLines.join('\n');
   if (joined.length > 22_000) {
     const ratio = Math.ceil(formattedLines.length / 180);
