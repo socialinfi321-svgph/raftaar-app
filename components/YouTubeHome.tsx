@@ -3,22 +3,13 @@ import { useBackHandler } from '../hooks/useBackHandler';
 import { 
   ArrowLeft, Search, X, ThumbsUp, ThumbsDown, Share2, 
   Bookmark, Bell, MoreVertical, MoreHorizontal, RotateCw, AlertTriangle, RefreshCw,
-  FileText, Download, BookOpen, MessageSquare, Play, Check, ChevronRight, ChevronDown,
-  Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Send, Loader2, HelpCircle
+  Download, MessageSquare, Play, Check, ChevronRight, ChevronDown,
+  Sparkles, Users, ListVideo, Layers, Volume2, VolumeX, Send
 } from 'lucide-react';
 import { Profile } from '../types';
 import { CustomVideoPlayer, CustomVideoPlayerRef, loadYouTubeIframeApi } from './CustomVideoPlayer';
 import { InlinePreviewPlayer } from './InlinePreviewPlayer';
 import { SmartThumbnail } from './SmartThumbnail';
-import { LectureNotesSheet } from './LectureNotesSheet';
-import { LectureMcqSheet } from './LectureMcqSheet';
-import {
-  LectureNotesBundle,
-  fmtEta,
-  generateLectureNotesAndMcqs,
-  getCachedLectureBundle,
-  parseDurationToSeconds,
-} from '../services/lectureNotesService';
 import { 
   searchVideos, 
   fetchHomeVideos, 
@@ -282,17 +273,6 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
   const [isDescOpen, setIsDescOpen] = useState(false);
   const [isFollowed, setIsFollowed] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  // AI Lecture Notes & MCQs state (Watch Screen)
-  const [isNotesSheetOpen, setIsNotesSheetOpen] = useState(false);
-  const [isMcqSheetOpen, setIsMcqSheetOpen] = useState(false);
-  const [aiNotesBundle, setAiNotesBundle] = useState<LectureNotesBundle | null>(null);
-  const [isGeneratingAiNotes, setIsGeneratingAiNotes] = useState(false);
-  const [aiNotesEtaSec, setAiNotesEtaSec] = useState(0);
-  const [aiNotesError, setAiNotesError] = useState<string | null>(null);
-  const aiAbortRef = useRef<AbortController | null>(null);
-  const pendingAiSheetRef = useRef<'notes' | 'mcqs' | null>(null);
-  const activeAiVideoIdRef = useRef<string | null>(null);
 
   // Home Feed Card Menu & Caption Expansion State
   const [feedSavedIds, setFeedSavedIds] = useState<Set<string>>(() => {
@@ -638,14 +618,6 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
     }
     if (activeChannelId) {
       setActiveChannelId(null);
-      return true;
-    }
-    if (isNotesSheetOpen) {
-      setIsNotesSheetOpen(false);
-      return true;
-    }
-    if (isMcqSheetOpen) {
-      setIsMcqSheetOpen(false);
       return true;
     }
     if (isDescOpen) {
@@ -1035,8 +1007,6 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
     setIsSaved(false);
     setIsDescOpen(false);
     setIsCommentsOpen(false);
-    setIsNotesSheetOpen(false);
-    setIsMcqSheetOpen(false);
     setWatchFilter('All');
     setRecommendedVideos([]);
     recPoolRef.current = [];
@@ -1165,146 +1135,6 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
       showToast('Added to Liked Videos');
     }
   };
-
-  // Sync cached AI Notes/MCQs from localStorage when active video changes & abort stale runs
-  useEffect(() => {
-    const vidId = selectedVideo?.id || null;
-    if (activeAiVideoIdRef.current !== vidId) {
-      aiAbortRef.current?.abort();
-      aiAbortRef.current = null;
-      pendingAiSheetRef.current = null;
-      activeAiVideoIdRef.current = vidId;
-      setIsGeneratingAiNotes(false);
-      setAiNotesEtaSec(0);
-      setAiNotesError(null);
-      setIsNotesSheetOpen(false);
-      setIsMcqSheetOpen(false);
-      setAiNotesBundle(vidId ? getCachedLectureBundle(vidId) : null);
-    }
-  }, [selectedVideo?.id]);
-
-  // Smooth 1-second ETA countdown tick while generating Notes/MCQs
-  useEffect(() => {
-    if (!isGeneratingAiNotes) return;
-    const timer = window.setInterval(() => {
-      setAiNotesEtaSec((prev) => (prev > 1 ? prev - 1 : 1));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [isGeneratingAiNotes]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      aiAbortRef.current?.abort();
-    };
-  }, []);
-
-  const startAiLectureGeneration = useCallback(
-    async (targetSheet: 'notes' | 'mcqs') => {
-      if (!selectedVideo) return;
-      const vidId = selectedVideo.id;
-
-      // Open immediately if already cached in localStorage
-      const cached = aiNotesBundle?.videoId === vidId ? aiNotesBundle : getCachedLectureBundle(vidId);
-      if (cached && !isGeneratingAiNotes) {
-        setAiNotesBundle(cached);
-        setIsDescOpen(false);
-        setIsCommentsOpen(false);
-        if (targetSheet === 'notes') {
-          setIsMcqSheetOpen(false);
-          setIsNotesSheetOpen(true);
-        } else {
-          setIsNotesSheetOpen(false);
-          setIsMcqSheetOpen(true);
-        }
-        return;
-      }
-
-      // If already generating for this video, reuse in-flight job
-      if (isGeneratingAiNotes && activeAiVideoIdRef.current === vidId) {
-        pendingAiSheetRef.current = targetSheet;
-        if (targetSheet === 'notes' && aiNotesBundle?.chapters?.length) {
-          setIsMcqSheetOpen(false);
-          setIsNotesSheetOpen(true);
-        } else if (targetSheet === 'mcqs' && aiNotesBundle?.mcqs?.length) {
-          setIsNotesSheetOpen(false);
-          setIsMcqSheetOpen(true);
-        }
-        return;
-      }
-
-      aiAbortRef.current?.abort();
-      const controller = new AbortController();
-      aiAbortRef.current = controller;
-      activeAiVideoIdRef.current = vidId;
-      pendingAiSheetRef.current = targetSheet;
-
-      const playerDur = playerRef.current?.getDuration?.() || 0;
-      const metaDur = parseDurationToSeconds(selectedVideo.duration, selectedVideo.durationSeconds);
-      const durationSec = playerDur > 30 ? playerDur : metaDur > 30 ? metaDur : 600;
-
-      setAiNotesError(null);
-      setIsGeneratingAiNotes(true);
-      setAiNotesEtaSec(Math.max(20, Math.ceil(durationSec / 600) * 28));
-
-      try {
-        const finalBundle = await generateLectureNotesAndMcqs({
-          videoId: vidId,
-          title: decodeHtml(selectedVideo.title),
-          durationSec,
-          signal: controller.signal,
-          onProgress: ({ etaSeconds }) => {
-            if (activeAiVideoIdRef.current === vidId) {
-              setAiNotesEtaSec(etaSeconds);
-            }
-          },
-          onPartialUpdate: (partial) => {
-            if (activeAiVideoIdRef.current === vidId) {
-              setAiNotesBundle(partial);
-            }
-          },
-        });
-
-        if (activeAiVideoIdRef.current !== vidId || controller.signal.aborted) return;
-        setAiNotesBundle(finalBundle);
-        setIsGeneratingAiNotes(false);
-        setAiNotesEtaSec(0);
-
-        // Automatically open Notes PDF or MCQs sheet below the player once ready
-        const openTarget = pendingAiSheetRef.current || targetSheet;
-        pendingAiSheetRef.current = null;
-        setIsDescOpen(false);
-        setIsCommentsOpen(false);
-        if (openTarget === 'notes') {
-          setIsMcqSheetOpen(false);
-          setIsNotesSheetOpen(true);
-        } else {
-          setIsNotesSheetOpen(false);
-          setIsMcqSheetOpen(true);
-        }
-      } catch (err: any) {
-        if (controller.signal.aborted || String(err?.message) === 'CANCELLED') return;
-        if (activeAiVideoIdRef.current !== vidId) return;
-        const msg = String(err?.message || 'Notes generate nahi ho paye. Dobara try karein.');
-        const openTarget = pendingAiSheetRef.current || targetSheet;
-        pendingAiSheetRef.current = null;
-        setAiNotesError(msg);
-        setIsGeneratingAiNotes(false);
-        setAiNotesEtaSec(0);
-        setIsDescOpen(false);
-        setIsCommentsOpen(false);
-        if (openTarget === 'notes') {
-          setIsMcqSheetOpen(false);
-          setIsNotesSheetOpen(true);
-        } else {
-          setIsNotesSheetOpen(false);
-          setIsMcqSheetOpen(true);
-        }
-        showToast(msg);
-      }
-    },
-    [selectedVideo, aiNotesBundle, isGeneratingAiNotes]
-  );
 
   const handleShare = () => {
     if (navigator.share && selectedVideo) {
@@ -2099,56 +1929,6 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
                   <span>Share</span>
                 </button>
 
-                {/* AI Notes Button + Inline Buffering & ETA Timer */}
-                <button
-                  type="button"
-                  onClick={() => startAiLectureGeneration('notes')}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all active:scale-95 ${
-                    isNotesSheetOpen || (aiNotesBundle?.chapters?.length && !isGeneratingAiNotes)
-                      ? 'bg-brand-600 text-white shadow-xs'
-                      : 'bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700'
-                  }`}
-                >
-                  {isGeneratingAiNotes ? (
-                    <Loader2 size={14} className="animate-spin text-brand-600 dark:text-brand-400" />
-                  ) : (
-                    <FileText size={15} />
-                  )}
-                  <span>Notes</span>
-                  {isGeneratingAiNotes && aiNotesEtaSec > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300 text-[10px] font-mono font-bold">
-                      {fmtEta(aiNotesEtaSec)}
-                    </span>
-                  )}
-                </button>
-
-                {/* AI MCQs Button + Inline Buffering & ETA Timer */}
-                <button
-                  type="button"
-                  onClick={() => startAiLectureGeneration('mcqs')}
-                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all active:scale-95 ${
-                    isMcqSheetOpen || (aiNotesBundle?.mcqs?.length && !isGeneratingAiNotes)
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'bg-neutral-100 dark:bg-neutral-800 text-[#0f0f0f] dark:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700'
-                  }`}
-                >
-                  {isGeneratingAiNotes ? (
-                    <Loader2 size={14} className="animate-spin text-emerald-600 dark:text-emerald-400" />
-                  ) : (
-                    <HelpCircle size={15} />
-                  )}
-                  <span>
-                    {aiNotesBundle?.mcqs?.length && !isGeneratingAiNotes
-                      ? `MCQs (${aiNotesBundle.mcqs.length})`
-                      : 'MCQs'}
-                  </span>
-                  {isGeneratingAiNotes && aiNotesEtaSec > 0 && (
-                    <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-mono font-bold">
-                      {fmtEta(aiNotesEtaSec)}
-                    </span>
-                  )}
-                </button>
-
                 <button
                   onClick={() => {
                     setIsSaved(!isSaved);
@@ -2928,40 +2708,6 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
             </div>
           </div>
         </div>
-      )}
-
-      {/* ================= AI NOTES PDF SHEET: Opens below the player like Description ================= */}
-      {selectedVideo && !isLandscapeFillActive && (
-        <LectureNotesSheet
-          isOpen={isNotesSheetOpen}
-          onClose={() => setIsNotesSheetOpen(false)}
-          bundle={aiNotesBundle}
-          videoTitle={decodeHtml(selectedVideo.title)}
-          isGenerating={isGeneratingAiNotes}
-          etaSeconds={aiNotesEtaSec}
-          error={aiNotesError}
-          onRetry={() => startAiLectureGeneration('notes')}
-          onJumpToTime={(sec) => {
-            playerRef.current?.seekTo(sec);
-          }}
-        />
-      )}
-
-      {/* ================= AI MCQs SHEET: Practice/PYQ UI below the player ================= */}
-      {selectedVideo && !isLandscapeFillActive && (
-        <LectureMcqSheet
-          isOpen={isMcqSheetOpen}
-          onClose={() => setIsMcqSheetOpen(false)}
-          videoId={selectedVideo.id}
-          mcqs={aiNotesBundle?.mcqs || []}
-          isGenerating={isGeneratingAiNotes}
-          etaSeconds={aiNotesEtaSec}
-          error={aiNotesError}
-          onRetry={() => startAiLectureGeneration('mcqs')}
-          onJumpToTime={(sec) => {
-            playerRef.current?.seekTo(sec);
-          }}
-        />
       )}
     </div>
   );
