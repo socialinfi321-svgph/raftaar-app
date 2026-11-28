@@ -6,6 +6,7 @@ import digestHandler from './api/ai-notes/digest.ts';
 import outlineHandler from './api/ai-notes/outline.ts';
 import chapterHandler from './api/ai-notes/chapter.ts';
 import visualHandler from './api/ai-notes/visual.ts';
+import healthHandler from './api/ai-notes/health.ts';
 import { sendJson } from './api/_lib/http.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,6 +19,9 @@ async function startServer() {
   const app = express();
 
   /* ---------------- AI Lecture Notes & MCQs Routes (Shared with Vercel) ---------------- */
+  app.all('/api/ai-notes/health', (req, res) => {
+    healthHandler(req, res);
+  });
   app.all('/api/ai-notes/digest', (req, res) => {
     void digestHandler(req, res);
   });

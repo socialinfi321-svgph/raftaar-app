@@ -1286,9 +1286,20 @@ export const YouTubeHome: React.FC<{ navigate: any; profile?: Profile | null }> 
         if (controller.signal.aborted || String(err?.message) === 'CANCELLED') return;
         if (activeAiVideoIdRef.current !== vidId) return;
         const msg = String(err?.message || 'Notes generate nahi ho paye. Dobara try karein.');
+        const openTarget = pendingAiSheetRef.current || targetSheet;
+        pendingAiSheetRef.current = null;
         setAiNotesError(msg);
         setIsGeneratingAiNotes(false);
         setAiNotesEtaSec(0);
+        setIsDescOpen(false);
+        setIsCommentsOpen(false);
+        if (openTarget === 'notes') {
+          setIsMcqSheetOpen(false);
+          setIsNotesSheetOpen(true);
+        } else {
+          setIsNotesSheetOpen(false);
+          setIsMcqSheetOpen(true);
+        }
         showToast(msg);
       }
     },
